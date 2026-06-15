@@ -1,26 +1,44 @@
-import { addDays, generateId, type FileAsset } from "@settlekit/common";
+/**
+ * @settlekit/file-delivery
+ *
+ * Secure digital download delivery: HMAC-signed download URLs, download grants
+ * with usage limits and refund revocation, and AWS SigV4 presigning for
+ * S3-compatible object storage.
+ */
 
-export interface SignedDownloadGrant {
-  id: string;
-  fileId: string;
-  customerId: string;
-  url: string;
-  expiresAt: string;
-  downloadsRemaining: number;
-}
+export {
+  canonicalString,
+  generateSignedDownloadUrl,
+  signCanonical,
+  verifySignedUrl,
+  type GenerateSignedDownloadUrlInput,
+  type VerifyResult,
+} from "./signed-url.js";
 
-export function createDownloadGrant(file: FileAsset, customerId: string, signedUrl: string, now = new Date()): SignedDownloadGrant {
-  return {
-    id: generateId("deliveryAction"),
-    fileId: file.id,
-    customerId,
-    url: signedUrl,
-    expiresAt: addDays(now, 1).toISOString(),
-    downloadsRemaining: 5,
-  };
-}
+export {
+  consumeDownload,
+  createDownloadGrant,
+  isExhausted,
+  revokeOnRefund,
+  type CreateGrantInput,
+  type DownloadGrant,
+} from "./grants.js";
 
-export function consumeDownload(grant: SignedDownloadGrant): SignedDownloadGrant {
-  if (grant.downloadsRemaining <= 0) throw new RangeError("download limit exceeded");
-  return { ...grant, downloadsRemaining: grant.downloadsRemaining - 1 };
-}
+export {
+  presignS3Get,
+  type PresignResult,
+  type PresignS3GetInput,
+} from "./s3-presign.js";
+
+export {
+  InMemoryGrantStore,
+  type GrantStore,
+} from "./store.js";
+
+export {
+  FileDeliveryService,
+  type FileDeliveryConfig,
+  type IssueDownloadInput,
+  type IssuedDownload,
+  type PresignParams,
+} from "./service.js";

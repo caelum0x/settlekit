@@ -1,18 +1,13 @@
+/**
+ * @settlekit/delivery — the action engine (plan §21).
+ *
+ * One payment fans out to many actions, executed in order with per-action retry
+ * and best-effort rollback of already-succeeded actions on unrecoverable failure.
+ */
+
+export * from "./clients.js";
 export * from "./types.js";
-export * from "./delivery-action.js";
-export * from "./delivery-plan.js";
-export * from "./delivery-runner.js";
-export * from "./delivery-status.js";
-export * from "./delivery-retry.js";
-export * from "./delivery-rollback.js";
-export * from "./delivery-logs.js";
-export * from "./errors.js";
-export * from "./actions/grant-github-repo.js";
-export * from "./actions/grant-github-team.js";
-export * from "./actions/issue-license-key.js";
-export * from "./actions/issue-api-key.js";
-export * from "./actions/grant-file-access.js";
-export * from "./actions/grant-discord-role.js";
-export * from "./actions/create-saas-entitlement.js";
-export * from "./actions/send-webhook.js";
-export * from "./actions/send-email.js";
+export * from "./registry.js";
+export * from "./runner.js";
+export * from "./retry.js";
+export * from "./handlers/index.js";

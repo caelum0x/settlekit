@@ -1,18 +1,53 @@
-import { generateId, type Bundle, type Entitlement } from "@settlekit/common";
-import type { BundleItem } from "./types.js";
+import type { Bundle, Entitlement, Payment } from "@settlekit/common";
+import { generateId, toIso } from "@settlekit/common";
+import type { BundleMember } from "./bundle-items.js";
+import { orderMembersByBundle } from "./bundle-items.js";
 
-export function createBundleEntitlements(bundle: Bundle, items: BundleItem[], customerId: string, paymentId: string, now = new Date()): Entitlement[] {
-  return items.flatMap((item) => {
-    if (!item.entitlementTemplate) return [];
-    return [{
-      ...item.entitlementTemplate,
+/**
+ * Build one {@link Entitlement} per bundle member from a confirmed payment. All
+ * resulting entitlements are linked back to the payment via
+ * `grantedBy: { type: "bundle", id: payment.id }`. Order follows the bundle's
+ * `productIds`; duplicate members collapse to a single entitlement. Pure and
+ * immutable — inputs are never mutated.
+ */
+export function buildBundleEntitlements(
+  bundle: Bundle,
+  payment: Payment,
+  members: readonly BundleMember[],
+  now: Date = new Date(),
+): Entitlement[] {
+  const createdAt = toIso(now);
+  const ordered = orderMembersByBundle(bundle.productIds, members);
+
+  return ordered.map((member): Entitlement => {
+    const entitlement: Entitlement = {
       id: generateId("entitlement"),
-      customerId,
-      grantedBy: { type: "bundle", id: paymentId },
-      createdAt: now.toISOString(),
-      updatedAt: now.toISOString(),
       organizationId: bundle.organizationId,
-      productId: item.product.id,
-    }];
+      customerId: payment.customerId,
+      productId: member.product.id,
+      grantedBy: { type: "bundle", id: payment.id },
+      entitlementType: member.entitlementType,
+      status: "active",
+      createdAt,
+      updatedAt: createdAt,
+    };
+
+    if (member.resourceId !== undefined) {
+      entitlement.resourceId = member.resourceId;
+    }
+    if (member.features !== undefined) {
+      entitlement.features = { ...member.features };
+    }
+    if (member.creditsGranted !== undefined) {
+      entitlement.creditsRemaining = member.creditsGranted;
+    }
+    if (member.seats !== undefined) {
+      entitlement.seats = member.seats;
+    }
+
+    return entitlement;
   });
 }
+
+/** Backwards-compatible alias for {@link buildBundleEntitlements}. */
+export const createBundleEntitlements = buildBundleEntitlements;

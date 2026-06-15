@@ -1,36 +1,30 @@
-export const DATABASE_TABLES = [
-  "github_installations",
-  "github_repositories",
-  "github_teams",
-  "github_repo_access_grants",
-  "github_access_sync_runs",
-  "discord_connections",
-  "discord_guilds",
-  "discord_roles",
-  "discord_role_grants",
-  "saas_plans",
-  "saas_features",
-  "saas_seats",
-  "saas_entitlement_rules",
-  "bundles",
-  "bundle_items",
-  "delivery_plans",
-  "delivery_actions",
-  "delivery_runs",
-  "delivery_logs",
-  "agent_services",
-  "agent_service_metadata",
-  "agent_buyers",
-  "agent_usage_events",
-  "escrow_tasks",
-  "escrow_fundings",
-  "escrow_submissions",
-  "escrow_releases",
-  "escrow_disputes",
-] as const;
+/**
+ * @settlekit/database — the persistence layer for the SettleKit Commerce OS.
+ *
+ * Exposes the full drizzle-orm schema, a typed `createDb` factory over the
+ * postgres-js driver, a programmatic migrator, and a generic table repository.
+ */
+import { getTableName } from "drizzle-orm";
 
-export type DatabaseTable = (typeof DATABASE_TABLES)[number];
+export * from "./schema/index.js";
+export * from "./client.js";
+export * from "./migrate.js";
+export * from "./repository.js";
 
-export function isSettleKitTable(value: string): value is DatabaseTable {
-  return (DATABASE_TABLES as readonly string[]).includes(value);
+import { schema } from "./schema/index.js";
+
+/**
+ * The canonical list of physical table names in the SettleKit schema, derived
+ * directly from the drizzle table definitions (single source of truth).
+ */
+export const DATABASE_TABLES: readonly string[] = Object.values(schema).map(
+  (table) => getTableName(table),
+);
+
+/** The static union of SettleKit table variable names. */
+export type SchemaTableName = keyof typeof schema;
+
+/** Returns true when `value` is the name of a known schema table variable. */
+export function isSchemaTable(value: string): value is SchemaTableName {
+  return Object.prototype.hasOwnProperty.call(schema, value);
 }

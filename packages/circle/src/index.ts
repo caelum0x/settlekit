@@ -1,11 +1,40 @@
-export interface CircleGatewayPaymentIntent {
-  id: string;
-  amount: string;
-  currency: "USDC";
-  network: "arc" | "base";
-  status: "created" | "paid" | "expired";
-}
+export {
+  createCircleClient,
+  DEFAULT_CIRCLE_BASE_URL,
+} from "./circle-client.js";
+export type {
+  CircleClient,
+  CircleClientConfig,
+  CreatePaymentIntentInput,
+  CreatePayoutInput,
+  ListTransfersInput,
+  PaymentIntent,
+  Payout,
+  Transfer,
+} from "./circle-client.js";
 
-export function circleGatewayAmount(amount: string): { amount: string; currency: "USDC" } {
-  return { amount, currency: "USDC" };
-}
+export { buildUrl, createFetchCircleHttp } from "./http.js";
+export type {
+  CircleHttp,
+  CircleRequest,
+  CircleResponse,
+  FetchCircleHttpOptions,
+} from "./http.js";
+
+export type {
+  CircleAmount,
+  CircleChain,
+  CircleCheckoutCurrency,
+  CircleEnvelope,
+  CircleErrorBody,
+  CirclePaymentIntentResource,
+  CirclePaymentIntentStatus,
+  CirclePaymentMethod,
+  CirclePayoutDestination,
+  CirclePayoutResource,
+  CirclePayoutStatus,
+  CircleSettlementCurrency,
+  CircleTransferEndpoint,
+  CircleTransferResource,
+  CircleTransferStatus,
+} from "./types.js";

@@ -1,53 +1,55 @@
-import { addDays, generateId, money, type CheckoutSession, type Money, type Payment, type PaymentNetwork } from "@settlekit/common";
+/**
+ * @settlekit/payments — core checkout + payment + subscription domain logic.
+ *
+ * Pure domain functions and storage-agnostic repository interfaces. No DB or
+ * network imports. A real Map-backed in-memory store ships for dev/tests.
+ */
 
-export function createCheckoutSession(input: {
-  organizationId: string;
-  merchantId: string;
-  lineItems: CheckoutSession["lineItems"];
-  amount: Money;
-  payToAddress: string;
-  network: PaymentNetwork;
-  successUrl?: string;
-  cancelUrl?: string;
-  collectedFields?: Record<string, string>;
-}, now = new Date()): CheckoutSession {
-  return {
-    id: generateId("checkoutSession"),
-    organizationId: input.organizationId,
-    merchantId: input.merchantId,
-    lineItems: input.lineItems,
-    amount: money(input.amount.amount, input.amount.currency),
-    status: "open",
-    payToAddress: input.payToAddress,
-    network: input.network,
-    successUrl: input.successUrl,
-    cancelUrl: input.cancelUrl,
-    expiresAt: addDays(now, 1).toISOString(),
-    collectedFields: input.collectedFields ?? {},
-    createdAt: now.toISOString(),
-  };
-}
+export {
+  DEFAULT_CHECKOUT_TTL_DAYS,
+  computeCheckoutTotal,
+  createCheckoutSession,
+  collectFields,
+  expireSession,
+  completeSession,
+  cancelSession,
+  isSessionExpired,
+  type PricedLineItem,
+  type CreateCheckoutSessionInput,
+} from "./checkout.js";
 
-export function confirmPayment(input: {
-  organizationId: string;
-  checkoutSessionId: string;
-  customerId: string;
-  amount: Money;
-  network: PaymentNetwork;
-  txHash: string;
-  confirmations: number;
-}, now = new Date()): Payment {
-  return {
-    id: generateId("payment"),
-    organizationId: input.organizationId,
-    checkoutSessionId: input.checkoutSessionId,
-    customerId: input.customerId,
-    amount: money(input.amount.amount, input.amount.currency),
-    network: input.network,
-    txHash: input.txHash,
-    confirmations: input.confirmations,
-    status: "confirmed",
-    createdAt: now.toISOString(),
-    confirmedAt: now.toISOString(),
-  };
-}
+export {
+  DEFAULT_MIN_CONFIRMATIONS,
+  recordPendingPayment,
+  confirmPayment,
+  failPayment,
+  refundPayment,
+  isTerminalPayment,
+  type RecordPendingPaymentInput,
+} from "./payment-lifecycle.js";
+
+export {
+  DEFAULT_GRACE_DAYS,
+  createSubscription,
+  renewSubscription,
+  enterGrace,
+  cancelSubscription,
+  expireSubscription,
+  isGraceExpired,
+  type CreateSubscriptionInput,
+} from "./subscription-lifecycle.js";
+
+export type {
+  Repository,
+  CheckoutRepository,
+  PaymentRepository,
+  SubscriptionRepository,
+} from "./repositories.js";
+
+export {
+  InMemoryCheckoutRepository,
+  InMemoryPaymentRepository,
+  InMemorySubscriptionRepository,
+  createInMemoryPaymentStores,
+  type InMemoryPaymentStores,
+} from "./in-memory-repositories.js";

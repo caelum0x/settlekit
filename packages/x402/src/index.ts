@@ -1,33 +1,45 @@
-export interface X402PaymentConfig {
-  price: string;
-  currency: "USDC";
-  productId: string;
-  network?: "arc" | "base";
-}
+/**
+ * @settlekit/x402 — framework-agnostic "HTTP 402 pay-per-call" middleware built
+ * on the web Fetch API (Request / Response).
+ *
+ * Public API:
+ *  - buildPaymentRequiredResponse / buildPaymentRequirements — advertise a 402 challenge.
+ *  - parsePaymentHeader / encodePaymentHeader / parsePaymentProof — handle the X-Payment header.
+ *  - withSettleKitPayment — gate a Fetch handler behind a verified payment.
+ *  - Types describing the verifier and metering contracts the host implements.
+ */
 
-export type FetchLikeHandler = (request: Request) => Response | Promise<Response>;
+export {
+  buildPaymentRequiredResponse,
+  buildPaymentRequirements,
+} from "./payment-required.js";
 
-export function paymentRequiredResponse(config: X402PaymentConfig): Response {
-  return Response.json(
-    {
-      error: "payment_required",
-      payment: {
-        protocol: "x402",
-        price: config.price,
-        currency: config.currency,
-        productId: config.productId,
-        network: config.network ?? "arc",
-      },
-    },
-    { status: 402 },
-  );
-}
+export {
+  encodePaymentHeader,
+  parsePaymentHeader,
+  parsePaymentProof,
+} from "./payment-header.js";
 
-export function withSettleKitPayment(config: X402PaymentConfig) {
-  return function wrap(handler: FetchLikeHandler): FetchLikeHandler {
-    return async function paidHandler(request: Request): Promise<Response> {
-      if (!request.headers.get("x-settlekit-payment")) return paymentRequiredResponse(config);
-      return handler(request);
-    };
-  };
-}
+export { withSettleKitPayment } from "./middleware.js";
+
+export {
+  ACCEPT_PAYMENT_HEADER,
+  HTTP_PAYMENT_REQUIRED,
+  PAYMENT_HEADER,
+  PAYMENT_REQUIRED_HEADER,
+  X402_SCHEME,
+} from "./types.js";
+
+export type {
+  BuildPaymentRequiredOptions,
+  FetchHandler,
+  PaymentProof,
+  PaymentRequirements,
+  PaymentVerifier,
+  SettleAndMeter,
+  SettleAndMeterContext,
+  SettleKitPaymentConfig,
+  VerifyResult,
+  X402Network,
+  X402Scheme,
+} from "./types.js";

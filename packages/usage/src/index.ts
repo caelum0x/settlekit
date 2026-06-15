@@ -1,15 +1,28 @@
-import { generateId, type CreditBalance, type UsageMeter } from "@settlekit/common";
+export {
+  createMeter,
+  recordUsage,
+  aggregateForPeriod,
+  resetForNewPeriod,
+  type CreateMeterInput,
+  type UsagePeriod,
+} from "./meter.js";
 
-export function recordUsage(meter: UsageMeter, increment = 1): UsageMeter {
-  if (!Number.isInteger(increment) || increment <= 0) throw new RangeError("increment must be a positive integer");
-  return { ...meter, value: meter.value + increment };
-}
+export { computeUsageCharge, computeMeteredCharge } from "./charges.js";
 
-export function createCreditBalance(input: Omit<CreditBalance, "id" | "updatedAt">, now = new Date()): CreditBalance {
-  return { ...input, id: generateId("creditBalance"), updatedAt: now.toISOString() };
-}
+export {
+  createBalance,
+  grantCredits,
+  consumeCredits,
+  hasCredits,
+  type CreateBalanceInput,
+} from "./credits.js";
 
-export function spendCredits(balance: CreditBalance, amount: number, now = new Date()): CreditBalance {
-  if (balance.creditsRemaining < amount) throw new RangeError("insufficient credits");
-  return { ...balance, creditsRemaining: balance.creditsRemaining - amount, updatedAt: now.toISOString() };
-}
+export { checkLimit, wouldExceedLimit, type LimitCheck } from "./limit.js";
+
+export { InMemoryMeterStore, type MeterStore } from "./store.js";
+
+export {
+  UsageService,
+  type MeterRef,
+  type BalanceRef,
+} from "./service.js";

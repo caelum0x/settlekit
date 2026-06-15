@@ -1,10 +1,26 @@
-import { generateId, type RiskProfile } from "@settlekit/common";
+export type {
+  ActivityEvent,
+  RiskContext,
+  RuleResult,
+  Rule,
+  RiskDecision,
+  DecisionThresholds,
+} from "./types.js";
+export { DEFAULT_THRESHOLDS } from "./types.js";
 
-export function createRiskProfile(organizationId: string, flags: string[], now = new Date()): RiskProfile {
-  const score = Math.min(100, flags.length * 20);
-  return { id: generateId("riskProfile"), organizationId, score, flags, updatedAt: now.toISOString() };
-}
+export type { RuleConfig } from "./rules.js";
+export {
+  DEFAULT_RULE_CONFIG,
+  highVelocityRule,
+  newAccountLargeAmountRule,
+  refundAbuseRule,
+  mismatchedGeoWalletReuseRule,
+  chargebackHistoryRule,
+  defaultRules,
+} from "./rules.js";
 
-export function riskAllowsCheckout(profile: RiskProfile): boolean {
-  return profile.score < 80;
-}
+export type { ScoreResult } from "./score.js";
+export { clampScore, computeScore, decide } from "./score.js";
+
+export type { RuleEngineOptions, RiskAssessment } from "./engine.js";
+export { RuleEngine } from "./engine.js";

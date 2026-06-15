@@ -57,6 +57,27 @@
     { "path": "./packages/metering" },
     { "path": "./packages/status-page" },
     { "path": "./packages/secrets" },
-    { "path": "./packages/localization" }
+    { "path": "./packages/localization" },
+    { "path": "./packages/billing-credits" },
+    { "path": "./packages/notification-preferences" },
+    { "path": "./packages/seats" },
+    { "path": "./packages/waitlist" },
+    { "path": "./packages/changelog" },
+    { "path": "./packages/events" },
+    { "path": "./packages/feature-gates" },
+    { "path": "./packages/data-retention" },
+    { "path": "./packages/sla" },
+    { "path": "./packages/consulting-slots" },
+    { "path": "./packages/content-access" },
+    { "path": "./packages/reporting" },
+    { "path": "./packages/data-room" },
+    { "path": "./packages/api-clients" },
+    { "path": "./packages/invitations" },
+    { "path": "./packages/approvals" },
+    { "path": "./packages/runbooks" },
+    { "path": "./packages/alerts" },
+    { "path": "./packages/incident-response" },
+    { "path": "./packages/connector-catalog" },
+    { "path": "./packages/ledger" }
   ]
 }
