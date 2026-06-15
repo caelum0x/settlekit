@@ -29,7 +29,7 @@ import {
   type SubscriptionRepository,
 } from "@settlekit/payments";
 import { ApiKeyService, InMemoryApiKeyStore, type ApiKeyStore } from "@settlekit/api-keys";
-import { AuthService, InMemoryAuthStore } from "@settlekit/auth";
+import { AuthService, InMemoryAuthStore, type AuthStore } from "@settlekit/auth";
 import { LicenseService, InMemoryLicenseStore, type LicenseStore } from "@settlekit/license-keys";
 import {
   SaasService,
@@ -49,6 +49,13 @@ import {
   type AgentReputationStore,
 } from "@settlekit/agent-services";
 import { EscrowService, InMemoryEscrowStore, type EscrowStore } from "@settlekit/escrow";
+import {
+  MarketplaceService,
+  InMemoryListingStore,
+  type ListingStore,
+  type PriceResolver,
+} from "@settlekit/marketplace-core";
+import { toBaseUnits } from "@settlekit/common";
 import { CouponService, InMemoryCouponStore, type CouponStore } from "@settlekit/coupons";
 import {
   InvoiceService,
@@ -86,36 +93,47 @@ import type {
   WebhookEndpoint,
   WebhookEvent,
 } from "@settlekit/common";
-import { InMemoryGitHubAccessClient } from "./clients/in-memory-github-client.js";
-import { InMemoryDiscordApi } from "./clients/in-memory-discord-client.js";
-import { InMemoryEntityStore, type EntityStore } from "./db/entity-store.js";
-import { seedDefaults } from "./db/seed.js";
-import { PgProductStore } from "./db/pg/products-store.js";
-import { PgPriceStore } from "./db/pg/prices-store.js";
-import { PgCustomerStore } from "./db/pg/customers-store.js";
-import { PgDeliveryRunStore } from "./db/pg/delivery-runs-store.js";
-import { PgWebhookEndpointStore } from "./db/pg/webhook-endpoints-store.js";
-import { PgWebhookEventStore } from "./db/pg/webhook-events-store.js";
-import { PgGitHubInstallationStore } from "./db/pg/github-installations-store.js";
-import { PgGitHubRepoAccessGrantStore } from "./db/pg/github-grants-store.js";
-import { PgDiscordConnectionStore } from "./db/pg/discord-connections-store.js";
-import { PgDiscordRoleGrantStore } from "./db/pg/discord-grants-store.js";
-import { PgCheckoutRepository } from "./db/pg/checkout-repository.js";
-import { PgPaymentRepository } from "./db/pg/payment-repository.js";
-import { PgSubscriptionRepository } from "./db/pg/subscription-repository.js";
-import { PgEntitlementRepository } from "./db/pg/entitlement-repository.js";
-import { PgApiKeyStore } from "./db/pg/api-key-store.js";
-import { PgLicenseStore } from "./db/pg/license-store.js";
-import { PgPlanStore } from "./db/pg/plan-store.js";
-import { PgBundleStore } from "./db/pg/bundle-store.js";
-import { PgAgentServiceStore } from "./db/pg/agent-service-store.js";
-import { PgAgentUsageStore } from "./db/pg/agent-usage-store.js";
-import { PgAgentReputationStore } from "./db/pg/agent-reputation-store.js";
-import { PgSeatStore } from "./db/pg/seat-store.js";
-import { PgGrantStore } from "./db/pg/file-grant-store.js";
-import { PgEscrowStore } from "./db/pg/escrow-store.js";
+import type { GitHubAccessClient } from "@settlekit/github";
+import type { DiscordApi } from "@settlekit/discord";
+import {
+  InMemoryEntityStore, type EntityStore,
+  seedDefaults,
+  PgProductStore,
+  PgPriceStore,
+  PgCustomerStore,
+  PgDeliveryRunStore,
+  PgWebhookEndpointStore,
+  PgWebhookEventStore,
+  PgGitHubInstallationStore,
+  PgGitHubRepoAccessGrantStore,
+  PgDiscordConnectionStore,
+  PgDiscordRoleGrantStore,
+  PgCheckoutRepository,
+  PgPaymentRepository,
+  PgSubscriptionRepository,
+  PgEntitlementRepository,
+  PgApiKeyStore,
+  PgLicenseStore,
+  PgPlanStore,
+  PgBundleStore,
+  PgAgentServiceStore,
+  PgAgentUsageStore,
+  PgAgentReputationStore,
+  PgSeatStore,
+  PgGrantStore,
+  PgEscrowStore,
+  PgCouponStore,
+  PgInvoiceStore,
+  PgRefundStore,
+  PgDunningStore,
+  PgDisputeStore,
+  PgPayoutStore,
+  PgAuthStore,
+  PgMarketplaceListingStore,
+} from "@settlekit/persistence";
 import { loadConfig } from "./config/env.js";
 import { buildIntegrations } from "./config/integrations.js";
+import type { DeliveryGrantSink } from "./wiring/delivery-clients.js";
 
 /** The fully-wired set of services + stores shared across requests. */
 export interface AppContext {
@@ -156,13 +174,15 @@ export interface AppContext {
   readonly circle: CircleClient | null;
   readonly email: EmailClient | null;
 
-  // GitHub integration (management routes).
-  readonly githubClient: InMemoryGitHubAccessClient;
+  // GitHub integration (management routes). Real Octokit-backed client when
+  // GitHub App creds are configured; the in-memory double otherwise.
+  readonly githubClient: GitHubAccessClient;
   readonly githubInstallations: EntityStore<GitHubInstallation>;
   readonly githubGrants: EntityStore<GitHubRepoAccessGrant>;
 
-  // Discord integration (management routes).
-  readonly discordApi: InMemoryDiscordApi;
+  // Discord integration (management routes). Real fetch-backed bot when a bot
+  // token is configured; the in-memory double otherwise.
+  readonly discordApi: DiscordApi;
   readonly discordConnections: EntityStore<DiscordConnection>;
   readonly discordGrants: EntityStore<DiscordRoleGrant>;
 
@@ -173,6 +193,10 @@ export interface AppContext {
   readonly agentServices: AgentServiceService;
   readonly agentServiceStore: AgentServiceStore;
   readonly escrow: EscrowService;
+
+  // Public marketplace (product listings + discovery).
+  readonly marketplace: MarketplaceService;
+  readonly marketplaceListings: ListingStore;
 
   // Commerce engines: coupons (discounts) + invoices.
   readonly coupons: CouponService;
@@ -209,8 +233,6 @@ export async function createContext(): Promise<AppContext> {
     await seedDefaults(db);
   }
 
-  const integrations = buildIntegrations(config);
-
   const products = pick<EntityStore<Product>>(db, (d) => new PgProductStore(d), () => new InMemoryEntityStore<Product>());
 
   // Bundle validation needs a synchronous product-existence check, but Postgres
@@ -236,15 +258,61 @@ export async function createContext(): Promise<AppContext> {
   const agentReputationStore = pick<AgentReputationStore>(db, (d) => new PgAgentReputationStore(d), () => new InMemoryAgentReputationStore());
   const grantStore = pick<GrantStore>(db, (d) => new PgGrantStore(d), () => new InMemoryGrantStore());
 
-  // Coupons + invoices use in-memory stores (interface-typed) on the context.
-  const couponStore: CouponStore = new InMemoryCouponStore();
-  const invoiceStore: InvoiceStore = new InMemoryInvoiceStore();
+  // Prices store (named so the marketplace price resolver can read it).
+  const prices = pick<EntityStore<Price>>(db, (d) => new PgPriceStore(d), () => new InMemoryEntityStore<Price>());
 
-  // Refunds / dunning / disputes / payouts use in-memory stores (interface-typed).
-  const refundStore: RefundStore = new InMemoryRefundStore();
-  const dunningStore: DunningStore = new InMemoryDunningStore();
-  const disputeStore: DisputeStore = new InMemoryDisputeStore();
-  const payoutStore: PayoutStore = new InMemoryPayoutStore();
+  // Public marketplace: discovery over the (Postgres or in-memory) listing store.
+  // The price resolver looks up a listing's product price for price-sorted search.
+  const marketplaceListings = pick<ListingStore>(db, (d) => new PgMarketplaceListingStore(d), () => new InMemoryListingStore());
+  const marketplacePriceResolver: PriceResolver = {
+    async priceBaseUnits(listing) {
+      if (!listing.productId) return undefined;
+      const productPrices = await prices.list((p) => p.productId === listing.productId);
+      const first = productPrices[0];
+      return first ? toBaseUnits(first.amount) : undefined;
+    },
+  };
+  const marketplace = new MarketplaceService(marketplaceListings, marketplacePriceResolver);
+
+  // GitHub / Discord grant stores: shared between the management routes and the
+  // delivery grant sink so delivery-issued grants are persisted where the
+  // access-sync / revocation routes read them.
+  const githubGrants = pick<EntityStore<GitHubRepoAccessGrant>>(db, (d) => new PgGitHubRepoAccessGrantStore(d), () => new InMemoryEntityStore<GitHubRepoAccessGrant>());
+  const discordGrants = pick<EntityStore<DiscordRoleGrant>>(db, (d) => new PgDiscordRoleGrantStore(d), () => new InMemoryEntityStore<DiscordRoleGrant>());
+
+  // A DeliveryGrantSink backed by the (Postgres or in-memory) grant stores.
+  const grantSink: DeliveryGrantSink = {
+    async upsertGithubGrant(grant) {
+      await githubGrants.save(grant);
+    },
+    async upsertDiscordGrant(grant) {
+      await discordGrants.save(grant);
+    },
+    async findDiscordGrant(ref) {
+      const matches = await discordGrants.list(
+        (g) => g.guildId === ref.guildId && g.roleId === ref.roleId && g.discordUserId === ref.discordUserId,
+      );
+      return matches[0];
+    },
+  };
+
+  // Built after the stores so delivery-issued license / API keys / file grants /
+  // GitHub+Discord grants persist into the SAME stores the verify/list/sync
+  // routes read.
+  const integrations = buildIntegrations(config, {
+    grantSink,
+    licenseStore,
+    apiKeyStore,
+    fileGrantStore: grantStore,
+  });
+
+  // Commerce engines: Postgres-backed when DATABASE_URL is set, else in-memory.
+  const couponStore = pick<CouponStore>(db, (d) => new PgCouponStore(d), () => new InMemoryCouponStore());
+  const invoiceStore = pick<InvoiceStore>(db, (d) => new PgInvoiceStore(d), () => new InMemoryInvoiceStore());
+  const refundStore = pick<RefundStore>(db, (d) => new PgRefundStore(d), () => new InMemoryRefundStore());
+  const dunningStore = pick<DunningStore>(db, (d) => new PgDunningStore(d), () => new InMemoryDunningStore());
+  const disputeStore = pick<DisputeStore>(db, (d) => new PgDisputeStore(d), () => new InMemoryDisputeStore());
+  const payoutStore = pick<PayoutStore>(db, (d) => new PgPayoutStore(d), () => new InMemoryPayoutStore());
   const merchant: Merchant = {
     name: process.env.MERCHANT_NAME ?? "SettleKit Merchant",
     ...(process.env.MERCHANT_EMAIL ? { email: process.env.MERCHANT_EMAIL } : {}),
@@ -262,7 +330,7 @@ export async function createContext(): Promise<AppContext> {
     entitlements: new EntitlementService(entitlementRepo),
 
     products: trackedProducts,
-    prices: pick<EntityStore<Price>>(db, (d) => new PgPriceStore(d), () => new InMemoryEntityStore<Price>()),
+    prices,
     customers: pick<EntityStore<Customer>>(db, (d) => new PgCustomerStore(d), () => new InMemoryEntityStore<Customer>()),
     deliveryRuns: pick<EntityStore<DeliveryRun>>(db, (d) => new PgDeliveryRunStore(d), () => new InMemoryEntityStore<DeliveryRun>()),
     deliveryRegistry: createDefaultRegistry(),
@@ -279,20 +347,20 @@ export async function createContext(): Promise<AppContext> {
       defaultMaxDownloads: config.fileDelivery.defaultMaxDownloads,
     }),
 
-    auth: new AuthService(new InMemoryAuthStore()),
+    auth: new AuthService(pick<AuthStore>(db, (d) => new PgAuthStore(d), () => new InMemoryAuthStore())),
     authCookieSecret: config.authCookieSecret,
 
     arcVerifier: integrations.arcVerifier,
     circle: integrations.circle,
     email: integrations.email,
 
-    githubClient: new InMemoryGitHubAccessClient(),
+    githubClient: integrations.githubAccessClient,
     githubInstallations: pick<EntityStore<GitHubInstallation>>(db, (d) => new PgGitHubInstallationStore(d), () => new InMemoryEntityStore<GitHubInstallation>()),
-    githubGrants: pick<EntityStore<GitHubRepoAccessGrant>>(db, (d) => new PgGitHubRepoAccessGrantStore(d), () => new InMemoryEntityStore<GitHubRepoAccessGrant>()),
+    githubGrants,
 
-    discordApi: new InMemoryDiscordApi(),
+    discordApi: integrations.discordApi,
     discordConnections: pick<EntityStore<DiscordConnection>>(db, (d) => new PgDiscordConnectionStore(d), () => new InMemoryEntityStore<DiscordConnection>()),
-    discordGrants: pick<EntityStore<DiscordRoleGrant>>(db, (d) => new PgDiscordRoleGrantStore(d), () => new InMemoryEntityStore<DiscordRoleGrant>()),
+    discordGrants,
 
     saas: new SaasService({ plans: planStore, seats: seatStore }),
     bundles: new BundleService(bundleStore, (productId: string) => knownProductIds.has(productId)),
@@ -304,6 +372,9 @@ export async function createContext(): Promise<AppContext> {
     }),
     agentServiceStore,
     escrow: new EscrowService(pick<EscrowStore>(db, (d) => new PgEscrowStore(d), () => new InMemoryEscrowStore())),
+
+    marketplace,
+    marketplaceListings,
 
     coupons: new CouponService(couponStore),
     couponStore,

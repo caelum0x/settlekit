@@ -13,6 +13,9 @@
   },
   "dependencies": {
     "@settlekit/common": "workspace:*",
+    "@settlekit/arc": "workspace:*",
+    "@settlekit/database": "workspace:*",
+    "@settlekit/persistence": "workspace:*",
     "@settlekit/payments": "workspace:*",
     "@settlekit/entitlements": "workspace:*",
     "@settlekit/license-keys": "workspace:*",

@@ -26,7 +26,7 @@ import type { ArcTransactionReceipt, Hex } from "@settlekit/arc";
 import type { HttpSender, WebhookRequest, DeliveryResult } from "@settlekit/webhooks";
 import { loadConfig, type WorkerConfig } from "../src/config.js";
 import { buildJobContext } from "../src/runtime.js";
-import { WorkerStores } from "../src/stores.js";
+import { InMemoryWorkerStore } from "../src/stores.js";
 
 const TEST_ENV: Record<string, string> = {
   ARC_RPC_URL: "http://localhost:8545",
@@ -200,7 +200,7 @@ describe("worker delivery-clients wiring", () => {
     const discordApi = createInMemoryDiscord();
     const emailTransport = createInMemoryEmail();
     const webhookSender = createInMemoryWebhookSender();
-    const stores = new WorkerStores();
+    const stores = new InMemoryWorkerStore();
     const arcRpc = createArcRpc(config, "0x2222222222222222222222222222222222222222" as Hex, 1_000_000n);
 
     const { ctx } = buildJobContext({
@@ -254,8 +254,8 @@ describe("worker delivery-clients wiring", () => {
     expect(webhookSender.requests[0]?.url).toBe("https://example.test/hook");
 
     // Grants persisted into the worker's data layer.
-    expect(stores.githubGrants.all().length).toBeGreaterThanOrEqual(2);
-    expect(stores.discordGrants.all()).toHaveLength(1);
+    expect((await stores.allGithubGrants()).length).toBeGreaterThanOrEqual(2);
+    expect(await stores.allDiscordGrants()).toHaveLength(1);
 
     // The license action produced a real key id in its output.
     const licenseRun = run.actionRuns.find((a) => a.action.type === "license_key_create");
@@ -266,7 +266,7 @@ describe("worker delivery-clients wiring", () => {
     const { ctx, stores, config } = setup();
     const now = new Date();
 
-    const payment = stores.payments.upsert({
+    const payment = await stores.upsertPayment({
       id: "pay_confirm",
       organizationId: generateId("organization"),
       checkoutSessionId: "cs_1",
@@ -293,7 +293,7 @@ describe("worker delivery-clients wiring", () => {
       },
       { paymentId: payment.id, customerId: "cus_1" },
     );
-    stores.enqueueDelivery({
+    await stores.enqueueDelivery({
       run: { ...initial, status: "pending" },
       plan,
       customerId: "cus_1",
@@ -307,7 +307,7 @@ describe("worker delivery-clients wiring", () => {
     const result = await paymentConfirmJob.run(ctx);
 
     expect(result.processed).toBe(1);
-    const confirmed = stores.payments.get("pay_confirm");
+    const confirmed = await stores.getPayment("pay_confirm");
     expect(confirmed?.status).toBe("confirmed");
     expect(confirmed?.confirmations).toBeGreaterThanOrEqual(config.arc.minConfirmations);
   });

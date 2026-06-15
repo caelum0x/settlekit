@@ -21,7 +21,7 @@ function isHex(value: string | undefined): value is Hex {
 export const paymentConfirmJob: Job = {
   name: "payment-confirm",
   async run(ctx: JobContext): Promise<JobResult> {
-    const pending = ctx.stores.pendingPayments();
+    const pending = await ctx.stores.pendingPayments();
     const minConfirmations = ctx.config.arc.minConfirmations;
     let processed = 0;
     let failed = 0;
@@ -63,13 +63,13 @@ export const paymentConfirmJob: Job = {
           minConfirmations,
           ctx.now(),
         );
-        ctx.stores.payments.upsert(confirmed);
+        await ctx.stores.upsertPayment(confirmed);
         processed += 1;
 
         // Make the matching delivery run executable now the payment settled.
-        const queued = ctx.stores.deliveryRuns.filter((q) => q.paymentId === payment.id).at(0);
+        const queued = await ctx.stores.deliveryRunByPayment(payment.id);
         if (queued) {
-          ctx.stores.enqueueDelivery({ ...queued, run: { ...queued.run, status: "pending" } });
+          await ctx.stores.enqueueDelivery({ ...queued, run: { ...queued.run, status: "pending" } });
           ctx.logger.info("payment confirmed; delivery enqueued", {
             paymentId: payment.id,
             deliveryRunId: queued.run.id,

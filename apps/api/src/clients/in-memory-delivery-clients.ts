@@ -1,22 +1,56 @@
 /**
- * Real, in-process implementations of the `@settlekit/delivery` `DeliveryClients`.
+ * In-process implementations of the `@settlekit/delivery` `DeliveryClients`,
+ * used when no live GitHub/Discord transport is configured.
  *
- * These let the API execute delivery action handlers (webhook_send, email_send,
- * and friends) end-to-end without external services. Each client returns the
- * exact shape the corresponding handler expects. They are deterministic and have
- * no side effects beyond their own return values — production swaps these for
- * live GitHub / Discord / email clients.
+ * The transport-bound clients (github, discord) and the side-effect-free ones
+ * (saas, webhook, email) are deterministic in-process doubles. The three
+ * issued-artifact clients (license, API key, file) run the REAL package
+ * services backed by the shared stores passed in {@link InMemoryDeliveryOptions}
+ * — so a license/API key/file grant issued through delivery is persisted to the
+ * same store the `/v1/license-keys`, `/v1/api-keys`, and `/v1/files` routes
+ * read, and is immediately verifiable. With no stores supplied they fall back to
+ * fresh in-memory stores (self-contained for tests).
  */
 import {
   generateId,
-  generateSecret,
   toIso,
-  type ApiKey,
   type DiscordRoleGrant,
   type GitHubRepoAccessGrant,
-  type LicenseKey,
 } from "@settlekit/common";
+import {
+  LicenseService,
+  InMemoryLicenseStore,
+  type LicenseStore,
+} from "@settlekit/license-keys";
+import {
+  InMemoryApiKeyStore,
+  issueApiKey,
+  revoke as revokeApiKeyRecord,
+  type ApiKeyStore,
+} from "@settlekit/api-keys";
+import {
+  FileDeliveryService,
+  InMemoryGrantStore,
+  type GrantStore,
+} from "@settlekit/file-delivery";
 import type { DeliveryClients } from "@settlekit/delivery";
+
+/** Shared stores + secrets the issued-artifact clients persist through. */
+export interface InMemoryDeliveryOptions {
+  /** License-key signing secret. */
+  licenseTokenSecret: string;
+  /** File-delivery signed-URL configuration. */
+  fileDelivery: {
+    baseUrl: string;
+    secret: string;
+    defaultExpiresInSec: number;
+    defaultMaxDownloads: number;
+  };
+  /** Shared persistence (defaults to fresh in-memory stores). */
+  licenseStore?: LicenseStore;
+  apiKeyStore?: ApiKeyStore;
+  fileGrantStore?: GrantStore;
+}
 
 function ghGrant(
   base: {
@@ -44,7 +78,19 @@ function ghGrant(
 }
 
 /** Build a fully-wired in-process {@link DeliveryClients}. */
-export function createInMemoryDeliveryClients(): DeliveryClients {
+export function createInMemoryDeliveryClients(options: InMemoryDeliveryOptions): DeliveryClients {
+  // Real services for the three verifiable artifacts, backed by shared stores.
+  const licenseService = new LicenseService(
+    options.licenseStore ?? new InMemoryLicenseStore(),
+    { tokenSecret: options.licenseTokenSecret },
+  );
+  const apiKeyStore = options.apiKeyStore ?? new InMemoryApiKeyStore();
+  const apiKeyIdToHash = new Map<string, string>();
+  const fileService = new FileDeliveryService(
+    options.fileGrantStore ?? new InMemoryGrantStore(),
+    options.fileDelivery,
+  );
+
   return {
     github: {
       async inviteCollaborator(input) {
@@ -79,56 +125,55 @@ export function createInMemoryDeliveryClients(): DeliveryClients {
       },
     },
     license: {
-      async issue(input): Promise<LicenseKey> {
-        return {
-          id: generateId("licenseKey"),
+      async issue(input) {
+        return licenseService.issue({
           organizationId: input.organizationId,
           customerId: input.customerId,
           productId: input.productId,
           entitlementId: input.entitlementId,
-          key: generateSecret(16),
-          status: "active",
           machineLimit: 3,
-          activatedMachineIds: [],
-          activatedDomains: [],
-          createdAt: toIso(new Date()),
-        };
+        });
       },
-      async revoke() {
-        /* no-op */
+      async revoke(licenseKeyId) {
+        await licenseService.revoke(licenseKeyId);
       },
     },
     apiKey: {
-      async issue(input): Promise<{ apiKey: ApiKey; plaintext: string }> {
-        const plaintext = `sk_test_${generateSecret(18)}`;
-        const apiKey: ApiKey = {
-          id: generateId("apiKey"),
+      async issue(input) {
+        const result = issueApiKey({
           organizationId: input.organizationId,
           customerId: input.customerId,
           productId: input.productId,
           entitlementId: input.entitlementId,
-          keyHash: generateSecret(32),
-          keyPrefix: plaintext.slice(0, 16),
           scopes: input.scopes,
-          status: "active",
-          createdAt: toIso(new Date()),
-        };
-        return { apiKey, plaintext };
+          env: "live",
+        });
+        await apiKeyStore.save(result.apiKey);
+        apiKeyIdToHash.set(result.apiKey.id, result.apiKey.keyHash);
+        return { apiKey: result.apiKey, plaintext: result.plaintext };
       },
-      async revoke() {
-        /* no-op */
+      async revoke(apiKeyId) {
+        const hash = apiKeyIdToHash.get(apiKeyId);
+        if (!hash) return;
+        const existing = await apiKeyStore.findByHash(hash);
+        if (!existing) return;
+        await apiKeyStore.save(revokeApiKeyRecord(existing));
       },
     },
     file: {
       async grant(input) {
+        const issued = await fileService.issueDownload({
+          file: { id: input.fileId },
+          customerId: input.customerId,
+        });
         return {
           fileId: input.fileId,
-          url: `https://files.settlekit.local/${input.fileId}`,
-          expiresAt: toIso(new Date(Date.now() + 3_600_000)),
+          url: issued.url,
+          expiresAt: new Date(issued.grant.expiresAt * 1000).toISOString(),
         };
       },
-      async revoke() {
-        /* no-op */
+      async revoke(input) {
+        await fileService.revokeFileOnRefund(input.fileId, "delivery_rollback");
       },
     },
     saas: {

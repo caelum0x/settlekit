@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@settlekit/common": "workspace:*",
+    "@settlekit/database": "workspace:*",
+    "@settlekit/persistence": "workspace:*",
     "@settlekit/payments": "workspace:*",
     "@settlekit/arc": "workspace:*",
     "@settlekit/webhooks": "workspace:*",

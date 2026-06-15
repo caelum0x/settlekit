@@ -1,0 +1,44 @@
+{
+  "name": "@settlekit/persistence",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@settlekit/common": "workspace:*",
+    "@settlekit/database": "workspace:*",
+    "@settlekit/agent-services": "workspace:*",
+    "@settlekit/api-keys": "workspace:*",
+    "@settlekit/auth": "workspace:*",
+    "@settlekit/bundles": "workspace:*",
+    "@settlekit/coupons": "workspace:*",
+    "@settlekit/disputes": "workspace:*",
+    "@settlekit/dunning": "workspace:*",
+    "@settlekit/entitlements": "workspace:*",
+    "@settlekit/escrow": "workspace:*",
+    "@settlekit/file-delivery": "workspace:*",
+    "@settlekit/invoices": "workspace:*",
+    "@settlekit/license-keys": "workspace:*",
+    "@settlekit/marketplace-core": "workspace:*",
+    "@settlekit/payments": "workspace:*",
+    "@settlekit/payouts": "workspace:*",
+    "@settlekit/refunds": "workspace:*",
+    "@settlekit/saas": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

@@ -64,15 +64,15 @@ export const renewalReminderJob: Job = {
     let processed = 0;
     let failed = 0;
 
-    for (const subscription of ctx.stores.subscriptions.all()) {
+    for (const subscription of await ctx.stores.allSubscriptions()) {
       if (subscription.status !== "active") continue;
       if (subscription.cancelAtPeriodEnd) continue;
       if (!dueWithin(subscription.currentPeriodEnd, now, withinDays)) continue;
 
       const key = reminderKey(subscription);
-      if (ctx.stores.sentRenewalReminders.has(key)) continue;
+      if (await ctx.stores.hasSentEmail("renewal_reminder", key)) continue;
 
-      const customer = resolveCustomer(ctx, subscription.customerId);
+      const customer = await resolveCustomer(ctx, subscription.customerId);
       if (!customer) {
         ctx.logger.warn("renewal reminder skipped; no customer contact on record", {
           subscriptionId: subscription.id,
@@ -81,10 +81,9 @@ export const renewalReminderJob: Job = {
         continue;
       }
 
-      const merchant = resolveMerchant(ctx, subscription.organizationId);
+      const merchant = await resolveMerchant(ctx, subscription.organizationId);
       // Surface the most recent confirmed charge amount where known; otherwise 0.
-      const lastPayment = ctx.stores.payments
-        .filter((p) => p.customerId === subscription.customerId && p.status === "confirmed")
+      const lastPayment = (await ctx.stores.confirmedPaymentsByCustomer(subscription.customerId))
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .at(0);
       const amount = lastPayment?.amount.amount ?? "0";
@@ -104,7 +103,7 @@ export const renewalReminderJob: Job = {
           ],
         });
 
-        ctx.stores.sentRenewalReminders.add(key);
+        await ctx.stores.markEmailSent("renewal_reminder", key);
         processed += 1;
         ctx.logger.info("renewal reminder sent", {
           subscriptionId: subscription.id,

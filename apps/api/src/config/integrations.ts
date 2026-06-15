@@ -25,6 +25,9 @@ import {
 import { createDiscordClient, type DiscordApi } from "@settlekit/discord";
 import { createCircleClient, type CircleClient } from "@settlekit/circle";
 import { createEmailClient, type EmailClient } from "@settlekit/notifications";
+import type { LicenseStore } from "@settlekit/license-keys";
+import type { ApiKeyStore } from "@settlekit/api-keys";
+import type { GrantStore } from "@settlekit/file-delivery";
 import type { DeliveryClients } from "@settlekit/delivery";
 import type { PaymentVerifier } from "@settlekit/x402";
 import type { ApiConfig } from "./env.js";
@@ -56,6 +59,14 @@ export interface Integrations {
 export interface BuildIntegrationsOptions {
   /** Override grant persistence (defaults to in-memory maps). */
   grantSink?: DeliveryGrantSink;
+  /**
+   * Shared stores for issued access artifacts. The app context passes its own
+   * license / API-key / file-grant stores so delivery-issued keys land where the
+   * verify/list routes read them. Omitted -> fresh in-memory stores.
+   */
+  licenseStore?: LicenseStore;
+  apiKeyStore?: ApiKeyStore;
+  fileGrantStore?: GrantStore;
 }
 
 /** A `DeliveryGrantSink` backed by plain in-memory maps. */
@@ -63,13 +74,13 @@ function createInMemoryGrantSink(): DeliveryGrantSink {
   const githubGrants = new Map<string, GitHubRepoAccessGrant>();
   const discordGrants = new Map<string, DiscordRoleGrant>();
   return {
-    upsertGithubGrant(grant) {
+    async upsertGithubGrant(grant) {
       githubGrants.set(grant.id, grant);
     },
-    upsertDiscordGrant(grant) {
+    async upsertDiscordGrant(grant) {
       discordGrants.set(grant.id, grant);
     },
-    findDiscordGrant(ref) {
+    async findDiscordGrant(ref) {
       for (const grant of discordGrants.values()) {
         if (
           grant.guildId === ref.guildId &&
@@ -147,6 +158,15 @@ export function buildIntegrations(
 
   // Delivery clients: real adapters only when BOTH github + discord transports
   // are configured; otherwise the in-memory delivery clients keep the API whole.
+  // Shared issued-artifact stores: when the context passes its own license /
+  // API-key / file-grant stores, keys issued by delivery are persisted where the
+  // verify/list routes read them.
+  const sharedStores = {
+    ...(options.licenseStore ? { licenseStore: options.licenseStore } : {}),
+    ...(options.apiKeyStore ? { apiKeyStore: options.apiKeyStore } : {}),
+    ...(options.fileGrantStore ? { fileGrantStore: options.fileGrantStore } : {}),
+  };
+
   let deliveryClients: DeliveryClients;
   if (githubApi && config.github && config.discord) {
     const grants = options.grantSink ?? createInMemoryGrantSink();
@@ -157,12 +177,17 @@ export function buildIntegrations(
       fileDelivery: config.fileDelivery,
       webhookSigningSecret: config.webhookSigningSecret,
       grants,
+      ...sharedStores,
       ...(config.email
         ? { email: { from: config.email.from, apiKey: config.email.apiKey } }
         : {}),
     });
   } else {
-    deliveryClients = createInMemoryDeliveryClients();
+    deliveryClients = createInMemoryDeliveryClients({
+      licenseTokenSecret: config.licenseTokenSecret,
+      fileDelivery: config.fileDelivery,
+      ...sharedStores,
+    });
   }
 
   const arcVerifier = config.arc

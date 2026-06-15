@@ -31,7 +31,7 @@ function buildContext(item: QueuedDeliveryRun, ctx: JobContext): DeliveryContext
 export const deliveryRunnerJob: Job = {
   name: "delivery-runner",
   async run(ctx: JobContext): Promise<JobResult> {
-    const pending = ctx.stores.pendingDeliveryRuns();
+    const pending = await ctx.stores.pendingDeliveryRuns();
     let processed = 0;
     let failed = 0;
 
@@ -43,7 +43,7 @@ export const deliveryRunnerJob: Job = {
           ? await retryRun(item.run, ctx.runner, deliveryCtx)
           : await ctx.runner.executePending(item.run, deliveryCtx);
 
-        ctx.stores.enqueueDelivery({ ...item, run: result });
+        await ctx.stores.enqueueDelivery({ ...item, run: result });
         processed += 1;
 
         if (result.status === "succeeded") {

@@ -23,10 +23,9 @@ import { errorMessage } from "../logger.js";
 import type { Job, JobContext, JobResult } from "./types.js";
 
 /** True when a confirmed payment exists for this subscription's customer + product. */
-function hasConfirmedRenewal(ctx: JobContext, customerId: string, productId: string, after: Date): boolean {
-  return ctx.stores.payments
-    .filter((p) => p.customerId === customerId && p.status === "confirmed")
-    .some((p) => {
+async function hasConfirmedRenewal(ctx: JobContext, customerId: string, productId: string, after: Date): Promise<boolean> {
+  const confirmed = await ctx.stores.confirmedPaymentsByCustomer(customerId);
+  return confirmed.some((p) => {
       const stamp = p.confirmedAt ? new Date(p.confirmedAt) : new Date(p.createdAt);
       return stamp.getTime() >= after.getTime();
     });
@@ -39,7 +38,7 @@ export const renewalSweepJob: Job = {
     let processed = 0;
     let failed = 0;
 
-    for (const subscription of ctx.stores.subscriptions.all()) {
+    for (const subscription of await ctx.stores.allSubscriptions()) {
       try {
         if (subscription.status === "canceled" || subscription.status === "expired") {
           continue;
@@ -49,7 +48,7 @@ export const renewalSweepJob: Job = {
 
         // In grace and grace elapsed -> expire.
         if (subscription.status === "in_grace" && isGraceExpired(subscription, now)) {
-          ctx.stores.subscriptions.upsert(expireSubscription(subscription));
+          await ctx.stores.upsertSubscription(expireSubscription(subscription));
           processed += 1;
           ctx.logger.info("subscription expired after grace", { subscriptionId: subscription.id });
           continue;
@@ -58,10 +57,10 @@ export const renewalSweepJob: Job = {
         if (!periodOver) continue;
 
         const periodEnd = new Date(subscription.currentPeriodEnd);
-        if (hasConfirmedRenewal(ctx, subscription.customerId, subscription.productId, periodEnd)) {
-          const interval = ctx.stores.subscriptionIntervals.get(subscription.id) ?? "monthly";
+        if (await hasConfirmedRenewal(ctx, subscription.customerId, subscription.productId, periodEnd)) {
+          const interval = (await ctx.stores.getSubscriptionInterval(subscription.id)) ?? "monthly";
           const renewed = renewSubscription(subscription, interval);
-          ctx.stores.subscriptions.upsert(renewed);
+          await ctx.stores.upsertSubscription(renewed);
           processed += 1;
           ctx.logger.info("subscription renewed", {
             subscriptionId: subscription.id,
@@ -74,7 +73,7 @@ export const renewalSweepJob: Job = {
         // Period over, no renewal payment, not yet in grace -> enter grace.
         if (subscription.status === "active" || subscription.status === "past_due") {
           const graced = enterGrace(subscription, now, ctx.config.graceDays);
-          ctx.stores.subscriptions.upsert(graced);
+          await ctx.stores.upsertSubscription(graced);
           processed += 1;
           ctx.logger.info("subscription entered grace", {
             subscriptionId: subscription.id,

@@ -33,12 +33,12 @@ export const receiptEmailJob: Job = {
     let processed = 0;
     let failed = 0;
 
-    const confirmed = ctx.stores.payments.filter((p) => p.status === "confirmed");
+    const confirmed = await ctx.stores.confirmedPayments();
 
     for (const payment of confirmed) {
-      if (ctx.stores.sentReceipts.has(payment.id)) continue;
+      if (await ctx.stores.hasSentEmail("receipt", payment.id)) continue;
 
-      const customer = resolveCustomer(ctx, payment.customerId);
+      const customer = await resolveCustomer(ctx, payment.customerId);
       if (!customer) {
         ctx.logger.warn("receipt skipped; no customer contact on record", {
           paymentId: payment.id,
@@ -47,7 +47,7 @@ export const receiptEmailJob: Job = {
         continue;
       }
 
-      const merchant = resolveMerchant(ctx, payment.organizationId) ?? fallbackMerchant(payment.organizationId, now);
+      const merchant = (await resolveMerchant(ctx, payment.organizationId)) ?? fallbackMerchant(payment.organizationId, now);
       const lineItems = receiptLineItems(payment);
 
       try {
@@ -67,7 +67,7 @@ export const receiptEmailJob: Job = {
 
         // Mark sent only after the transport accepts it, so a send failure is
         // retried on the next tick rather than silently dropped.
-        ctx.stores.sentReceipts.add(payment.id);
+        await ctx.stores.markEmailSent("receipt", payment.id);
         processed += 1;
         ctx.logger.info("receipt email sent", {
           paymentId: payment.id,

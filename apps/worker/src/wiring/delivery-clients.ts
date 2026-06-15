@@ -6,7 +6,7 @@
  * `@settlekit/saas`, `@settlekit/webhooks`, `@settlekit/notifications`).
  *
  * Each adapter performs the real domain call and persists the resulting grant
- * into {@link WorkerStores} so later jobs (access sync, revocation) can reconcile
+ * into the {@link WorkerStore} so later jobs (access sync, revocation) can reconcile
  * it. The GitHub/Discord low-level transports are injectable so the wiring test
  * can drive them with in-memory doubles, while production injects the real
  * Octokit / fetch-backed clients.
@@ -46,33 +46,44 @@ import {
 import {
   LicenseService,
   InMemoryLicenseStore,
+  type LicenseStore,
 } from "@settlekit/license-keys";
 import {
-  ApiKeyService,
   InMemoryApiKeyStore,
   issueApiKey,
   revoke as revokeApiKeyRecord,
   type ApiKeyEnv,
+  type ApiKeyStore,
 } from "@settlekit/api-keys";
 import {
   FileDeliveryService,
   InMemoryGrantStore,
+  type GrantStore,
 } from "@settlekit/file-delivery";
 import { buildWebhookEvent, deliverWithRetry, type HttpSender } from "@settlekit/webhooks";
 import { createEmailClient } from "@settlekit/notifications";
-import type { WorkerStores } from "../stores.js";
+import type { WorkerStore } from "../stores.js";
 import type { WorkerConfig } from "../config.js";
 
 /** Everything the wiring needs that is not in {@link WorkerConfig}. */
 export interface DeliveryWiringDeps {
   config: WorkerConfig;
-  stores: WorkerStores;
+  stores: WorkerStore;
   /** Real `GitHubApi` (Octokit-backed in prod; in-memory in tests). */
   githubApi: GitHubApi;
   /** Real `DiscordApi` (fetch-backed in prod; in-memory in tests). */
   discordApi: DiscordApi;
   /** Webhook signing secret for outbound `webhook_send` actions. */
   webhookSigningSecret: string;
+  /**
+   * Shared persistence for issued access artifacts. In Postgres mode the runtime
+   * passes the worker's Pg-backed stores so license keys / API keys / file grants
+   * issued by delivery land in the SAME tables the API's verify/download routes
+   * read. Omitted -> fresh in-memory stores.
+   */
+  licenseStore?: LicenseStore;
+  apiKeyStore?: ApiKeyStore;
+  fileGrantStore?: GrantStore;
   /** Optional injected email transport (tests supply an in-memory transport). */
   emailTransport?: Parameters<typeof createEmailClient>[0]["transport"];
   /**
@@ -98,7 +109,7 @@ function buildGithubClient(deps: DeliveryWiringDeps): GithubAccessClient {
         githubUsername: input.githubUsername,
         permission: input.permission,
       });
-      deps.stores.githubGrants.upsert(grant);
+      await deps.stores.upsertGithubGrant(grant);
       return grant;
     },
     async removeCollaborator(input) {
@@ -127,7 +138,7 @@ function buildGithubClient(deps: DeliveryWiringDeps): GithubAccessClient {
         status: "active",
         createdAt: toIso(new Date()),
       };
-      deps.stores.githubGrants.upsert(grant);
+      await deps.stores.upsertGithubGrant(grant);
       return grant;
     },
     async removeTeamMembership(input) {
@@ -152,16 +163,18 @@ function buildDiscordClient(deps: DeliveryWiringDeps): DiscordRoleClient {
         entitlementId: input.entitlementId,
         discordUserId: input.discordUserId,
       });
-      deps.stores.discordGrants.upsert(grant);
+      await deps.stores.upsertDiscordGrant(grant);
       if (grant.status === "failed") {
         throw new Error(`Discord role grant failed for user ${input.discordUserId} in guild ${input.guildId}`);
       }
       return grant;
     },
     async removeRole(input) {
-      const existing = deps.stores.discordGrants
-        .filter((g) => g.guildId === input.guildId && g.roleId === input.roleId && g.discordUserId === input.discordUserId)
-        .at(0);
+      const existing = await deps.stores.findDiscordGrant({
+        guildId: input.guildId,
+        roleId: input.roleId,
+        discordUserId: input.discordUserId,
+      });
       const grant = existing ?? {
         id: generateId("discordRoleAccess"),
         organizationId: "",
@@ -174,14 +187,14 @@ function buildDiscordClient(deps: DeliveryWiringDeps): DiscordRoleClient {
         createdAt: toIso(new Date()),
       };
       const revoked = await revokeDiscordRole(deps.discordApi, grant);
-      deps.stores.discordGrants.upsert(revoked);
+      await deps.stores.upsertDiscordGrant(revoked);
     },
   };
 }
 
 /** License adapter backed by the real {@link LicenseService}. */
 function buildLicenseClient(deps: DeliveryWiringDeps): LicenseIssuer {
-  const service = new LicenseService(new InMemoryLicenseStore(), {
+  const service = new LicenseService(deps.licenseStore ?? new InMemoryLicenseStore(), {
     tokenSecret: deps.config.license.tokenSecret,
   });
   return {
@@ -200,13 +213,11 @@ function buildLicenseClient(deps: DeliveryWiringDeps): LicenseIssuer {
   };
 }
 
-/** API-key adapter backed by the real `issueApiKey` + an in-memory store. */
-function buildApiKeyClient(): ApiKeyIssuer {
-  const store = new InMemoryApiKeyStore();
-  const service = new ApiKeyService(store);
+/** API-key adapter backed by the real `issueApiKey` + the shared store. */
+function buildApiKeyClient(deps: DeliveryWiringDeps): ApiKeyIssuer {
+  const store = deps.apiKeyStore ?? new InMemoryApiKeyStore();
   // Map issued key ids to their hash so revoke-by-id can locate the record.
   const idToHash = new Map<string, string>();
-  void service;
   return {
     async issue(input): Promise<IssuedApiKey> {
       const env: ApiKeyEnv = "live";
@@ -234,7 +245,7 @@ function buildApiKeyClient(): ApiKeyIssuer {
 
 /** File adapter backed by the real {@link FileDeliveryService}. */
 function buildFileClient(deps: DeliveryWiringDeps): FileGrantor {
-  const service = new FileDeliveryService(new InMemoryGrantStore(), {
+  const service = new FileDeliveryService(deps.fileGrantStore ?? new InMemoryGrantStore(), {
     baseUrl: deps.config.fileDelivery.baseUrl,
     secret: deps.config.fileDelivery.secret,
     defaultExpiresInSec: deps.config.fileDelivery.defaultExpiresInSec,
@@ -334,7 +345,7 @@ export function createDeliveryClients(deps: DeliveryWiringDeps): DeliveryClients
     github: buildGithubClient(deps),
     discord: buildDiscordClient(deps),
     license: buildLicenseClient(deps),
-    apiKey: buildApiKeyClient(),
+    apiKey: buildApiKeyClient(deps),
     file: buildFileClient(deps),
     saas: buildSaasClient(),
     webhook: buildWebhookClient(deps),

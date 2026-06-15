@@ -41,6 +41,17 @@ async function main(): Promise<void> {
     auditReason: "SettleKit access automation",
   });
 
+  // In Postgres mode, ensure the default org/merchant exist before jobs run so
+  // payment/subscription/entitlement upserts never violate the merchant FK.
+  if (config.database) {
+    const { createDb } = await import("@settlekit/database");
+    const { ensureWorkerDefaults } = await import("./db/pg-worker-store.js");
+    await ensureWorkerDefaults(createDb(config.database.url));
+    logger.info("worker persistence: postgres", {});
+  } else {
+    logger.info("worker persistence: in-memory", {});
+  }
+
   const runtime = buildRuntime({ config, githubApi, discordApi, logger });
 
   const shutdown = runtime.scheduler.installSignalHandlers();

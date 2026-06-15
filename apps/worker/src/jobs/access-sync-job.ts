@@ -29,18 +29,19 @@ export const accessSyncJob: Job = {
     let failed = 0;
 
     // 1. Expire entitlements whose window has elapsed.
-    const entitlements = ctx.stores.entitlements.all();
+    const entitlements = await ctx.stores.allEntitlements();
     const due = expireDue(entitlements, now);
     const expiredIds = new Set(due.map((e) => e.id));
     for (const entitlement of due) {
-      ctx.stores.entitlements.upsert(expire(entitlement, now));
+      await ctx.stores.upsertEntitlement(expire(entitlement, now));
       processed += 1;
     }
 
     // 2. GitHub repo access reconciliation.
     try {
       const githubClient = createGitHubAccessClient(ctx.githubApi);
-      const expected: ExpectedRepoAccess[] = ctx.stores.githubGrants
+      const githubGrants = await ctx.stores.allGithubGrants();
+      const expected: ExpectedRepoAccess[] = githubGrants
         .filter((g) => g.status !== "revoked")
         .map((grant) => ({
           grant,
@@ -50,7 +51,7 @@ export const accessSyncJob: Job = {
       if (expected.length > 0) {
         const run = await syncAccess(githubClient, expected, now);
         for (const outcome of run.outcomes) {
-          if (outcome.grant) ctx.stores.githubGrants.upsert(outcome.grant);
+          if (outcome.grant) await ctx.stores.upsertGithubGrant(outcome.grant);
         }
         processed += run.total;
         failed += run.failed;
@@ -68,7 +69,7 @@ export const accessSyncJob: Job = {
 
     // 3. Discord role reconciliation.
     try {
-      const grants = ctx.stores.discordGrants.all();
+      const grants = await ctx.stores.allDiscordGrants();
       const desired: GrantDiscordRoleInput[] = grants
         .filter((g) => g.status === "active" && !expiredIds.has(g.entitlementId))
         .map((g) => ({
@@ -82,7 +83,7 @@ export const accessSyncJob: Job = {
 
       const result = await syncDiscordAccess(ctx.discordApi, desired, grants, now);
       for (const grant of [...result.granted, ...result.revoked]) {
-        ctx.stores.discordGrants.upsert(grant);
+        await ctx.stores.upsertDiscordGrant(grant);
       }
       processed += result.granted.length + result.revoked.length;
       ctx.logger.info("discord access synced", {

@@ -93,14 +93,15 @@ union member:
 
 ```ts
 type DeliveryAction =
-  | { type: "github_invite"; repoId: string }
-  | { type: "github_team_add"; teamId: string }
+  | { type: "github_invite"; repoId: string; permission?: "pull" | "push" | "maintain" }
+  | { type: "github_team_add"; orgLogin: string; teamSlug: string }
   | { type: "license_key_create"; policyId: string }
   | { type: "api_key_create"; scopes: string[] }
   | { type: "file_access_grant"; fileId: string }
-  | { type: "discord_role_add"; roleId: string }
-  | { type: "saas_entitlement_create"; features: Record<string, unknown> }
-  | { type: "webhook_send"; url: string };
+  | { type: "discord_role_add"; guildId: string; roleId: string }
+  | { type: "saas_entitlement_create"; features: Record<string, boolean | number | string> }
+  | { type: "webhook_send"; url: string }
+  | { type: "email_send"; template: string };
 ```
 
 This lets **one purchase trigger multiple actions**.
@@ -135,6 +136,13 @@ sit on top.
 │  docs · examples                                               │
 └──────────────────────────────────────────────────────────────┘
                               │ depends on
+                              ▼
+┌──────────────────────────────────────────────────────────────┐
+│  Persistence (shared Postgres layer)                          │
+│  @settlekit/persistence — every Postgres-backed store/repo,    │
+│  shared by api · worker · checkout (no per-app duplication)    │
+└──────────────────────────────────────────────────────────────┘
+                              │
                               ▼
 ┌──────────────────────────────────────────────────────────────┐
 │  Core engine                                                   │
@@ -176,7 +184,52 @@ Rules:
 
 ---
 
-## 4. Data model
+## 4. Persistence & dual-backend
+
+SettleKit runs on real PostgreSQL in production and on an in-process store with
+zero external infrastructure for local dev and tests. The selection is made at
+boot by the `DATABASE_URL` environment variable.
+
+### One shared persistence layer
+
+Every Postgres-backed store and repository lives in **`@settlekit/persistence`**
+(not inside any single app). `apps/api`, `apps/worker`, and `apps/checkout` all
+import the same stores, so they read and write **one shared database** — a
+payment the API records is the payment the worker confirms and delivers.
+
+### Document-projection pattern
+
+Each table carries a `jsonb metadata` column. The full canonical domain entity
+(from `@settlekit/common`) is stored under `metadata.__doc`, and a handful of
+typed columns are *projected* alongside it for indexing and SQL queries. The
+document is the source of truth on read, so round-trips are lossless regardless
+of schema drift. The codec (`packDoc` / `unpackDoc`) lives in
+`@settlekit/database`.
+
+### Selecting a backend
+
+```text
+DATABASE_URL set    → @settlekit/persistence Postgres stores (drizzle-orm)
+DATABASE_URL unset  → the in-memory stores each domain package ships
+```
+
+Both implement the same interface, so the route/job layer is
+persistence-agnostic. Migrations live in `packages/database/drizzle` and are
+applied with `pnpm --filter @settlekit/database db:migrate`. The default
+organization + merchant are seeded idempotently on boot.
+
+### Payment settlement is verified on-chain
+
+When Arc settlement is configured, confirming a payment is gated on a **real
+on-chain verification**: the submitted transaction must have transferred at
+least the invoiced USDC to the session's `payTo` address with the required
+confirmations before the payment settles and access is granted. This holds in
+both `apps/api` (`/v1/payments/:id/confirm`) and the hosted checkout. With Arc
+unconfigured (local dev), the recorded confirmation count is used.
+
+---
+
+## 5. Data model
 
 The domain types live in `@settlekit/common`; the relational schema lives in
 `@settlekit/database`. The main objects:
@@ -250,33 +303,46 @@ bundle_items                  delivery_actions           agent_service_metadata
                               delivery_runs              agent_buyers
                               delivery_logs              agent_usage_events
 
-escrow_tasks
-escrow_fundings
-escrow_submissions
-escrow_releases
+escrow_tasks                  marketplace_listings       auth_accounts
+escrow_fundings               risk_profiles              auth_sessions
+escrow_submissions            agent_reputations          auth_magic_links
+escrow_releases               download_grants            auth_password_credentials
 escrow_disputes
+escrow_refunds                coupons        invoices    worker_delivery_queue
+escrow_reviews                refunds        disputes    worker_webhook_jobs
+                              payouts        coupon_redemptions
+                              dunning_states              worker_email_ledger
+                                                          worker_dunning_attempts
 ```
 
 The `delivery_runs` / `delivery_actions` / `delivery_logs` tables are the audit
 trail for the delivery flow in section 2; the `*_grants` and `saas_*` tables are
-the concrete backing for the entitlements in section 1.
+the concrete backing for the entitlements in section 1. The `coupons` …
+`payouts` tables back the post-payment commerce engines; the `auth_*` tables
+back passwordless + password auth; the `worker_*` tables hold the background
+worker's queues and idempotency ledgers (see `@settlekit/persistence`).
 
 ---
 
-## 5. HTTP API surface
+## 6. HTTP API surface
 
 `apps/api` exposes `/v1` resources backed by the domain packages, with a
 consistent `{ data }` / `{ error }` envelope:
 
 ```text
-products            prices              checkout-sessions   payments
-customers           subscriptions       entitlements        license-keys
-api-keys            bundles             files               webhooks
-delivery-runs       agent-services      escrow
+auth                products            prices              checkout-sessions
+payments            customers           subscriptions       entitlements
+license-keys        api-keys            bundles             files
+webhooks            delivery-runs       delivery-actions    agent-services
+escrow              coupons             invoices            refunds
+dunning             disputes            payouts
 
 integrations/github  integrations/discord  saas
 ```
 
-The `worker` app consumes the same domain packages to confirm payments on Arc,
-execute deliveries, sync GitHub/Discord access, sweep subscription renewals, and
-retry webhook deliveries.
+Payment confirmation verifies the transfer on-chain (section 4) before granting
+access. The `worker` app — also Postgres-backed via `@settlekit/persistence`
+when `DATABASE_URL` is set — consumes the same domain packages to confirm
+payments on Arc, execute deliveries, sync GitHub/Discord access, sweep
+subscription renewals, send transactional email, and retry webhook deliveries
+against that same shared database.

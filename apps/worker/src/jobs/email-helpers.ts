@@ -1,7 +1,7 @@
 /**
  * Shared lookups for the customer-communication jobs.
  *
- * The worker's in-memory data layer ({@link WorkerStores}) carries `customers`
+ * The worker's data layer ({@link WorkerStore}) carries `customers`
  * and `merchants` tables populated upstream by the checkout/API flow. The email
  * jobs need the buyer's address (recipient) and, where possible, merchant
  * branding for the footer. These helpers centralize that resolution so each job
@@ -14,8 +14,8 @@ import { money } from "@settlekit/common";
 import type { JobContext } from "./types.js";
 
 /** Resolve a buyer's contact record, or `undefined` if not yet known. */
-export function resolveCustomer(ctx: JobContext, customerId: string): Customer | undefined {
-  return ctx.stores.customers.get(customerId);
+export async function resolveCustomer(ctx: JobContext, customerId: string): Promise<Customer | undefined> {
+  return ctx.stores.getCustomer(customerId);
 }
 
 /**
@@ -23,8 +23,8 @@ export function resolveCustomer(ctx: JobContext, customerId: string): Customer |
  * scan for one belonging to the organization — there is exactly one merchant per
  * org in the seller-facing model.
  */
-export function resolveMerchant(ctx: JobContext, organizationId: string): Merchant | undefined {
-  return ctx.stores.merchants.filter((m) => m.organizationId === organizationId).at(0);
+export async function resolveMerchant(ctx: JobContext, organizationId: string): Promise<Merchant | undefined> {
+  return ctx.stores.findMerchantByOrg(organizationId);
 }
 
 /**

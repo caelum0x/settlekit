@@ -1,0 +1,31 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "composite": true
+  },
+  "references": [
+    { "path": "../common" },
+    { "path": "../database" },
+    { "path": "../agent-services" },
+    { "path": "../api-keys" },
+    { "path": "../auth" },
+    { "path": "../bundles" },
+    { "path": "../coupons" },
+    { "path": "../disputes" },
+    { "path": "../dunning" },
+    { "path": "../entitlements" },
+    { "path": "../escrow" },
+    { "path": "../file-delivery" },
+    { "path": "../invoices" },
+    { "path": "../license-keys" },
+    { "path": "../marketplace-core" },
+    { "path": "../payments" },
+    { "path": "../payouts" },
+    { "path": "../refunds" },
+    { "path": "../saas" }
+  ],
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules", "**/*.test.ts"]
+}

@@ -123,6 +123,9 @@ importers:
       '@settlekit/license-keys':
         specifier: workspace:*
         version: link:../../packages/license-keys
+      '@settlekit/marketplace-core':
+        specifier: workspace:*
+        version: link:../../packages/marketplace-core
       '@settlekit/notifications':
         specifier: workspace:*
         version: link:../../packages/notifications
@@ -132,6 +135,9 @@ importers:
       '@settlekit/payouts':
         specifier: workspace:*
         version: link:../../packages/payouts
+      '@settlekit/persistence':
+        specifier: workspace:*
+        version: link:../../packages/persistence
       '@settlekit/product-catalog':
         specifier: workspace:*
         version: link:../../packages/product-catalog
@@ -172,9 +178,15 @@ importers:
       '@settlekit/api-keys':
         specifier: workspace:*
         version: link:../../packages/api-keys
+      '@settlekit/arc':
+        specifier: workspace:*
+        version: link:../../packages/arc
       '@settlekit/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@settlekit/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@settlekit/discord':
         specifier: workspace:*
         version: link:../../packages/discord
@@ -193,6 +205,9 @@ importers:
       '@settlekit/payments':
         specifier: workspace:*
         version: link:../../packages/payments
+      '@settlekit/persistence':
+        specifier: workspace:*
+        version: link:../../packages/persistence
       next:
         specifier: ^14.2.5
         version: 14.2.35(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -431,6 +446,9 @@ importers:
       '@settlekit/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@settlekit/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@settlekit/delivery':
         specifier: workspace:*
         version: link:../../packages/delivery
@@ -455,6 +473,9 @@ importers:
       '@settlekit/payments':
         specifier: workspace:*
         version: link:../../packages/payments
+      '@settlekit/persistence':
+        specifier: workspace:*
+        version: link:../../packages/persistence
       '@settlekit/saas':
         specifier: workspace:*
         version: link:../../packages/saas
@@ -1239,6 +1260,76 @@ importers:
       '@settlekit/common':
         specifier: workspace:*
         version: link:../common
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
+  packages/persistence:
+    dependencies:
+      '@settlekit/agent-services':
+        specifier: workspace:*
+        version: link:../agent-services
+      '@settlekit/api-keys':
+        specifier: workspace:*
+        version: link:../api-keys
+      '@settlekit/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@settlekit/bundles':
+        specifier: workspace:*
+        version: link:../bundles
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      '@settlekit/coupons':
+        specifier: workspace:*
+        version: link:../coupons
+      '@settlekit/database':
+        specifier: workspace:*
+        version: link:../database
+      '@settlekit/disputes':
+        specifier: workspace:*
+        version: link:../disputes
+      '@settlekit/dunning':
+        specifier: workspace:*
+        version: link:../dunning
+      '@settlekit/entitlements':
+        specifier: workspace:*
+        version: link:../entitlements
+      '@settlekit/escrow':
+        specifier: workspace:*
+        version: link:../escrow
+      '@settlekit/file-delivery':
+        specifier: workspace:*
+        version: link:../file-delivery
+      '@settlekit/invoices':
+        specifier: workspace:*
+        version: link:../invoices
+      '@settlekit/license-keys':
+        specifier: workspace:*
+        version: link:../license-keys
+      '@settlekit/marketplace-core':
+        specifier: workspace:*
+        version: link:../marketplace-core
+      '@settlekit/payments':
+        specifier: workspace:*
+        version: link:../payments
+      '@settlekit/payouts':
+        specifier: workspace:*
+        version: link:../payouts
+      '@settlekit/refunds':
+        specifier: workspace:*
+        version: link:../refunds
+      '@settlekit/saas':
+        specifier: workspace:*
+        version: link:../saas
     devDependencies:
       '@types/node':
         specifier: ^20.14.0

@@ -56,18 +56,18 @@ export const dunningEmailJob: Job = {
     let processed = 0;
     let failed = 0;
 
-    for (const subscription of ctx.stores.subscriptions.all()) {
+    for (const subscription of await ctx.stores.allSubscriptions()) {
       if (!DELINQUENT.includes(subscription.status)) {
         // No longer delinquent — reset the sequence for any future lapse.
-        ctx.stores.dunningAttempts.delete(subscription.id);
+        await ctx.stores.clearDunningAttempt(subscription.id);
         continue;
       }
 
-      const attempt = (ctx.stores.dunningAttempts.get(subscription.id) ?? 0) + 1;
+      const attempt = ((await ctx.stores.getDunningAttempt(subscription.id)) ?? 0) + 1;
       const key = `${subscription.id}:${attempt}`;
-      if (ctx.stores.sentDunningEmails.has(key)) continue;
+      if (await ctx.stores.hasSentEmail("dunning", key)) continue;
 
-      const customer = resolveCustomer(ctx, subscription.customerId);
+      const customer = await resolveCustomer(ctx, subscription.customerId);
       if (!customer) {
         ctx.logger.warn("dunning email skipped; no customer contact on record", {
           subscriptionId: subscription.id,
@@ -76,7 +76,7 @@ export const dunningEmailJob: Job = {
         continue;
       }
 
-      const merchant = resolveMerchant(ctx, subscription.organizationId);
+      const merchant = await resolveMerchant(ctx, subscription.organizationId);
 
       try {
         const { html, text } = buildBody(customer, subscription, attempt);
@@ -93,8 +93,8 @@ export const dunningEmailJob: Job = {
           ],
         });
 
-        ctx.stores.sentDunningEmails.add(key);
-        ctx.stores.dunningAttempts.set(subscription.id, attempt);
+        await ctx.stores.markEmailSent("dunning", key);
+        await ctx.stores.setDunningAttempt(subscription.id, attempt);
         processed += 1;
         ctx.logger.info("dunning email sent", {
           subscriptionId: subscription.id,

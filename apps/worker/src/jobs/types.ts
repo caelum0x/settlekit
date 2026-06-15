@@ -13,13 +13,13 @@ import type { GitHubApi } from "@settlekit/github";
 import type { DiscordApi } from "@settlekit/discord";
 import type { EmailClient } from "@settlekit/notifications";
 import type { WorkerConfig } from "../config.js";
-import type { WorkerStores } from "../stores.js";
+import type { WorkerStore } from "../stores.js";
 import type { Logger } from "../logger.js";
 
 /** Everything a job needs to do real work, assembled once at boot. */
 export interface JobContext {
   config: WorkerConfig;
-  stores: WorkerStores;
+  stores: WorkerStore;
   logger: Logger;
   runner: DeliveryRunner;
   clients: DeliveryClients;

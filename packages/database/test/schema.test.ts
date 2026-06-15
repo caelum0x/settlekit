@@ -115,6 +115,21 @@ const EXPECTED_TABLE_NAMES = [
   "risk_profiles",
   "agent_reputations",
   "download_grants",
+  "coupons",
+  "coupon_redemptions",
+  "invoices",
+  "refunds",
+  "dunning_states",
+  "disputes",
+  "payouts",
+  "auth_accounts",
+  "auth_sessions",
+  "auth_magic_links",
+  "auth_password_credentials",
+  "worker_delivery_queue",
+  "worker_webhook_jobs",
+  "worker_email_ledger",
+  "worker_dunning_attempts",
 ] as const;
 
 describe("schema table coverage", () => {

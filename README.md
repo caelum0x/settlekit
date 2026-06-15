@@ -70,7 +70,8 @@ settlekit/
     ├── arc/          Arc settlement + USDC chain reads
     ├── circle/       Circle Gateway / x402 payment rails
     ├── x402/         x402 paid-API middleware
-    ├── database/     Repositories + schema
+    ├── database/     drizzle schema, migrations, doc codec
+    ├── persistence/  Shared Postgres stores (used by api · worker · checkout)
     └── …             plus billing, usage, payouts, risk, and more
 ```
 
@@ -191,8 +192,18 @@ and returns a consistent `{ data }` / `{ error }` envelope. The worker
 (`apps/worker`) confirms payments on Arc, runs deliveries, syncs access, sweeps
 renewals, and retries webhooks.
 
-For the full model — universal entitlements, the delivery action flow, package
-layering, and the data model — read [ARCHITECTURE.md](./ARCHITECTURE.md).
+**Persistence.** Set `DATABASE_URL` and every app — API, worker, and the hosted
+checkout — runs on real PostgreSQL through the shared `@settlekit/persistence`
+layer, reading and writing one database. Leave it unset and the same code runs
+on an in-process store with zero infrastructure (local dev / tests). Confirming
+a payment verifies the USDC transfer **on-chain** (against the session's `payTo`
+address and required confirmations) before access is granted whenever Arc is
+configured. Apply migrations with `make db-migrate` (or
+`pnpm --filter @settlekit/database db:migrate`).
+
+For the full model — universal entitlements, the delivery action flow, the
+persistence/dual-backend design, package layering, and the data model — read
+[ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ---
 

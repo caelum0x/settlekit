@@ -21,6 +21,7 @@ import {
   refundPayment,
 } from "@settlekit/payments";
 import { completeSession } from "@settlekit/payments";
+import { X402_SCHEME } from "@settlekit/x402";
 import type { AppEnv, AppContext } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
@@ -76,6 +77,43 @@ export function paymentRoutes(): Hono<AppEnv> {
     if (!payment) throw notFound("payment not found", { id });
 
     const body = await parseBody(c, confirmSchema);
+
+    const session = await ctx.checkouts.findById(payment.checkoutSessionId);
+    if (!session) throw conflict("checkout session vanished", { id: payment.checkoutSessionId });
+
+    // When Arc settlement is configured, verify the transfer ON-CHAIN before
+    // confirming an Arc-network payment: the tx must have moved at least the
+    // invoiced USDC to the session's payTo address with enough confirmations.
+    // This prevents a caller from settling a session with an arbitrary hash.
+    // (Non-Arc networks / unconfigured Arc fall through to the recorded count.)
+    if (ctx.arcVerifier && payment.network === "arc") {
+      const verification = await ctx.arcVerifier(
+        {
+          txHash: body.txHash,
+          from: "",
+          amount: session.amount.amount,
+          network: payment.network,
+          nonce: "",
+        },
+        {
+          scheme: X402_SCHEME,
+          amount: session.amount.amount,
+          asset: session.amount.currency,
+          network: payment.network,
+          payTo: session.payToAddress,
+          productId: "",
+          resource: `checkout_session:${session.id}`,
+          nonce: "",
+        },
+      );
+      if (!verification.ok) {
+        throw validationError(`on-chain payment verification failed: ${verification.reason ?? "unverified"}`, {
+          paymentId: id,
+          txHash: body.txHash,
+        });
+      }
+    }
+
     const confirmed = confirmPayment(
       payment,
       body.txHash,
@@ -85,8 +123,6 @@ export function paymentRoutes(): Hono<AppEnv> {
     const savedPayment = await ctx.payments.save(confirmed);
 
     // Complete the session (idempotent) and grant entitlements for each product.
-    const session = await ctx.checkouts.findById(payment.checkoutSessionId);
-    if (!session) throw conflict("checkout session vanished", { id: payment.checkoutSessionId });
     if (session.status === "open") {
       await ctx.checkouts.save(completeSession(session));
     }

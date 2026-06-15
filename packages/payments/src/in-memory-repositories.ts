@@ -88,6 +88,13 @@ export class InMemoryPaymentRepository implements PaymentRepository {
     return null;
   }
 
+  async findConfirmedByOrganization(organizationId: string): Promise<Payment[]> {
+    const matches = [...this.store.values()].filter(
+      (p) => p.organizationId === organizationId && p.status === "confirmed",
+    );
+    return newestFirst(matches).map(clone);
+  }
+
   size(): number {
     return this.store.size;
   }

@@ -9,13 +9,11 @@
  *   GET  /v1/payouts/balance?organizationId=   available balance for an org
  *
  * Available balance is computed from the organization's confirmed payments
- * minus prior (pending or paid) payouts. The payments repository exposes no
- * list-by-organization query, so confirmed payments are passed as an empty set
- * and the balance reflects prior payouts only (zero when there is no data).
+ * (via `PaymentRepository.findConfirmedByOrganization`) minus prior (pending or
+ * paid) payouts.
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import type { Payment } from "@settlekit/common";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
@@ -40,27 +38,20 @@ const failSchema = z.object({
   reason: z.string().min(1).optional(),
 });
 
-/**
- * Confirmed payments backing an organization's balance. The payments repository
- * has no list-by-organization query, so this returns an empty set; balances
- * therefore reflect prior payouts only.
- */
-function confirmedPaymentsForOrg(_organizationId: string): readonly Payment[] {
-  return [];
-}
-
 export function payoutRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
   app.post("/", async (c) => {
     const body = await parseBody(c, createSchema);
+    const ctx = c.get("ctx");
+    const payments = await ctx.payments.findConfirmedByOrganization(body.organizationId);
     const payout = unwrapResult(
-      await c.get("ctx").payouts.create({
+      await ctx.payouts.create({
         organizationId: body.organizationId,
         walletAddress: body.walletAddress,
         amount: body.amount,
         network: body.network,
-        payments: confirmedPaymentsForOrg(body.organizationId),
+        payments,
       }),
     );
     return created(c, payout);
@@ -77,9 +68,9 @@ export function payoutRoutes(): Hono<AppEnv> {
 
   app.get("/balance", async (c) => {
     const organizationId = c.req.query("organizationId") ?? "";
-    const balance = await c
-      .get("ctx")
-      .payouts.availableBalance(organizationId, confirmedPaymentsForOrg(organizationId));
+    const ctx = c.get("ctx");
+    const payments = await ctx.payments.findConfirmedByOrganization(organizationId);
+    const balance = await ctx.payouts.availableBalance(organizationId, payments);
     return data(c, balance);
   });
 

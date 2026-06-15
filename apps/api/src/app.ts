@@ -30,6 +30,7 @@ import { saasRoutes } from "./routes/saas.js";
 import { bundleRoutes } from "./routes/bundles.js";
 import { deliveryRunRoutes, deliveryActionRoutes } from "./routes/delivery.js";
 import { agentServiceRoutes } from "./routes/agent-services.js";
+import { marketplaceRoutes } from "./routes/marketplace.js";
 import { escrowRoutes } from "./routes/escrow.js";
 import { couponRoutes } from "./routes/coupons.js";
 import { invoiceRoutes } from "./routes/invoices.js";
@@ -95,6 +96,9 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
 
   // ---- Agent services (plan §26) -----------------------------------------
   v1.route("/agent-services", agentServiceRoutes());
+
+  // ---- Marketplace (plan §11) --------------------------------------------
+  v1.route("/marketplace", marketplaceRoutes());
 
   // ---- Escrow (plan §26) -------------------------------------------------
   v1.route("/escrow", escrowRoutes());

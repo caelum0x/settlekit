@@ -16,6 +16,9 @@ export * from "./agents.js";
 export * from "./escrow.js";
 export * from "./marketplace.js";
 export * from "./file_delivery.js";
+export * from "./commerce.js";
+export * from "./auth.js";
+export * from "./worker.js";
 
 import {
   organizations,
@@ -82,6 +85,27 @@ import {
 } from "./escrow.js";
 import { marketplaceListings, riskProfiles, agentReputations } from "./marketplace.js";
 import { downloadGrants } from "./file_delivery.js";
+import {
+  coupons,
+  couponRedemptions,
+  invoices,
+  refunds,
+  dunningStates,
+  disputes,
+  payouts,
+} from "./commerce.js";
+import {
+  authAccounts,
+  authSessions,
+  authMagicLinks,
+  authPasswordCredentials,
+} from "./auth.js";
+import {
+  workerDeliveryQueue,
+  workerWebhookJobs,
+  workerEmailLedger,
+  workerDunningAttempts,
+} from "./worker.js";
 
 /**
  * The schema object handed to `drizzle(client, { schema })`. Keys are the
@@ -140,6 +164,21 @@ export const schema = {
   riskProfiles,
   agentReputations,
   downloadGrants,
+  coupons,
+  couponRedemptions,
+  invoices,
+  refunds,
+  dunningStates,
+  disputes,
+  payouts,
+  authAccounts,
+  authSessions,
+  authMagicLinks,
+  authPasswordCredentials,
+  workerDeliveryQueue,
+  workerWebhookJobs,
+  workerEmailLedger,
+  workerDunningAttempts,
 } as const;
 
 /** The static type of the SettleKit schema object. */

@@ -15,7 +15,10 @@ import type { DiscordApi } from "@settlekit/discord";
 import type { HttpSender } from "@settlekit/webhooks";
 import { createEmailClient, type EmailTransport } from "@settlekit/notifications";
 import type { WorkerConfig } from "./config.js";
-import { WorkerStores } from "./stores.js";
+import { createDb } from "@settlekit/database";
+import { InMemoryWorkerStore, type WorkerStore } from "./stores.js";
+import { PgWorkerStore } from "./db/pg-worker-store.js";
+import { PgLicenseStore, PgApiKeyStore, PgGrantStore } from "@settlekit/persistence";
 import { createLogger, type Logger } from "./logger.js";
 import { createDeliveryClients } from "./wiring/delivery-clients.js";
 import { Scheduler, type ScheduledJob } from "./scheduler.js";
@@ -38,7 +41,7 @@ export interface RuntimeDeps {
   githubApi: GitHubApi;
   discordApi: DiscordApi;
   /** Pre-built stores (defaults to a fresh in-memory layer). */
-  stores?: WorkerStores;
+  stores?: WorkerStore;
   /** Override the Arc RPC transport (tests inject canned receipts). */
   arcRpc?: ArcRpc;
   /** Override the email transport (tests inject an in-memory transport). */
@@ -54,15 +57,20 @@ export interface RuntimeDeps {
 /** A fully-assembled runtime: the job context plus its scheduler. */
 export interface WorkerRuntime {
   ctx: JobContext;
-  stores: WorkerStores;
+  stores: WorkerStore;
   arc: ArcClient;
   scheduler: Scheduler;
   logger: Logger;
 }
 
 /** Build the {@link JobContext} (without a scheduler). Useful for tests. */
-export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: WorkerStores; arc: ArcClient; logger: Logger } {
-  const stores = deps.stores ?? new WorkerStores();
+export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: WorkerStore; arc: ArcClient; logger: Logger } {
+  // Postgres-backed shared store when DATABASE_URL is configured (and no store
+  // was injected); the process-local in-memory store otherwise. The same db
+  // handle backs the delivery stores so worker-issued license/API keys/file
+  // grants persist to the tables the API reads.
+  const db = !deps.stores && deps.config.database ? createDb(deps.config.database.url) : null;
+  const stores = deps.stores ?? (db ? new PgWorkerStore(db) : new InMemoryWorkerStore());
   const logger = deps.logger ?? createLogger({ app: "worker" });
   const now = deps.now ?? (() => new Date());
 
@@ -81,6 +89,13 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     githubApi: deps.githubApi,
     discordApi: deps.discordApi,
     webhookSigningSecret: deps.config.webhookSigningSecret,
+    ...(db
+      ? {
+          licenseStore: new PgLicenseStore(db),
+          apiKeyStore: new PgApiKeyStore(db),
+          fileGrantStore: new PgGrantStore(db),
+        }
+      : {}),
     ...(deps.emailTransport ? { emailTransport: deps.emailTransport } : {}),
     ...(deps.webhookSender ? { webhookSender: deps.webhookSender } : {}),
   });

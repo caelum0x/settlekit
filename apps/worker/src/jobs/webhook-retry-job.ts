@@ -15,7 +15,7 @@ import type { Job, JobContext, JobResult } from "./types.js";
 export const webhookRetryJob: Job = {
   name: "webhook-retry",
   async run(ctx: JobContext): Promise<JobResult> {
-    const pending = ctx.stores.pendingWebhookJobs();
+    const pending = await ctx.stores.pendingWebhookJobs();
     let processed = 0;
     let failed = 0;
 
@@ -29,11 +29,11 @@ export const webhookRetryJob: Job = {
         processed += 1;
 
         if (outcome.ok) {
-          ctx.stores.webhookJobs.upsert({ ...job, status: "delivered", attempts });
+          await ctx.stores.upsertWebhookJob({ ...job, status: "delivered", attempts });
           ctx.logger.info("webhook redelivered", { webhookJobId: job.id, attempts });
         } else {
           failed += 1;
-          ctx.stores.webhookJobs.upsert({ ...job, status: "failed", attempts });
+          await ctx.stores.upsertWebhookJob({ ...job, status: "failed", attempts });
           const last = outcome.attempts.at(-1);
           ctx.logger.warn("webhook redelivery exhausted", {
             webhookJobId: job.id,
@@ -43,7 +43,7 @@ export const webhookRetryJob: Job = {
         }
       } catch (error) {
         failed += 1;
-        ctx.stores.webhookJobs.upsert({ ...job, status: "failed", attempts: job.attempts + 1 });
+        await ctx.stores.upsertWebhookJob({ ...job, status: "failed", attempts: job.attempts + 1 });
         ctx.logger.error("webhook redelivery threw", {
           webhookJobId: job.id,
           error: errorMessage(error),

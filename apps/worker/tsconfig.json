@@ -8,6 +8,8 @@
   },
   "references": [
     { "path": "../../packages/common" },
+    { "path": "../../packages/database" },
+    { "path": "../../packages/persistence" },
     { "path": "../../packages/payments" },
     { "path": "../../packages/arc" },
     { "path": "../../packages/webhooks" },

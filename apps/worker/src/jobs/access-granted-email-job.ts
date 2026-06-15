@@ -146,13 +146,13 @@ function entitlementFor(item: QueuedDeliveryRun, instruction: AccessInstruction,
   };
 }
 
-function buildArgs(item: QueuedDeliveryRun, customer: Customer, ctx: JobContext, now: Date): AccessGrantedArgs {
+async function buildArgs(item: QueuedDeliveryRun, customer: Customer, ctx: JobContext, now: Date): Promise<AccessGrantedArgs> {
   const succeeded = item.run.actionRuns.filter((r) => r.status === "succeeded");
   const entitlements = succeeded.map((run) => {
     const instruction = instructionFor(run);
     return { entitlement: entitlementFor(item, instruction, now), instruction };
   });
-  const merchant = resolveMerchant(ctx, item.organizationId);
+  const merchant = await resolveMerchant(ctx, item.organizationId);
   return {
     customer,
     entitlements,
@@ -167,15 +167,15 @@ export const accessGrantedEmailJob: Job = {
     let processed = 0;
     let failed = 0;
 
-    const succeededRuns = ctx.stores.deliveryRuns.filter((q) => q.run.status === "succeeded");
+    const succeededRuns = await ctx.stores.succeededDeliveryRuns();
 
     for (const item of succeededRuns) {
-      if (ctx.stores.sentAccessEmails.has(item.run.id)) continue;
+      if (await ctx.stores.hasSentEmail("access_granted", item.run.id)) continue;
 
       // Prefer the stored customer contact; fall back to the email captured on
       // the queued run from the original checkout.
       const customer =
-        resolveCustomer(ctx, item.customerId) ??
+        (await resolveCustomer(ctx, item.customerId)) ??
         (item.customerEmail
           ? ({
               id: item.customerId,
@@ -194,10 +194,10 @@ export const accessGrantedEmailJob: Job = {
         continue;
       }
 
-      const args = buildArgs(item, customer, ctx, now);
+      const args = await buildArgs(item, customer, ctx, now);
       if (args.entitlements.length === 0) {
         // Nothing actionable to summarize; mark sent so we don't re-scan it.
-        ctx.stores.sentAccessEmails.add(item.run.id);
+        await ctx.stores.markEmailSent("access_granted", item.run.id);
         continue;
       }
 
@@ -216,7 +216,7 @@ export const accessGrantedEmailJob: Job = {
           ],
         });
 
-        ctx.stores.sentAccessEmails.add(item.run.id);
+        await ctx.stores.markEmailSent("access_granted", item.run.id);
         processed += 1;
         ctx.logger.info("access-granted email sent", {
           deliveryRunId: item.run.id,

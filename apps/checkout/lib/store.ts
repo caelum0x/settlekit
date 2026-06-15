@@ -1,26 +1,23 @@
 /**
  * Server-side data layer for the checkout app.
  *
- * Backed by the real @settlekit/payments in-memory repositories plus the
- * pricing catalog needed to render order summaries. Seeded with live demo
- * products + open checkout sessions so the hosted pages render against real
- * domain objects (real CheckoutSession / Payment / Product / Price records).
+ * Delegates to a {@link CheckoutBackend} selected by `DATABASE_URL`:
+ *   - Postgres: reads the REAL catalog + sessions the API/dashboard persisted
+ *     and records/settles payments into the shared Postgres tables.
+ *   - Seed: an in-process catalog for standalone local dev.
  *
- * A single module-level singleton survives across route-handler invocations
- * within a server process (Next.js caches the module), giving the API a
- * consistent store. State transitions go exclusively through @settlekit
- * domain functions — this module never mutates a domain object in place.
+ * Every state transition goes through the real `@settlekit/payments` lifecycle
+ * functions; this module never mutates a domain object in place. The confirmed
+ * payment and delivered access for a session are DERIVED on read (via
+ * `findByCheckoutSessionId` + deterministic `materializeDelivery`) so results
+ * are correct across multiple server instances backed by one database.
  */
 import {
-  createCheckoutSession,
   recordPendingPayment,
   confirmPayment,
   completeSession,
   expireSession,
   isSessionExpired,
-  InMemoryCheckoutRepository,
-  InMemoryPaymentRepository,
-  type PricedLineItem,
 } from "@settlekit/payments";
 import {
   money,
@@ -31,107 +28,18 @@ import {
   type Product,
 } from "@settlekit/common";
 
-import { seedCatalog, type SeededProduct } from "./seed";
+import { getBackend, type CheckoutBackend } from "./backend";
 import { materializeDelivery } from "./deliver";
+import { verifyOnChainPayment } from "./arc";
 import type { DeliveredAccess } from "./types";
 
-/** The full state the data layer holds. */
-interface StoreState {
-  readonly checkouts: InMemoryCheckoutRepository;
-  readonly payments: InMemoryPaymentRepository;
-  /** priceId -> Price. */
-  readonly prices: Map<string, Price>;
-  /** productId -> Product. */
-  readonly products: Map<string, Product>;
-  /** productId -> delivery action that fulfills it. */
-  readonly delivery: Map<string, DeliveryAction>;
-  /** merchantId -> display name. */
-  readonly merchants: Map<string, string>;
-  /** sessionId -> confirmed payment id (for receipt lookup). */
-  readonly sessionPayment: Map<string, string>;
-  /** Ordered seeded session ids for the demo index page. */
-  readonly seededSessionIds: string[];
-  /** sessionId -> materialized delivered access (computed once at confirm). */
-  readonly delivered: Map<string, DeliveredAccess[]>;
-}
-
-let singleton: StoreState | undefined;
-
-/** Lazily build + seed the store on first access. */
-function state(): StoreState {
-  if (singleton) return singleton;
-
-  const checkouts = new InMemoryCheckoutRepository();
-  const payments = new InMemoryPaymentRepository();
-  const prices = new Map<string, Price>();
-  const products = new Map<string, Product>();
-  const delivery = new Map<string, DeliveryAction>();
-  const merchants = new Map<string, string>();
-  const sessionPayment = new Map<string, string>();
-  const seededSessionIds: string[] = [];
-  const delivered = new Map<string, DeliveredAccess[]>();
-
-  const seeded = seedCatalog();
-  for (const item of seeded.products) {
-    products.set(item.product.id, item.product);
-    prices.set(item.price.id, item.price);
-    delivery.set(item.product.id, item.deliveryAction);
-  }
-  for (const [id, name] of Object.entries(seeded.merchants)) {
-    merchants.set(id, name);
-  }
-
-  singleton = {
-    checkouts,
-    payments,
-    prices,
-    products,
-    delivery,
-    merchants,
-    sessionPayment,
-    seededSessionIds,
-    delivered,
-  };
-
-  // Seed open sessions (one per demo product) using the real domain factory.
-  for (const item of seeded.products) {
-    const session = createSeedSession(item);
-    s_save(singleton, session);
-    seededSessionIds.push(session.id);
-  }
-
-  return singleton;
-}
-
-/** Build a real open checkout session for a seeded product (pure factory). */
-function createSeedSession(item: SeededProduct): CheckoutSession {
-  const items: PricedLineItem[] = [
-    {
-      lineItem: {
-        productId: item.product.id,
-        priceId: item.price.id,
-        quantity: 1,
-      },
-      price: item.price,
-    },
-  ];
-  return createCheckoutSession({
-    organizationId: item.product.organizationId,
-    merchantId: item.product.merchantId,
-    items,
-    payToAddress: item.payToAddress,
-    network: item.network,
-    ttlDays: 365,
-  });
-}
-
-/**
- * Persist a session synchronously. The in-memory repository's `save` writes to
- * its backing Map synchronously and returns a resolved promise; we intentionally
- * don't await during module-init seeding (the write has already landed).
- */
-function s_save(s: StoreState, session: CheckoutSession): void {
-  void s.checkouts.save(session);
+/** The confirmed payment for a session, derived from the payment repository. */
+async function confirmedPaymentForSession(
+  backend: CheckoutBackend,
+  sessionId: string,
+): Promise<Payment | undefined> {
+  const payments = await backend.payments.findByCheckoutSessionId(sessionId);
+  return payments.find((p) => p.status === "confirmed");
 }
 
 export interface ResolvedSession {
@@ -147,20 +55,21 @@ export interface ResolvedSession {
 export async function getResolvedSession(
   sessionId: string,
 ): Promise<ResolvedSession | undefined> {
-  const s = state();
-  const session = await s.checkouts.findById(sessionId);
+  const backend = getBackend();
+  const session = await backend.checkouts.findById(sessionId);
   if (!session) return undefined;
 
   const line = session.lineItems[0];
   const productId = line?.productId;
-  if (!productId) return undefined;
-  const product = s.products.get(productId);
-  const price = line ? s.prices.get(line.priceId) : undefined;
-  const deliveryAction = s.delivery.get(productId);
-  if (!product || !price || !deliveryAction) return undefined;
+  if (!productId || !line) return undefined;
+  const product = await backend.findProduct(productId);
+  const price = await backend.findPrice(line.priceId);
+  if (!product || !price) return undefined;
+  const deliveryAction = backend.deliveryActionForProduct(product);
+  if (!deliveryAction) return undefined;
 
   const expired = isSessionExpired(session) || session.status === "expired";
-  const merchantName = s.merchants.get(session.merchantId) ?? "Merchant";
+  const merchantName = await backend.merchantName(session.merchantId);
 
   return { session, product, price, deliveryAction, merchantName, expired };
 }
@@ -170,14 +79,14 @@ export async function saveCollectedFields(
   sessionId: string,
   fields: Record<string, string>,
 ): Promise<CheckoutSession | undefined> {
-  const s = state();
-  const session = await s.checkouts.findById(sessionId);
+  const backend = getBackend();
+  const session = await backend.checkouts.findById(sessionId);
   if (!session) return undefined;
   const next: CheckoutSession = {
     ...session,
     collectedFields: { ...session.collectedFields, ...fields },
   };
-  await s.checkouts.save(next);
+  await backend.checkouts.save(next);
   return next;
 }
 
@@ -194,77 +103,83 @@ export async function recordAndConfirm(
   sessionId: string,
   txHash: string,
 ): Promise<ConfirmResult> {
-  const s = state();
-  const session = await s.checkouts.findById(sessionId);
+  const backend = getBackend();
+  const session = await backend.checkouts.findById(sessionId);
   if (!session) throw new Error("session_not_found");
   if (session.status === "completed") {
-    const existingId = s.sessionPayment.get(sessionId);
-    const existing = existingId ? await s.payments.findById(existingId) : undefined;
+    const existing = await confirmedPaymentForSession(backend, sessionId);
     if (existing) return { session, payment: existing };
   }
+
+  // Verify the transfer on-chain when Arc is configured. A failed verification
+  // throws (the route surfaces it as a 409) so a bogus hash never settles a
+  // session; when Arc is unconfigured, `verification` is null and we record a
+  // single confirmation.
+  const amount = money(session.amount.amount, session.amount.currency);
+  const verification = await verifyOnChainPayment({
+    txHash,
+    payTo: session.payToAddress,
+    amount,
+  });
+  if (verification && !verification.ok) {
+    throw new Error(verification.reason ?? "on-chain payment verification failed");
+  }
+  const confirmations = verification?.confirmations ?? 1;
+  const minConfirmations = verification?.minConfirmations ?? 1;
 
   const pending = recordPendingPayment({
     organizationId: session.organizationId,
     checkoutSessionId: session.id,
     customerId: session.customerId ?? `cus_${session.id}`,
-    amount: money(session.amount.amount, session.amount.currency),
+    amount,
     network: session.network,
     txHash,
   });
-  await s.payments.save(pending);
+  await backend.payments.save(pending);
 
-  // One confirmation observed → settle.
-  const confirmed = confirmPayment(pending, txHash, 1);
-  await s.payments.save(confirmed);
+  // Settle at the real observed confirmation count (>= the configured minimum).
+  const confirmed = confirmPayment(pending, txHash, confirmations, minConfirmations);
+  await backend.payments.save(confirmed);
 
   const completed = completeSession(session);
-  await s.checkouts.save(completed);
-  s.sessionPayment.set(sessionId, confirmed.id);
-
-  // Materialize + cache delivered access once, so the success page is stable.
-  const line = completed.lineItems[0];
-  const productId = line?.productId;
-  const product = productId ? s.products.get(productId) : undefined;
-  const action = productId ? s.delivery.get(productId) : undefined;
-  if (product && action) {
-    const access = materializeDelivery(
-      confirmed,
-      action,
-      product,
-      completed.collectedFields,
-    );
-    s.delivered.set(sessionId, access);
-  }
+  await backend.checkouts.save(completed);
 
   return { session: completed, payment: confirmed };
 }
 
-/** Cached delivered access for a completed session. */
+/** Recompute delivered access for a completed session (deterministic). */
 export async function getDeliveredAccess(
   sessionId: string,
 ): Promise<DeliveredAccess[]> {
-  return state().delivered.get(sessionId) ?? [];
+  const backend = getBackend();
+  const session = await backend.checkouts.findById(sessionId);
+  if (!session || session.status !== "completed") return [];
+  const payment = await confirmedPaymentForSession(backend, sessionId);
+  if (!payment) return [];
+
+  const line = session.lineItems[0];
+  const product = line?.productId ? await backend.findProduct(line.productId) : undefined;
+  const action = product ? backend.deliveryActionForProduct(product) : undefined;
+  if (!product || !action) return [];
+  return materializeDelivery(payment, action, product, session.collectedFields);
 }
 
 /** Look up the confirmed payment for a completed session. */
 export async function getConfirmedPayment(
   sessionId: string,
 ): Promise<Payment | undefined> {
-  const s = state();
-  const id = s.sessionPayment.get(sessionId);
-  if (!id) return undefined;
-  return (await s.payments.findById(id)) ?? undefined;
+  return confirmedPaymentForSession(getBackend(), sessionId);
 }
 
 /** Force a session into the expired state (used by the expired flow). */
 export async function markExpired(sessionId: string): Promise<void> {
-  const s = state();
-  const session = await s.checkouts.findById(sessionId);
+  const backend = getBackend();
+  const session = await backend.checkouts.findById(sessionId);
   if (!session || session.status !== "open") return;
-  await s.checkouts.save(expireSession(session));
+  await backend.checkouts.save(expireSession(session));
 }
 
-/** Ids of the seeded demo sessions, for the index/landing page. */
+/** Ids of the seeded demo sessions, for the index/landing page (empty in DB mode). */
 export function listSeededSessionIds(): string[] {
-  return [...state().seededSessionIds];
+  return getBackend().seededSessionIds();
 }

@@ -30,6 +30,11 @@ export interface PaymentRepository extends Repository<Payment> {
   findByCheckoutSessionId(checkoutSessionId: string): Promise<Payment[]>;
   /** Look up a payment by its on-chain transaction hash, or null. */
   findByTxHash(txHash: string): Promise<Payment | null>;
+  /**
+   * All confirmed (settled) payments for an organization, newest first. Backs
+   * merchant balance computation for payouts.
+   */
+  findConfirmedByOrganization(organizationId: string): Promise<Payment[]>;
 }
 
 export interface SubscriptionRepository extends Repository<Subscription> {
