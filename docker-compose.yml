@@ -1,0 +1,135 @@
+# SettleKit full-stack local/dev deployment.
+# Usage: cp .env.example .env && docker compose up --build
+
+name: settlekit
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: settlekit
+      POSTGRES_PASSWORD: settlekit
+      POSTGRES_DB: settlekit
+    ports:
+      - "5432:5432"
+    volumes:
+      - settlekit_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U settlekit -d settlekit"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "8787"
+    ports:
+      - "8787:8787"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: apps/worker/Dockerfile
+    restart: unless-stopped
+    env_file: .env
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  dashboard:
+    build:
+      context: .
+      dockerfile: Dockerfile.next
+      args:
+        APP_DIR: dashboard
+        APP_PKG: "@settlekit/dashboard"
+        APP_PORT: "3001"
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "3001"
+    ports:
+      - "3001:3001"
+    depends_on:
+      - api
+
+  marketplace:
+    build:
+      context: .
+      dockerfile: Dockerfile.next
+      args:
+        APP_DIR: marketplace
+        APP_PKG: "@settlekit/marketplace"
+        APP_PORT: "3002"
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "3002"
+    ports:
+      - "3002:3002"
+    depends_on:
+      - api
+
+  checkout:
+    build:
+      context: .
+      dockerfile: Dockerfile.next
+      args:
+        APP_DIR: checkout
+        APP_PKG: "@settlekit/checkout-app"
+        APP_PORT: "3003"
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "3003"
+    ports:
+      - "3003:3003"
+    depends_on:
+      - api
+
+  admin:
+    build:
+      context: .
+      dockerfile: Dockerfile.next
+      args:
+        APP_DIR: admin
+        APP_PKG: "@settlekit/admin"
+        APP_PORT: "3004"
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "3004"
+    ports:
+      - "3004:3004"
+    depends_on:
+      - api
+
+  docs:
+    build:
+      context: .
+      dockerfile: Dockerfile.next
+      args:
+        APP_DIR: docs
+        APP_PKG: "@settlekit/docs-app"
+        APP_PORT: "3005"
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PORT: "3005"
+    ports:
+      - "3005:3005"
+    depends_on:
+      - api
+
+volumes:
+  settlekit_pgdata:

@@ -1,0 +1,36 @@
+# Dependencies (reinstalled inside the image with --frozen-lockfile)
+node_modules
+**/node_modules
+
+# Build output (rebuilt inside the image)
+dist
+**/dist
+.next
+**/.next
+**/*.tsbuildinfo
+
+# Local env + secrets
+.env
+.env.*
+!.env.example
+
+# VCS + tooling
+.git
+.gitignore
+.github
+.workflows
+
+# Editor / OS noise
+.vscode
+.idea
+.DS_Store
+
+# Docs / meta not needed at build time
+README.md
+ARCHITECTURE.md
+CONTRIBUTING.md
+plan.md
+
+# Test artifacts / coverage
+coverage
+**/coverage

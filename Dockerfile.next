@@ -1,0 +1,56 @@
+# syntax=docker/dockerfile:1
+# Shared, ARG-parameterised image for the SettleKit Next.js apps
+# (dashboard, checkout, marketplace, admin, docs).
+#
+# Build from the monorepo root, selecting the app + its workspace name + port:
+#   docker build -f Dockerfile.next \
+#     --build-arg APP_DIR=dashboard \
+#     --build-arg APP_PKG=@settlekit/dashboard \
+#     --build-arg APP_PORT=3001 .
+#
+# APP_DIR  — directory under apps/ (e.g. "dashboard")
+# APP_PKG  — pnpm workspace package name (e.g. "@settlekit/dashboard")
+# APP_PORT — port the app listens on inside the container
+
+ARG APP_PORT=3000
+
+# ---- Base: Node 20 + pnpm via Corepack -------------------------------------
+FROM node:20-alpine AS base
+ENV PNPM_HOME=/pnpm
+ENV PATH=$PNPM_HOME:$PATH
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN corepack enable
+WORKDIR /app
+
+# ---- Dependencies: install the full workspace (frozen) ---------------------
+FROM base AS deps
+COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
+COPY packages ./packages
+COPY apps ./apps
+RUN pnpm install --frozen-lockfile
+
+# ---- Build: compile workspace package deps, then `next build` --------------
+FROM deps AS build
+ARG APP_DIR
+ARG APP_PKG
+ENV NODE_ENV=production
+# Build the selected app and all its workspace dependencies.
+RUN pnpm --filter "${APP_PKG}..." build
+
+# ---- Runtime: run `next start -p $PORT` ------------------------------------
+FROM base AS runtime
+ARG APP_DIR
+ARG APP_PKG
+ARG APP_PORT
+ENV NODE_ENV=production
+ENV PORT=${APP_PORT}
+ENV APP_DIR=${APP_DIR}
+WORKDIR /app
+
+# Bring the fully built workspace across (Next reads .next + node_modules).
+COPY --from=build /app ./
+
+EXPOSE ${APP_PORT}
+WORKDIR /app/apps/${APP_DIR}
+# `next start -p $PORT` honours the per-app port assigned at build time.
+CMD ["sh", "-c", "next start -p ${PORT}"]
