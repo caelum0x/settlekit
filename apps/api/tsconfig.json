@@ -22,7 +22,10 @@
     { "path": "../../packages/delivery" },
     { "path": "../../packages/agent-services" },
     { "path": "../../packages/escrow" },
-    { "path": "../../packages/webhooks" }
+    { "path": "../../packages/webhooks" },
+    { "path": "../../packages/coupons" },
+    { "path": "../../packages/invoices" },
+    { "path": "../../packages/tax" }
   ],
   "include": ["src/**/*"],
   "exclude": ["dist", "node_modules", "test", "**/*.test.ts"]

@@ -1,35 +1,26 @@
-import { fromBaseUnits, toBaseUnits, type Money } from "@settlekit/common";
+/**
+ * @settlekit/coupons — the discount engine.
+ *
+ * Public API: the {@link Coupon} model + discount types, the pure
+ * {@link applyCoupon}/{@link validateCoupon}/{@link redeemCoupon} functions,
+ * redemption records, the {@link CouponStore} abstraction with a real
+ * {@link InMemoryCouponStore}, and the {@link CouponService} facade.
+ */
+export type {
+  Coupon,
+  CouponDiscount,
+  CouponStatus,
+  CouponRejectionReason,
+  ApplyCouponOptions,
+  ApplyCouponResult,
+} from "./coupon.js";
+export { applyCoupon, validateCoupon, redeemCoupon, normalizeCouponCode } from "./coupon.js";
 
-export type CouponDiscount = { type: "percent"; percentOff: number } | { type: "amount"; amountOff: Money };
+export type { CouponRedemption } from "./redemption.js";
+export { createRedemption, countByCustomer } from "./redemption.js";
 
-export interface Coupon {
-  code: string;
-  discount: CouponDiscount;
-  active: boolean;
-  maxRedemptions?: number;
-  redeemedCount: number;
-}
+export type { CouponStore } from "./store.js";
+export { InMemoryCouponStore } from "./store.js";
 
-export function normalizeCouponCode(code: string): string {
-  return code.trim().toUpperCase().replaceAll(" ", "-");
-}
-
-export function applyCoupon(subtotal: Money, coupon: Coupon): Money {
-  if (!coupon.active) return subtotal;
-  if (coupon.maxRedemptions !== undefined && coupon.redeemedCount >= coupon.maxRedemptions) return subtotal;
-  const subtotalBase = toBaseUnits(subtotal.amount);
-  const discountBase =
-    coupon.discount.type === "percent"
-      ? (subtotalBase * BigInt(coupon.discount.percentOff)) / 100n
-      : toBaseUnits(coupon.discount.amountOff.amount);
-  const next = subtotalBase - discountBase;
-  return { amount: fromBaseUnits(next > 0n ? next : 0n), currency: subtotal.currency };
-}
-
-export function redeemCoupon(coupon: Coupon): Coupon {
-  if (!coupon.active) throw new Error("coupon is inactive");
-  if (coupon.maxRedemptions !== undefined && coupon.redeemedCount >= coupon.maxRedemptions) {
-    throw new Error("coupon redemption limit reached");
-  }
-  return { ...coupon, redeemedCount: coupon.redeemedCount + 1 };
-}
+export type { CreateCouponInput, RedeemContext } from "./service.js";
+export { CouponService } from "./service.js";

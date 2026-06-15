@@ -24,6 +24,8 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Products", href: "/products" },
       { label: "Bundles", href: "/bundles" },
+      { label: "Coupons", href: "/coupons" },
+      { label: "Invoices", href: "/invoices" },
       { label: "Payments", href: "/payments" },
       { label: "Customers", href: "/customers" },
       { label: "Subscriptions", href: "/subscriptions" },

@@ -272,6 +272,60 @@ export interface AnalyticsSummary {
   revenueSeries: { date: string; amount: number }[];
 }
 
+/**
+ * The coupons + invoices APIs serialize money as a DECIMAL STRING amount
+ * (e.g. "55.2075") rather than the minor-unit number used elsewhere in this
+ * dashboard. Format these with `formatMoneyDecimal`.
+ */
+export interface DecimalMoney {
+  amount: string;
+  currency: string;
+}
+
+export type CouponDiscount =
+  | { type: "percent"; percentOff: number }
+  | { type: "amount"; amountOff: DecimalMoney }
+  | { type: "free-trial-days"; days: number };
+
+export interface Coupon {
+  code: string;
+  name?: string;
+  discount: CouponDiscount;
+  currency: string;
+  status: "active" | "archived";
+  startsAt?: string;
+  expiresAt?: string;
+  maxRedemptions?: number;
+  redeemedCount: number;
+  perCustomerLimit?: number;
+  minSubtotal?: DecimalMoney;
+  appliesToProductIds?: string[];
+}
+
+export interface InvoiceLineItem {
+  description: string;
+  quantity: number;
+  unitAmount: DecimalMoney;
+}
+
+export interface Invoice {
+  id: string;
+  number: string;
+  organizationId: string;
+  customerId: string;
+  lineItems: InvoiceLineItem[];
+  subtotal: DecimalMoney;
+  discount?: DecimalMoney;
+  tax?: DecimalMoney;
+  total: DecimalMoney;
+  currency: string;
+  status: "draft" | "open" | "paid" | "void" | "uncollectible";
+  issuedAt?: string;
+  dueAt?: string;
+  paidAt?: string;
+  metadata: Record<string, string>;
+}
+
 export interface OrgSettings {
   orgName: string;
   supportEmail: string;

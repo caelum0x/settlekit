@@ -8,6 +8,7 @@ import type {
   AnalyticsSummary,
   ApiKey,
   Bundle,
+  Coupon,
   CreateProductInput,
   Customer,
   DeliveryLog,
@@ -22,6 +23,7 @@ import type {
   GithubInstallation,
   GithubRepository,
   GithubTeam,
+  Invoice,
   LicenseKey,
   Money,
   OrgSettings,
@@ -37,6 +39,15 @@ import type {
 
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
+
+/**
+ * Discount payload accepted by `POST /v1/coupons`. A fixed-amount discount's
+ * `amountOff` is sent as a decimal string (e.g. "25.00"), matching the API.
+ */
+export type CreateCouponDiscount =
+  | { type: "percent"; percentOff: number }
+  | { type: "amount"; amountOff: string }
+  | { type: "free-trial-days"; days: number };
 
 export interface ApiList<T> {
   data: T[];
@@ -190,6 +201,36 @@ export const api = {
     get: (id: string) => getItem<Bundle>(`/v1/bundles/${id}`),
     create: (name: string, productIds: string[], amount: number) =>
       post<Bundle>("/v1/bundles", { name, productIds, amount }),
+  },
+
+  // ---- Coupons ----
+  coupons: {
+    list: () => getList<Coupon>("/v1/coupons"),
+    get: (code: string) => getItem<Coupon>(`/v1/coupons/${encodeURIComponent(code)}`),
+    create: (input: {
+      code: string;
+      name?: string;
+      // The API encodes a fixed `amount` discount's amountOff as a decimal string.
+      discount: CreateCouponDiscount;
+      maxRedemptions?: number;
+      perCustomerLimit?: number;
+      expiresAt?: string;
+    }) => post<Coupon>("/v1/coupons", input),
+  },
+
+  // ---- Invoices ----
+  invoices: {
+    list: (customerId?: string) =>
+      getList<Invoice>(
+        customerId ? `/v1/invoices?customerId=${encodeURIComponent(customerId)}` : "/v1/invoices",
+      ),
+    get: (id: string) => getItem<Invoice>(`/v1/invoices/${id}`),
+    htmlUrl: (id: string) => `${API_URL}/v1/invoices/${id}.html`,
+    create: (input: {
+      organizationId: string;
+      customerId: string;
+      lineItems?: { description: string; quantity: number; unitAmount: string }[];
+    }) => post<Invoice>("/v1/invoices", input),
   },
 
   // ---- Delivery ----

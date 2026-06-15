@@ -31,6 +31,8 @@ import { bundleRoutes } from "./routes/bundles.js";
 import { deliveryRunRoutes, deliveryActionRoutes } from "./routes/delivery.js";
 import { agentServiceRoutes } from "./routes/agent-services.js";
 import { escrowRoutes } from "./routes/escrow.js";
+import { couponRoutes } from "./routes/coupons.js";
+import { invoiceRoutes } from "./routes/invoices.js";
 
 /** Build the full SettleKit API app. Pass a context to share/isolate state. */
 export function createApp(ctx: AppContext): Hono<AppEnv> {
@@ -87,6 +89,10 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
 
   // ---- Escrow (plan §26) -------------------------------------------------
   v1.route("/escrow", escrowRoutes());
+
+  // ---- Commerce engines: coupons + invoices ------------------------------
+  v1.route("/coupons", couponRoutes());
+  v1.route("/invoices", invoiceRoutes());
 
   app.route("/v1", v1);
 

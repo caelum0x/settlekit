@@ -1,6 +1,6 @@
 // Formatting helpers for money and dates used across the dashboard.
 
-import type { Money } from "./types";
+import type { DecimalMoney, Money } from "./types";
 
 const USDC_DECIMALS = 6;
 const FIAT_DECIMALS = 2;
@@ -35,6 +35,25 @@ export function formatMoneyCompact(money: Money | null | undefined): string {
     maximumFractionDigits: 1,
   }).format(major);
   return `${compact} ${money.currency.toUpperCase()}`;
+}
+
+/**
+ * Format a decimal-string money value (the shape returned by the coupons +
+ * invoices APIs, e.g. `{ amount: "55.2075", currency: "USDC" }`). Unlike
+ * {@link formatMoney} this does NOT treat the amount as minor units.
+ */
+export function formatMoneyDecimal(
+  money: DecimalMoney | null | undefined,
+): string {
+  if (!money) return "—";
+  const value = Number(money.amount);
+  if (Number.isNaN(value)) return `${money.amount} ${money.currency.toUpperCase()}`;
+  const formatted = value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 6,
+  });
+  const symbol = money.currency.toUpperCase();
+  return symbol === "USDC" ? `${formatted} USDC` : `${symbol} ${formatted}`;
 }
 
 export function formatNumber(n: number | null | undefined): string {

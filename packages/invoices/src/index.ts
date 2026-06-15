@@ -1,24 +1,37 @@
-import { addMoney, money, type Money } from "@settlekit/common";
+/**
+ * @settlekit/invoices — real invoicing engine.
+ *
+ * Public API: the {@link Invoice} model + lifecycle transitions
+ * ({@link createInvoice}, {@link addLineItem}, {@link finalizeInvoice},
+ * {@link markPaid}, {@link voidInvoice}), exact line-item math, HTML/text
+ * rendering, the {@link InvoiceStore} abstraction with a real
+ * {@link InMemoryInvoiceStore}, and the {@link InvoiceService} facade.
+ */
+export type {
+  Invoice,
+  InvoiceStatus,
+  CreateInvoiceInput,
+} from "./invoice.js";
+export {
+  createInvoice,
+  addLineItem,
+  finalizeInvoice,
+  markPaid,
+  voidInvoice,
+  invoiceNumber,
+  computeTotals,
+  amountDue,
+  recomputeSubtotal,
+} from "./invoice.js";
 
-export interface InvoiceLineItem {
-  description: string;
-  quantity: number;
-  unitAmount: Money;
-}
+export type { InvoiceLineItem } from "./line-items.js";
+export { lineItemAmount, computeSubtotal } from "./line-items.js";
 
-export interface Invoice {
-  number: string;
-  customerId: string;
-  lineItems: InvoiceLineItem[];
-  total: Money;
-  status: "draft" | "open" | "paid" | "void";
-}
+export type { Merchant } from "./render.js";
+export { renderInvoiceHtml, renderInvoiceText } from "./render.js";
 
-export function invoiceNumber(prefix: string, sequence: number): string {
-  return `${prefix}-${sequence.toString().padStart(6, "0")}`;
-}
+export type { InvoiceStore } from "./store.js";
+export { InMemoryInvoiceStore } from "./store.js";
 
-export function createInvoice(customerId: string, number: string, lineItems: InvoiceLineItem[]): Invoice {
-  const total = lineItems.reduce((sum, item) => addMoney(sum, { amount: (Number(item.unitAmount.amount) * item.quantity).toString(), currency: item.unitAmount.currency }), money("0"));
-  return { customerId, number, lineItems, total, status: "draft" };
-}
+export type { CreateInvoiceServiceInput, InvoiceServiceOptions } from "./service.js";
+export { InvoiceService } from "./service.js";

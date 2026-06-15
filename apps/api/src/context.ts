@@ -45,6 +45,13 @@ import {
   type AgentServiceStore,
 } from "@settlekit/agent-services";
 import { EscrowService, InMemoryEscrowStore, type EscrowStore } from "@settlekit/escrow";
+import { CouponService, InMemoryCouponStore, type CouponStore } from "@settlekit/coupons";
+import {
+  InvoiceService,
+  InMemoryInvoiceStore,
+  type InvoiceStore,
+  type Merchant,
+} from "@settlekit/invoices";
 import { FileDeliveryService, InMemoryGrantStore } from "@settlekit/file-delivery";
 import {
   createDefaultRegistry,
@@ -144,6 +151,14 @@ export interface AppContext {
   readonly agentServices: AgentServiceService;
   readonly agentServiceStore: AgentServiceStore;
   readonly escrow: EscrowService;
+
+  // Commerce engines: coupons (discounts) + invoices.
+  readonly coupons: CouponService;
+  readonly couponStore: CouponStore;
+  readonly invoices: InvoiceService;
+  readonly invoiceStore: InvoiceStore;
+  /** Merchant identity used when rendering invoice HTML/text. */
+  readonly merchant: Merchant;
 }
 
 /** Pick the Postgres implementation when `db` is set, else the in-memory one. */
@@ -184,6 +199,15 @@ export async function createContext(): Promise<AppContext> {
   const planStore = pick<PlanStore>(db, (d) => new PgPlanStore(d), () => new InMemoryPlanStore());
   const bundleStore = pick<BundleStore>(db, (d) => new PgBundleStore(d), () => new InMemoryBundleStore());
   const agentServiceStore = pick<AgentServiceStore>(db, (d) => new PgAgentServiceStore(d), () => new InMemoryAgentServiceStore());
+
+  // Coupons + invoices use in-memory stores (interface-typed) on the context.
+  const couponStore: CouponStore = new InMemoryCouponStore();
+  const invoiceStore: InvoiceStore = new InMemoryInvoiceStore();
+  const merchant: Merchant = {
+    name: process.env.MERCHANT_NAME ?? "SettleKit Merchant",
+    ...(process.env.MERCHANT_EMAIL ? { email: process.env.MERCHANT_EMAIL } : {}),
+    ...(process.env.MERCHANT_WEBSITE ? { website: process.env.MERCHANT_WEBSITE } : {}),
+  };
 
   return {
     db,
@@ -235,6 +259,12 @@ export async function createContext(): Promise<AppContext> {
     }),
     agentServiceStore,
     escrow: new EscrowService(pick<EscrowStore>(db, (d) => new PgEscrowStore(d), () => new InMemoryEscrowStore())),
+
+    coupons: new CouponService(couponStore),
+    couponStore,
+    invoices: new InvoiceService(invoiceStore),
+    invoiceStore,
+    merchant,
   };
 }
 

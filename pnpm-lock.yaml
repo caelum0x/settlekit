@@ -84,6 +84,9 @@ importers:
       '@settlekit/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@settlekit/coupons':
+        specifier: workspace:*
+        version: link:../../packages/coupons
       '@settlekit/database':
         specifier: workspace:*
         version: link:../../packages/database
@@ -105,6 +108,9 @@ importers:
       '@settlekit/github':
         specifier: workspace:*
         version: link:../../packages/github
+      '@settlekit/invoices':
+        specifier: workspace:*
+        version: link:../../packages/invoices
       '@settlekit/license-keys':
         specifier: workspace:*
         version: link:../../packages/license-keys
@@ -335,6 +341,56 @@ importers:
       server-only:
         specifier: ^0.0.1
         version: 0.0.1
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      '@types/react':
+        specifier: ^18.3.3
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.31)
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+
+  apps/portal:
+    dependencies:
+      next:
+        specifier: ^14.2.5
+        version: 14.2.35(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      '@types/react':
+        specifier: ^18.3.3
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.31)
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+
+  apps/web:
+    dependencies:
+      next:
+        specifier: ^14.2.5
+        version: 14.2.35(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
     devDependencies:
       '@types/node':
         specifier: ^20.14.0
@@ -674,6 +730,9 @@ importers:
         specifier: workspace:*
         version: link:../common
     devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -985,7 +1044,13 @@ importers:
       '@settlekit/common':
         specifier: workspace:*
         version: link:../common
+      '@settlekit/tax':
+        specifier: workspace:*
+        version: link:../tax
     devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
