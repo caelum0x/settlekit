@@ -54,10 +54,10 @@ const testSchema = z.object({
 export function deliveryRunRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
-  app.get("/", (c) => {
+  app.get("/", async (c) => {
     const orgId = c.req.query("organizationId");
     const paymentId = c.req.query("paymentId");
-    const runs = c.get("ctx").deliveryRuns.list((r) => {
+    const runs = await c.get("ctx").deliveryRuns.list((r) => {
       if (orgId && r.organizationId !== orgId) return false;
       if (paymentId && r.paymentId !== paymentId) return false;
       return true;
@@ -65,22 +65,22 @@ export function deliveryRunRoutes(): Hono<AppEnv> {
     return data(c, runs);
   });
 
-  app.get("/:id", (c) => {
-    const run = c.get("ctx").deliveryRuns.findById(c.req.param("id"));
+  app.get("/:id", async (c) => {
+    const run = await c.get("ctx").deliveryRuns.findById(c.req.param("id"));
     if (!run) throw notFound("delivery run not found", { id: c.req.param("id") });
     return data(c, run);
   });
 
   // Retry the failed actions of a run by marking them pending again.
-  app.post("/:id/retry", (c) => {
+  app.post("/:id/retry", async (c) => {
     const ctx = c.get("ctx");
-    const run = ctx.deliveryRuns.findById(c.req.param("id"));
+    const run = await ctx.deliveryRuns.findById(c.req.param("id"));
     if (!run) throw notFound("delivery run not found", { id: c.req.param("id") });
     const actionRuns: DeliveryActionRun[] = run.actionRuns.map((ar) =>
       ar.status === "failed" ? { ...ar, status: "pending", attempts: ar.attempts } : ar,
     );
     const hasPending = actionRuns.some((ar) => ar.status === "pending");
-    const updated = ctx.deliveryRuns.save({
+    const updated = await ctx.deliveryRuns.save({
       ...run,
       status: hasPending ? "pending" : run.status,
       actionRuns,

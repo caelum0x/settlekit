@@ -72,9 +72,15 @@ importers:
       '@settlekit/api-keys':
         specifier: workspace:*
         version: link:../../packages/api-keys
+      '@settlekit/arc':
+        specifier: workspace:*
+        version: link:../../packages/arc
       '@settlekit/bundles':
         specifier: workspace:*
         version: link:../../packages/bundles
+      '@settlekit/circle':
+        specifier: workspace:*
+        version: link:../../packages/circle
       '@settlekit/common':
         specifier: workspace:*
         version: link:../../packages/common
@@ -102,6 +108,9 @@ importers:
       '@settlekit/license-keys':
         specifier: workspace:*
         version: link:../../packages/license-keys
+      '@settlekit/notifications':
+        specifier: workspace:*
+        version: link:../../packages/notifications
       '@settlekit/payments':
         specifier: workspace:*
         version: link:../../packages/payments
@@ -114,6 +123,9 @@ importers:
       '@settlekit/webhooks':
         specifier: workspace:*
         version: link:../../packages/webhooks
+      '@settlekit/x402':
+        specifier: workspace:*
+        version: link:../../packages/x402
       hono:
         specifier: ^4.6.14
         version: 4.12.25

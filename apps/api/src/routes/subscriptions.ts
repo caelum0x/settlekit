@@ -32,14 +32,14 @@ export function subscriptionRoutes(): Hono<AppEnv> {
   app.post("/", async (c) => {
     const ctx = c.get("ctx");
     const body = await parseBody(c, createSchema);
-    const price = ctx.prices.findById(body.priceId);
+    const price = await ctx.prices.findById(body.priceId);
     if (!price) throw notFound("price not found", { id: body.priceId });
     if (price.interval === "one_time") {
       throw validationError("subscriptions require a recurring price interval", {
         priceId: price.id,
       });
     }
-    const product = ctx.products.findById(body.productId);
+    const product = await ctx.products.findById(body.productId);
     if (!product) throw notFound("product not found", { id: body.productId });
 
     const subscription = createSubscription({
@@ -68,7 +68,7 @@ export function subscriptionRoutes(): Hono<AppEnv> {
     const ctx = c.get("ctx");
     const sub = await ctx.subscriptions.findById(c.req.param("id"));
     if (!sub) throw notFound("subscription not found", { id: c.req.param("id") });
-    const price = ctx.prices.findById(sub.priceId);
+    const price = await ctx.prices.findById(sub.priceId);
     if (!price) throw notFound("price not found", { id: sub.priceId });
     const interval = price.interval === "yearly" ? "yearly" : "monthly";
     return data(c, await ctx.subscriptions.save(renewSubscription(sub, interval)));

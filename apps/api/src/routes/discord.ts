@@ -58,7 +58,7 @@ export function discordIntegrationRoutes(): Hono<AppEnv> {
       botTokenRef: body.botTokenRef,
       createdAt: new Date().toISOString(),
     };
-    return created(c, c.get("ctx").discordConnections.save(connection));
+    return created(c, await c.get("ctx").discordConnections.save(connection));
   });
 
   app.get("/guilds", async (c) => {
@@ -91,16 +91,16 @@ export function discordAccessRoutes(): Hono<AppEnv> {
       entitlementId: body.entitlementId,
       discordUserId: body.discordUserId,
     });
-    return created(c, ctx.discordGrants.save(grant));
+    return created(c, await ctx.discordGrants.save(grant));
   });
 
   app.post("/revoke", async (c) => {
     const ctx = c.get("ctx");
     const body = await parseBody(c, revokeSchema);
-    const grant = ctx.discordGrants.findById(body.grantId);
+    const grant = await ctx.discordGrants.findById(body.grantId);
     if (!grant) throw notFound("discord grant not found", { id: body.grantId });
     const revoked = await revokeDiscordRole(ctx.discordApi, grant);
-    return data(c, ctx.discordGrants.save(revoked));
+    return data(c, await ctx.discordGrants.save(revoked));
   });
 
   return app;

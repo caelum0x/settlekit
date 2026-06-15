@@ -84,39 +84,39 @@ export function productRoutes(): Hono<AppEnv> {
       },
       metadata: body.metadata,
     });
-    const saved = c.get("ctx").products.save(draft);
+    const saved = await c.get("ctx").products.save(draft);
     return created(c, saved);
   });
 
   // List products.
-  app.get("/", (c) => {
-    const products = c.get("ctx").products.list();
+  app.get("/", async (c) => {
+    const products = await c.get("ctx").products.list();
     return data(c, products);
   });
 
   // Get a product.
-  app.get("/:id", (c) => {
-    const product = c.get("ctx").products.findById(c.req.param("id"));
+  app.get("/:id", async (c) => {
+    const product = await c.get("ctx").products.findById(c.req.param("id"));
     if (!product) throw notFound("product not found", { id: c.req.param("id") });
     return data(c, product);
   });
 
   // Publish a product (requires an active price).
-  app.post("/:id/publish", (c) => {
+  app.post("/:id/publish", async (c) => {
     const ctx = c.get("ctx");
     const id = c.req.param("id");
-    const product = ctx.products.findById(id);
+    const product = await ctx.products.findById(id);
     if (!product) throw notFound("product not found", { id });
-    const prices = ctx.prices.list((p) => p.productId === id);
+    const prices = await ctx.prices.list((p) => p.productId === id);
     const published = publishProduct(product, prices);
-    return data(c, ctx.products.save(published));
+    return data(c, await ctx.products.save(published));
   });
 
   // Create a price for a product.
   app.post("/:id/prices", async (c) => {
     const ctx = c.get("ctx");
     const productId = c.req.param("id");
-    const product = ctx.products.findById(productId);
+    const product = await ctx.products.findById(productId);
     if (!product) throw notFound("product not found", { id: productId });
 
     const body = await parseBody(c, createPriceSchema);
@@ -132,13 +132,13 @@ export function productRoutes(): Hono<AppEnv> {
       active: true,
       createdAt: new Date().toISOString(),
     };
-    return created(c, ctx.prices.save(price));
+    return created(c, await ctx.prices.save(price));
   });
 
   // List prices for a product.
-  app.get("/:id/prices", (c) => {
+  app.get("/:id/prices", async (c) => {
     const productId = c.req.param("id");
-    const prices = c.get("ctx").prices.list((p) => p.productId === productId);
+    const prices = await c.get("ctx").prices.list((p) => p.productId === productId);
     return data(c, prices);
   });
 

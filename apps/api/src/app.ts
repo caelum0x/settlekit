@@ -9,7 +9,7 @@
  */
 import { Hono } from "hono";
 import { SettleKitError } from "@settlekit/common";
-import { createContext, type AppContext, type AppEnv } from "./context.js";
+import { type AppContext, type AppEnv } from "./context.js";
 import { errorMiddleware } from "./middleware/error.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { error } from "./http/respond.js";
@@ -33,7 +33,7 @@ import { agentServiceRoutes } from "./routes/agent-services.js";
 import { escrowRoutes } from "./routes/escrow.js";
 
 /** Build the full SettleKit API app. Pass a context to share/isolate state. */
-export function createApp(ctx: AppContext = createContext()): Hono<AppEnv> {
+export function createApp(ctx: AppContext): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
   // Centralized error mapping wraps the entire pipeline.

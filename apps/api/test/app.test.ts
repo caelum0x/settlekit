@@ -14,9 +14,9 @@ import { createContext, type AppEnv } from "../src/context.js";
 
 const BOOTSTRAP = "test-bootstrap-key";
 
-function authedApp(): Hono<AppEnv> {
+async function authedApp(): Promise<Hono<AppEnv>> {
   process.env.API_BOOTSTRAP_KEY = BOOTSTRAP;
-  return createApp(createContext());
+  return createApp(await createContext());
 }
 
 interface Json {
@@ -45,8 +45,8 @@ async function call(
 describe("SettleKit API", () => {
   let app: Hono<AppEnv>;
 
-  beforeEach(() => {
-    app = authedApp();
+  beforeEach(async () => {
+    app = await authedApp();
   });
 
   it("rejects unauthenticated requests with a 401 error envelope", async () => {

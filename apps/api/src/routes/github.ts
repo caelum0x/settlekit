@@ -60,24 +60,23 @@ export function githubIntegrationRoutes(): Hono<AppEnv> {
       accountType: body.accountType,
       createdAt: new Date().toISOString(),
     };
-    return created(c, c.get("ctx").githubInstallations.save(installation));
+    return created(c, await c.get("ctx").githubInstallations.save(installation));
   });
 
-  app.get("/installations", (c) => {
+  app.get("/installations", async (c) => {
     const orgId = c.req.query("organizationId");
     return data(
       c,
-      c.get("ctx").githubInstallations.list(
+      await c.get("ctx").githubInstallations.list(
         orgId ? (i) => i.organizationId === orgId : undefined,
       ),
     );
   });
 
   // Repositories visible to an installation (derived from recorded grants).
-  app.get("/repositories", (c) => {
+  app.get("/repositories", async (c) => {
     const ctx = c.get("ctx");
-    const repos = ctx.githubGrants
-      .list()
+    const repos = (await ctx.githubGrants.list())
       .map((g) => ({
         owner: g.repoOwner,
         name: g.repoName,
@@ -90,9 +89,9 @@ export function githubIntegrationRoutes(): Hono<AppEnv> {
   });
 
   // Org teams (synthesized from team-style grants / installations).
-  app.get("/teams", (c) => {
+  app.get("/teams", async (c) => {
     const orgId = c.req.query("organizationId");
-    const installs = c.get("ctx").githubInstallations.list(
+    const installs = await c.get("ctx").githubInstallations.list(
       orgId ? (i) => i.organizationId === orgId : undefined,
     );
     const teams = installs
@@ -122,14 +121,14 @@ export function githubAccessRoutes(): Hono<AppEnv> {
       githubUsername: body.githubUsername,
       ...(body.permission !== undefined ? { permission: body.permission } : {}),
     });
-    return created(c, ctx.githubGrants.save(grant));
+    return created(c, await ctx.githubGrants.save(grant));
   });
 
   // Revoke a recorded grant (real revoker + marks the record revoked).
   app.post("/revoke", async (c) => {
     const ctx = c.get("ctx");
     const body = await parseBody(c, revokeSchema);
-    const grant = ctx.githubGrants.findById(body.grantId);
+    const grant = await ctx.githubGrants.findById(body.grantId);
     if (!grant) throw notFound("github grant not found", { id: body.grantId });
     await revokeGitHubRepoAccess(ctx.githubClient, {
       installationId: grant.installationId,
@@ -137,7 +136,7 @@ export function githubAccessRoutes(): Hono<AppEnv> {
       repoName: grant.repoName,
       githubUsername: grant.githubUsername,
     });
-    return data(c, ctx.githubGrants.save(markGitHubGrantRevoked(grant)));
+    return data(c, await ctx.githubGrants.save(markGitHubGrantRevoked(grant)));
   });
 
   // Sync: reconcile recorded grants by promoting pending invites that the
@@ -152,7 +151,7 @@ export function githubAccessRoutes(): Hono<AppEnv> {
       throw validationError("organizationId is required");
     }
     const outcomes: Array<{ grantId: string; action: string }> = [];
-    for (const grant of ctx.githubGrants.list((g) => g.organizationId === body.organizationId)) {
+    for (const grant of await ctx.githubGrants.list((g) => g.organizationId === body.organizationId)) {
       if (grant.status !== "invited") continue;
       const permission = await ctx.githubClient.getRepoCollaboratorPermission({
         installationId: grant.installationId,
@@ -161,7 +160,7 @@ export function githubAccessRoutes(): Hono<AppEnv> {
         username: grant.githubUsername,
       });
       if (permission !== "none") {
-        ctx.githubGrants.save({ ...grant, status: "active" });
+        await ctx.githubGrants.save({ ...grant, status: "active" });
         outcomes.push({ grantId: grant.id, action: "activated" });
       } else {
         outcomes.push({ grantId: grant.id, action: "noop" });

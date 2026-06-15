@@ -54,12 +54,12 @@ export function webhookRoutes(): Hono<AppEnv> {
       active: true,
       createdAt: new Date().toISOString(),
     };
-    return created(c, c.get("ctx").webhookEndpoints.save(endpoint));
+    return created(c, await c.get("ctx").webhookEndpoints.save(endpoint));
   });
 
-  app.get("/endpoints", (c) => {
+  app.get("/endpoints", async (c) => {
     const orgId = c.req.query("organizationId");
-    const list = c.get("ctx").webhookEndpoints.list(
+    const list = await c.get("ctx").webhookEndpoints.list(
       orgId ? (e) => e.organizationId === orgId : undefined,
     );
     return data(c, list);
@@ -72,17 +72,18 @@ export function webhookRoutes(): Hono<AppEnv> {
     const event = buildWebhookEvent(body.type, body.data, {
       organizationId: body.organizationId,
     });
-    const saved = ctx.webhookEvents.save(event);
+    const saved = await ctx.webhookEvents.save(event);
 
     const payloadJson = serializeEvent(saved);
     const timestamp = Math.floor(Date.now() / 1000);
-    const deliveries = ctx.webhookEndpoints
-      .list(
+    const deliveries = (
+      await ctx.webhookEndpoints.list(
         (e) =>
           e.organizationId === body.organizationId &&
           e.active &&
           e.enabledEvents.includes(body.type),
       )
+    )
       .map((endpoint) => ({
         endpointId: endpoint.id,
         url: endpoint.url,
@@ -92,16 +93,16 @@ export function webhookRoutes(): Hono<AppEnv> {
     return created(c, { event: saved, deliveries });
   });
 
-  app.get("/events", (c) => {
+  app.get("/events", async (c) => {
     const orgId = c.req.query("organizationId");
-    const list = c.get("ctx").webhookEvents.list(
+    const list = await c.get("ctx").webhookEvents.list(
       orgId ? (e) => e.organizationId === orgId : undefined,
     );
     return data(c, list);
   });
 
-  app.get("/events/:id", (c) => {
-    const event = c.get("ctx").webhookEvents.findById(c.req.param("id"));
+  app.get("/events/:id", async (c) => {
+    const event = await c.get("ctx").webhookEvents.findById(c.req.param("id"));
     if (!event) throw notFound("webhook event not found", { id: c.req.param("id") });
     return data(c, event);
   });

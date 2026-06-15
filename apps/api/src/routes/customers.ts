@@ -37,13 +37,13 @@ export function customerRoutes(): Hono<AppEnv> {
       metadata: body.metadata,
       createdAt: new Date().toISOString(),
     };
-    return created(c, c.get("ctx").customers.save(customer));
+    return created(c, await c.get("ctx").customers.save(customer));
   });
 
-  app.get("/", (c) => data(c, c.get("ctx").customers.list()));
+  app.get("/", async (c) => data(c, await c.get("ctx").customers.list()));
 
-  app.get("/:id", (c) => {
-    const customer = c.get("ctx").customers.findById(c.req.param("id"));
+  app.get("/:id", async (c) => {
+    const customer = await c.get("ctx").customers.findById(c.req.param("id"));
     if (!customer) throw notFound("customer not found", { id: c.req.param("id") });
     return data(c, customer);
   });

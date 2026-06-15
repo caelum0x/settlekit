@@ -1,30 +1,40 @@
 /**
  * Application context: builds the real service singletons the routes depend on.
  *
- * Every service is wired to the in-memory repositories the @settlekit packages
- * ship, so the API runs fully end-to-end with no external infrastructure. When
- * `DATABASE_URL` is set, a real drizzle `Database` handle is created via
- * `@settlekit/database` and exposed on the context (routes can opt into it).
+ * Persistence is selected at boot by `DATABASE_URL`:
+ *   - set   -> real Postgres-backed stores (@settlekit/database via the Pg
+ *              adapters in ./db/pg/*), after ensuring the default org+merchant
+ *              exist (see ./db/seed.ts). Apply migrations out-of-band with
+ *              `pnpm --filter @settlekit/database db:migrate`.
+ *   - unset -> the in-memory stores the @settlekit packages ship, so the API
+ *              still runs fully end-to-end with no external infrastructure.
  *
- * The context is constructed once at startup and shared (read-only) across all
- * requests. State lives inside the repositories, not in the route modules.
+ * Integration clients (delivery transports, Arc verifier, Circle, email) are
+ * constructed from environment secrets by {@link buildIntegrations}; when creds
+ * are absent the in-process fallbacks are used. The context is built once at
+ * startup and shared read-only across requests.
  */
 import { createDb, type Database } from "@settlekit/database";
 import {
   EntitlementService,
   InMemoryEntitlementRepository,
+  type EntitlementRepository,
 } from "@settlekit/entitlements";
 import {
   InMemoryCheckoutRepository,
   InMemoryPaymentRepository,
   InMemorySubscriptionRepository,
+  type CheckoutRepository,
+  type PaymentRepository,
+  type SubscriptionRepository,
 } from "@settlekit/payments";
-import { ApiKeyService, InMemoryApiKeyStore } from "@settlekit/api-keys";
-import { LicenseService, InMemoryLicenseStore } from "@settlekit/license-keys";
+import { ApiKeyService, InMemoryApiKeyStore, type ApiKeyStore } from "@settlekit/api-keys";
+import { LicenseService, InMemoryLicenseStore, type LicenseStore } from "@settlekit/license-keys";
 import {
   SaasService,
   InMemoryPlanStore,
   InMemorySeatStore,
+  type PlanStore,
 } from "@settlekit/saas";
 import { BundleService, InMemoryBundleStore, type BundleStore } from "@settlekit/bundles";
 import {
@@ -41,7 +51,9 @@ import {
   type DeliveryClients,
   type HandlerRegistry,
 } from "@settlekit/delivery";
-import { createInMemoryDeliveryClients } from "./clients/in-memory-delivery-clients.js";
+import type { PaymentVerifier } from "@settlekit/x402";
+import type { CircleClient } from "@settlekit/circle";
+import type { EmailClient } from "@settlekit/notifications";
 import type {
   Customer,
   DeliveryRun,
@@ -54,119 +66,166 @@ import type {
   WebhookEndpoint,
   WebhookEvent,
 } from "@settlekit/common";
-import { RecordStore } from "./stores/record-store.js";
 import { InMemoryGitHubAccessClient } from "./clients/in-memory-github-client.js";
 import { InMemoryDiscordApi } from "./clients/in-memory-discord-client.js";
-
-/** Secret used by the license-keys service for offline validation tokens. */
-const LICENSE_TOKEN_SECRET =
-  process.env.LICENSE_TOKEN_SECRET ?? "settlekit-dev-license-secret";
+import { InMemoryEntityStore, type EntityStore } from "./db/entity-store.js";
+import { seedDefaults } from "./db/seed.js";
+import { PgProductStore } from "./db/pg/products-store.js";
+import { PgPriceStore } from "./db/pg/prices-store.js";
+import { PgCustomerStore } from "./db/pg/customers-store.js";
+import { PgDeliveryRunStore } from "./db/pg/delivery-runs-store.js";
+import { PgWebhookEndpointStore } from "./db/pg/webhook-endpoints-store.js";
+import { PgWebhookEventStore } from "./db/pg/webhook-events-store.js";
+import { PgGitHubInstallationStore } from "./db/pg/github-installations-store.js";
+import { PgGitHubRepoAccessGrantStore } from "./db/pg/github-grants-store.js";
+import { PgDiscordConnectionStore } from "./db/pg/discord-connections-store.js";
+import { PgDiscordRoleGrantStore } from "./db/pg/discord-grants-store.js";
+import { PgCheckoutRepository } from "./db/pg/checkout-repository.js";
+import { PgPaymentRepository } from "./db/pg/payment-repository.js";
+import { PgSubscriptionRepository } from "./db/pg/subscription-repository.js";
+import { PgEntitlementRepository } from "./db/pg/entitlement-repository.js";
+import { PgApiKeyStore } from "./db/pg/api-key-store.js";
+import { PgLicenseStore } from "./db/pg/license-store.js";
+import { PgPlanStore } from "./db/pg/plan-store.js";
+import { PgBundleStore } from "./db/pg/bundle-store.js";
+import { PgAgentServiceStore } from "./db/pg/agent-service-store.js";
+import { loadConfig } from "./config/env.js";
+import { buildIntegrations } from "./config/integrations.js";
 
 /** The fully-wired set of services + stores shared across requests. */
 export interface AppContext {
-  /** Optional real drizzle database handle (only when DATABASE_URL is set). */
+  /** Real drizzle database handle (only when DATABASE_URL is set). */
   readonly db: Database | null;
+  /** True when running against Postgres. */
+  readonly persistent: boolean;
 
-  // Core commerce repositories (in-memory, real implementations).
-  readonly checkouts: InMemoryCheckoutRepository;
-  readonly payments: InMemoryPaymentRepository;
-  readonly subscriptions: InMemorySubscriptionRepository;
-  readonly entitlementRepo: InMemoryEntitlementRepository;
+  // Core commerce repositories (interface-typed: Postgres or in-memory).
+  readonly checkouts: CheckoutRepository;
+  readonly payments: PaymentRepository;
+  readonly subscriptions: SubscriptionRepository;
+  readonly entitlementRepo: EntitlementRepository;
   readonly entitlements: EntitlementService;
 
   // Resource stores without a packaged store.
-  readonly products: RecordStore<Product>;
-  readonly prices: RecordStore<Price>;
-  readonly customers: RecordStore<Customer>;
-  readonly deliveryRuns: RecordStore<DeliveryRun>;
-  /** Pre-loaded registry of every built-in delivery action handler. */
+  readonly products: EntityStore<Product>;
+  readonly prices: EntityStore<Price>;
+  readonly customers: EntityStore<Customer>;
+  readonly deliveryRuns: EntityStore<DeliveryRun>;
   readonly deliveryRegistry: HandlerRegistry;
-  /** In-process clients the delivery handlers execute against. */
   readonly deliveryClients: DeliveryClients;
-  readonly webhookEndpoints: RecordStore<WebhookEndpoint>;
-  readonly webhookEvents: RecordStore<WebhookEvent>;
+  readonly webhookEndpoints: EntityStore<WebhookEndpoint>;
+  readonly webhookEvents: EntityStore<WebhookEvent>;
 
   // Access / key services.
   readonly apiKeys: ApiKeyService;
   readonly licenses: LicenseService;
   readonly files: FileDeliveryService;
 
-  // GitHub integration.
-  readonly githubClient: InMemoryGitHubAccessClient;
-  readonly githubInstallations: RecordStore<GitHubInstallation>;
-  readonly githubGrants: RecordStore<GitHubRepoAccessGrant>;
+  // Integration clients (real when configured; null/in-memory otherwise).
+  readonly arcVerifier: PaymentVerifier | null;
+  readonly circle: CircleClient | null;
+  readonly email: EmailClient | null;
 
-  // Discord integration.
+  // GitHub integration (management routes).
+  readonly githubClient: InMemoryGitHubAccessClient;
+  readonly githubInstallations: EntityStore<GitHubInstallation>;
+  readonly githubGrants: EntityStore<GitHubRepoAccessGrant>;
+
+  // Discord integration (management routes).
   readonly discordApi: InMemoryDiscordApi;
-  readonly discordConnections: RecordStore<DiscordConnection>;
-  readonly discordGrants: RecordStore<DiscordRoleGrant>;
+  readonly discordConnections: EntityStore<DiscordConnection>;
+  readonly discordGrants: EntityStore<DiscordRoleGrant>;
 
   // SaaS / bundles / agent services / escrow.
   readonly saas: SaasService;
   readonly bundles: BundleService;
-  /** Direct handle to the bundle store for field edits the service does not cover. */
   readonly bundleStore: BundleStore;
   readonly agentServices: AgentServiceService;
-  /** Direct handle to the agent service store for PATCH field edits. */
   readonly agentServiceStore: AgentServiceStore;
   readonly escrow: EscrowService;
 }
 
-/** Build the singleton {@link AppContext}, wiring every service + store. */
-export function createContext(): AppContext {
-  const db = process.env.DATABASE_URL ? createDb(process.env.DATABASE_URL) : null;
+/** Pick the Postgres implementation when `db` is set, else the in-memory one. */
+function pick<T>(db: Database | null, makePg: (db: Database) => T, makeMem: () => T): T {
+  return db ? makePg(db) : makeMem();
+}
 
-  const entitlementRepo = new InMemoryEntitlementRepository();
-  const products = new RecordStore<Product>();
-  const bundleStore = new InMemoryBundleStore();
-  const agentServiceStore = new InMemoryAgentServiceStore();
+/**
+ * Build the singleton {@link AppContext}, wiring every service + store.
+ * Async because Postgres mode seeds the default account on boot.
+ */
+export async function createContext(): Promise<AppContext> {
+  const config = loadConfig();
+  const db = config.database ? createDb(config.database.url) : null;
+  if (db) {
+    await seedDefaults(db);
+  }
+
+  const integrations = buildIntegrations(config);
+
+  const products = pick<EntityStore<Product>>(db, (d) => new PgProductStore(d), () => new InMemoryEntityStore<Product>());
+
+  // Bundle validation needs a synchronous product-existence check, but Postgres
+  // lookups are async — so track known product ids in a set (primed at boot,
+  // updated on save) and gate bundle creation against it.
+  const knownProductIds = new Set<string>();
+  for (const p of await products.list()) knownProductIds.add(p.id);
+  const trackedProducts: EntityStore<Product> = {
+    async save(p) { const r = await products.save(p); knownProductIds.add(p.id); return r; },
+    findById: (id) => products.findById(id),
+    list: (predicate) => products.list(predicate),
+    async delete(id) { const ok = await products.delete(id); if (ok) knownProductIds.delete(id); return ok; },
+  };
+
+  const entitlementRepo = pick<EntitlementRepository>(db, (d) => new PgEntitlementRepository(d), () => new InMemoryEntitlementRepository());
+  const apiKeyStore = pick<ApiKeyStore>(db, (d) => new PgApiKeyStore(d), () => new InMemoryApiKeyStore());
+  const licenseStore = pick<LicenseStore>(db, (d) => new PgLicenseStore(d), () => new InMemoryLicenseStore());
+  const planStore = pick<PlanStore>(db, (d) => new PgPlanStore(d), () => new InMemoryPlanStore());
+  const bundleStore = pick<BundleStore>(db, (d) => new PgBundleStore(d), () => new InMemoryBundleStore());
+  const agentServiceStore = pick<AgentServiceStore>(db, (d) => new PgAgentServiceStore(d), () => new InMemoryAgentServiceStore());
 
   return {
     db,
+    persistent: db !== null,
 
-    checkouts: new InMemoryCheckoutRepository(),
-    payments: new InMemoryPaymentRepository(),
-    subscriptions: new InMemorySubscriptionRepository(),
+    checkouts: pick<CheckoutRepository>(db, (d) => new PgCheckoutRepository(d), () => new InMemoryCheckoutRepository()),
+    payments: pick<PaymentRepository>(db, (d) => new PgPaymentRepository(d), () => new InMemoryPaymentRepository()),
+    subscriptions: pick<SubscriptionRepository>(db, (d) => new PgSubscriptionRepository(d), () => new InMemorySubscriptionRepository()),
     entitlementRepo,
     entitlements: new EntitlementService(entitlementRepo),
 
-    products,
-    prices: new RecordStore<Price>(),
-    customers: new RecordStore<Customer>(),
-    deliveryRuns: new RecordStore<DeliveryRun>(),
+    products: trackedProducts,
+    prices: pick<EntityStore<Price>>(db, (d) => new PgPriceStore(d), () => new InMemoryEntityStore<Price>()),
+    customers: pick<EntityStore<Customer>>(db, (d) => new PgCustomerStore(d), () => new InMemoryEntityStore<Customer>()),
+    deliveryRuns: pick<EntityStore<DeliveryRun>>(db, (d) => new PgDeliveryRunStore(d), () => new InMemoryEntityStore<DeliveryRun>()),
     deliveryRegistry: createDefaultRegistry(),
-    deliveryClients: createInMemoryDeliveryClients(),
-    webhookEndpoints: new RecordStore<WebhookEndpoint>(),
-    webhookEvents: new RecordStore<WebhookEvent>(),
+    deliveryClients: integrations.deliveryClients,
+    webhookEndpoints: pick<EntityStore<WebhookEndpoint>>(db, (d) => new PgWebhookEndpointStore(d), () => new InMemoryEntityStore<WebhookEndpoint>()),
+    webhookEvents: pick<EntityStore<WebhookEvent>>(db, (d) => new PgWebhookEventStore(d), () => new InMemoryEntityStore<WebhookEvent>()),
 
-    apiKeys: new ApiKeyService(new InMemoryApiKeyStore()),
-    licenses: new LicenseService(new InMemoryLicenseStore(), {
-      tokenSecret: LICENSE_TOKEN_SECRET,
-    }),
+    apiKeys: new ApiKeyService(apiKeyStore),
+    licenses: new LicenseService(licenseStore, { tokenSecret: config.licenseTokenSecret }),
     files: new FileDeliveryService(new InMemoryGrantStore(), {
-      baseUrl: process.env.FILE_DOWNLOAD_BASE_URL ?? "http://localhost:8787/v1/files/download",
-      secret: process.env.FILE_DOWNLOAD_SECRET ?? "settlekit-dev-file-secret",
-      defaultExpiresInSec: 3600,
-      defaultMaxDownloads: 3,
+      baseUrl: config.fileDelivery.baseUrl,
+      secret: config.fileDelivery.secret,
+      defaultExpiresInSec: config.fileDelivery.defaultExpiresInSec,
+      defaultMaxDownloads: config.fileDelivery.defaultMaxDownloads,
     }),
+
+    arcVerifier: integrations.arcVerifier,
+    circle: integrations.circle,
+    email: integrations.email,
 
     githubClient: new InMemoryGitHubAccessClient(),
-    githubInstallations: new RecordStore<GitHubInstallation>(),
-    githubGrants: new RecordStore<GitHubRepoAccessGrant>(),
+    githubInstallations: pick<EntityStore<GitHubInstallation>>(db, (d) => new PgGitHubInstallationStore(d), () => new InMemoryEntityStore<GitHubInstallation>()),
+    githubGrants: pick<EntityStore<GitHubRepoAccessGrant>>(db, (d) => new PgGitHubRepoAccessGrantStore(d), () => new InMemoryEntityStore<GitHubRepoAccessGrant>()),
 
     discordApi: new InMemoryDiscordApi(),
-    discordConnections: new RecordStore<DiscordConnection>(),
-    discordGrants: new RecordStore<DiscordRoleGrant>(),
+    discordConnections: pick<EntityStore<DiscordConnection>>(db, (d) => new PgDiscordConnectionStore(d), () => new InMemoryEntityStore<DiscordConnection>()),
+    discordGrants: pick<EntityStore<DiscordRoleGrant>>(db, (d) => new PgDiscordRoleGrantStore(d), () => new InMemoryEntityStore<DiscordRoleGrant>()),
 
-    saas: new SaasService({
-      plans: new InMemoryPlanStore(),
-      seats: new InMemorySeatStore(),
-    }),
-    bundles: new BundleService(
-      bundleStore,
-      // A bundle may reference any product that exists in our product store.
-      (productId: string) => products.findById(productId) !== null,
-    ),
+    saas: new SaasService({ plans: planStore, seats: new InMemorySeatStore() }),
+    bundles: new BundleService(bundleStore, (productId: string) => knownProductIds.has(productId)),
     bundleStore,
     agentServices: new AgentServiceService({
       services: agentServiceStore,
@@ -182,7 +241,6 @@ export function createContext(): AppContext {
 export interface AppEnv {
   Variables: {
     ctx: AppContext;
-    /** The API key id the request authenticated with (set by auth middleware). */
     apiKeyId?: string;
   };
 }

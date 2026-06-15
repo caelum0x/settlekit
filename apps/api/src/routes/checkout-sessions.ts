@@ -55,21 +55,23 @@ export function checkoutRoutes(): Hono<AppEnv> {
     const body = await parseBody(c, createSchema);
 
     // Resolve each line item's Price from the price store for total math.
-    const priced: PricedLineItem[] = body.items.map((item) => {
-      const price = ctx.prices.findById(item.priceId);
-      if (!price) {
-        throw validationError(`price not found: ${item.priceId}`, { priceId: item.priceId });
-      }
-      return {
-        lineItem: {
-          priceId: item.priceId,
-          quantity: item.quantity,
-          ...(item.productId !== undefined ? { productId: item.productId } : {}),
-          ...(item.bundleId !== undefined ? { bundleId: item.bundleId } : {}),
-        },
-        price,
-      };
-    });
+    const priced: PricedLineItem[] = await Promise.all(
+      body.items.map(async (item) => {
+        const price = await ctx.prices.findById(item.priceId);
+        if (!price) {
+          throw validationError(`price not found: ${item.priceId}`, { priceId: item.priceId });
+        }
+        return {
+          lineItem: {
+            priceId: item.priceId,
+            quantity: item.quantity,
+            ...(item.productId !== undefined ? { productId: item.productId } : {}),
+            ...(item.bundleId !== undefined ? { bundleId: item.bundleId } : {}),
+          },
+          price,
+        };
+      }),
+    );
 
     const session = createCheckoutSession({
       organizationId: body.organizationId,

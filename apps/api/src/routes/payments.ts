@@ -128,9 +128,9 @@ async function grantEntitlements(ctx: AppContext, paymentId: string): Promise<En
   const granted: Entitlement[] = [];
   for (const item of session.lineItems) {
     if (item.productId === undefined) continue;
-    const product = ctx.products.findById(item.productId);
+    const product = await ctx.products.findById(item.productId);
     if (!product) continue;
-    const price = ctx.prices.findById(item.priceId);
+    const price = await ctx.prices.findById(item.priceId);
     const entitlement = await ctx.entitlements.grantFromPayment({
       payment,
       product,

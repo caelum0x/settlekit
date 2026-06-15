@@ -7,14 +7,14 @@ import { createApp } from "./app.js";
 import { createContext } from "./context.js";
 
 /** Create the server (without starting it) — handy for embedding / testing. */
-export function createServer() {
-  const ctx = createContext();
+export async function createServer() {
+  const ctx = await createContext();
   return createApp(ctx);
 }
 
 /** Start listening. Returns the running server handle. */
-export function startServer(port = Number(process.env.PORT ?? 8787)) {
-  const app = createServer();
+export async function startServer(port = Number(process.env.PORT ?? 8787)) {
+  const app = await createServer();
   const server = serve({ fetch: app.fetch, port }, (info) => {
     // eslint-disable-next-line no-console
     console.log(`SettleKit API listening on http://localhost:${info.port}`);
