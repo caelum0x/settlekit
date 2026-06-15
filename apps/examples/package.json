@@ -1,0 +1,33 @@
+{
+  "name": "@settlekit/examples",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Runnable, end-to-end examples that exercise the real @settlekit packages: SaaS entitlements, x402 paid APIs, license verification, GitHub repo sales, and bundle checkout.",
+  "scripts": {
+    "start": "node --import tsx src/run-all.ts",
+    "saas": "node --import tsx src/saas-entitlement-check.ts",
+    "x402": "node --import tsx src/x402-paid-api.ts",
+    "license": "node --import tsx src/license-verify.ts",
+    "github": "node --import tsx src/github-repo-sale.ts",
+    "bundle": "node --import tsx src/bundle-checkout.ts",
+    "build": "tsc -b",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@settlekit/bundles": "workspace:*",
+    "@settlekit/common": "workspace:*",
+    "@settlekit/delivery": "workspace:*",
+    "@settlekit/entitlements": "workspace:*",
+    "@settlekit/license-keys": "workspace:*",
+    "@settlekit/saas": "workspace:*",
+    "@settlekit/x402": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

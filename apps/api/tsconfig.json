@@ -1,0 +1,29 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "composite": true,
+    "types": ["node"]
+  },
+  "references": [
+    { "path": "../../packages/common" },
+    { "path": "../../packages/database" },
+    { "path": "../../packages/payments" },
+    { "path": "../../packages/entitlements" },
+    { "path": "../../packages/api-keys" },
+    { "path": "../../packages/license-keys" },
+    { "path": "../../packages/file-delivery" },
+    { "path": "../../packages/product-catalog" },
+    { "path": "../../packages/github" },
+    { "path": "../../packages/discord" },
+    { "path": "../../packages/saas" },
+    { "path": "../../packages/bundles" },
+    { "path": "../../packages/delivery" },
+    { "path": "../../packages/agent-services" },
+    { "path": "../../packages/escrow" },
+    { "path": "../../packages/webhooks" }
+  ],
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules", "test", "**/*.test.ts"]
+}

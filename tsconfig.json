@@ -29,6 +29,7 @@
     { "path": "./packages/checkout-links" },
     { "path": "./packages/subscriptions" },
     { "path": "./packages/customer-portal" },
+    { "path": "./packages/customers" },
     { "path": "./packages/refunds" },
     { "path": "./packages/analytics" },
     { "path": "./packages/audit-log" },

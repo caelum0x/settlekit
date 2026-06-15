@@ -37,6 +37,7 @@ function requirementsFor(
     payTo: config.payTo,
     productId: config.productId,
     resource,
+    ...(config.nonce !== undefined ? { nonce: config.nonce } : {}),
   });
 }
 
@@ -53,6 +54,7 @@ function challenge(
       payTo: config.payTo,
       productId: config.productId,
       resource,
+      ...(config.nonce !== undefined ? { nonce: config.nonce } : {}),
     },
     reason !== undefined ? { reason } : undefined,
   );

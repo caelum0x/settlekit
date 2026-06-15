@@ -1,0 +1,246 @@
+:root {
+  --bg: #0b0e14;
+  --panel: #141a24;
+  --panel-2: #1b2230;
+  --border: #26303f;
+  --text: #e6edf3;
+  --muted: #8b97a8;
+  --accent: #4f8cff;
+  --ok: #2ea043;
+  --ok-bg: rgba(46, 160, 67, 0.14);
+  --warn: #d9a106;
+  --warn-bg: rgba(217, 161, 6, 0.14);
+  --danger: #e5534b;
+  --danger-bg: rgba(229, 83, 75, 0.14);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+a:hover {
+  text-decoration: underline;
+}
+
+.layout {
+  display: grid;
+  grid-template-columns: 232px 1fr;
+  min-height: 100vh;
+}
+
+.sidebar {
+  border-right: 1px solid var(--border);
+  background: var(--panel);
+  padding: 20px 16px;
+}
+.brand {
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 4px;
+}
+.brand small {
+  display: block;
+  color: var(--muted);
+  font-weight: 400;
+  font-size: 12px;
+}
+.nav {
+  margin-top: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.nav a {
+  color: var(--text);
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.nav a:hover {
+  background: var(--panel-2);
+  text-decoration: none;
+}
+
+.main {
+  padding: 28px 32px;
+  max-width: 1180px;
+}
+
+h1 {
+  font-size: 22px;
+  margin: 0 0 4px;
+}
+.subtitle {
+  color: var(--muted);
+  margin: 0 0 24px;
+}
+h2 {
+  font-size: 16px;
+  margin: 28px 0 12px;
+}
+
+.cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 14px;
+}
+.card {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 16px;
+}
+.card .label {
+  color: var(--muted);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.card .value {
+  font-size: 26px;
+  font-weight: 700;
+  margin-top: 6px;
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th,
+td {
+  text-align: left;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: middle;
+}
+th {
+  color: var(--muted);
+  font-weight: 600;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  background: var(--panel-2);
+}
+tr:last-child td {
+  border-bottom: none;
+}
+td.mono,
+.mono {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 12px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+}
+.badge.ok {
+  color: var(--ok);
+  background: var(--ok-bg);
+}
+.badge.warn {
+  color: var(--warn);
+  background: var(--warn-bg);
+}
+.badge.danger {
+  color: var(--danger);
+  background: var(--danger-bg);
+}
+.badge.muted {
+  color: var(--muted);
+  background: var(--panel-2);
+}
+
+.flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+.flag {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 6px;
+  background: var(--panel-2);
+  color: var(--muted);
+}
+
+.actions {
+  display: flex;
+  gap: 6px;
+}
+button.btn {
+  font: inherit;
+  font-size: 12px;
+  border: 1px solid var(--border);
+  background: var(--panel-2);
+  color: var(--text);
+  padding: 5px 10px;
+  border-radius: 8px;
+  cursor: pointer;
+}
+button.btn:hover:not(:disabled) {
+  border-color: var(--accent);
+}
+button.btn:disabled {
+  opacity: 0.55;
+  cursor: progress;
+}
+button.btn.ok {
+  color: var(--ok);
+}
+button.btn.warn {
+  color: var(--warn);
+}
+button.btn.danger {
+  color: var(--danger);
+}
+
+.toast {
+  font-size: 12px;
+  margin-left: 8px;
+}
+.toast.ok {
+  color: var(--ok);
+}
+.toast.danger {
+  color: var(--danger);
+}
+
+.empty {
+  padding: 28px;
+  color: var(--muted);
+  text-align: center;
+}
+.error {
+  border: 1px solid var(--danger);
+  background: var(--danger-bg);
+  color: var(--text);
+  padding: 14px 16px;
+  border-radius: 10px;
+}

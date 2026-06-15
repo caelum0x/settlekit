@@ -144,6 +144,14 @@ export interface SettleKitPaymentConfig {
    * Optional override for the resource identifier. Defaults to the request URL.
    */
   resource?: string;
+  /**
+   * Optional stable nonce for the challenge. When set, the same nonce is
+   * advertised in the 402 challenge AND passed to {@link PaymentVerifier} on the
+   * paid request, so a stateless verifier can confirm the proof echoed the
+   * challenge it was issued. When omitted a fresh random nonce is generated per
+   * challenge (suitable when the verifier tracks issued nonces out-of-band).
+   */
+  nonce?: string;
   /** Optional usage-recording hook run after a successful paid call. */
   settleAndMeter?: SettleAndMeter;
 }

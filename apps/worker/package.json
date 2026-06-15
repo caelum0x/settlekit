@@ -1,0 +1,37 @@
+{
+  "name": "@settlekit/worker",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "SettleKit background worker — delivery execution, payment confirmation, access sync, renewal sweeps, and webhook retries (plan §17).",
+  "main": "./dist/index.js",
+  "bin": {
+    "settlekit-worker": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "start": "node ./dist/index.js",
+    "dev": "node --enable-source-maps ./dist/index.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@settlekit/common": "workspace:*",
+    "@settlekit/payments": "workspace:*",
+    "@settlekit/arc": "workspace:*",
+    "@settlekit/webhooks": "workspace:*",
+    "@settlekit/notifications": "workspace:*",
+    "@settlekit/entitlements": "workspace:*",
+    "@settlekit/delivery": "workspace:*",
+    "@settlekit/license-keys": "workspace:*",
+    "@settlekit/api-keys": "workspace:*",
+    "@settlekit/file-delivery": "workspace:*",
+    "@settlekit/github": "workspace:*",
+    "@settlekit/discord": "workspace:*",
+    "@settlekit/saas": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

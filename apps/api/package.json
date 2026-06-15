@@ -1,0 +1,50 @@
+{
+  "name": "@settlekit/api",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "SettleKit REST API — Hono on Node. Mounts real route modules per resource under /v1 backed by the @settlekit domain packages and their in-memory repositories.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "node --import tsx/esm src/server.ts",
+    "start": "node dist/server.js",
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@hono/node-server": "^1.13.7",
+    "@settlekit/agent-services": "workspace:*",
+    "@settlekit/api-keys": "workspace:*",
+    "@settlekit/bundles": "workspace:*",
+    "@settlekit/common": "workspace:*",
+    "@settlekit/database": "workspace:*",
+    "@settlekit/delivery": "workspace:*",
+    "@settlekit/discord": "workspace:*",
+    "@settlekit/entitlements": "workspace:*",
+    "@settlekit/escrow": "workspace:*",
+    "@settlekit/file-delivery": "workspace:*",
+    "@settlekit/github": "workspace:*",
+    "@settlekit/license-keys": "workspace:*",
+    "@settlekit/payments": "workspace:*",
+    "@settlekit/product-catalog": "workspace:*",
+    "@settlekit/saas": "workspace:*",
+    "@settlekit/webhooks": "workspace:*",
+    "hono": "^4.6.14",
+    "zod": "^3.24.1"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

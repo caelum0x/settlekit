@@ -1,0 +1,22 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "composite": true,
+    "types": ["node"]
+  },
+  "references": [
+    { "path": "../../packages/common" },
+    { "path": "../../packages/saas" },
+    { "path": "../../packages/entitlements" },
+    { "path": "../../packages/x402" },
+    { "path": "../../packages/license-keys" },
+    { "path": "../../packages/delivery" },
+    { "path": "../../packages/bundles" }
+  ],
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules", "test", "**/*.test.ts"]
+}
