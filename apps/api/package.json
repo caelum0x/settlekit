@@ -27,6 +27,7 @@
     "@settlekit/agent-services": "workspace:*",
     "@settlekit/api-keys": "workspace:*",
     "@settlekit/arc": "workspace:*",
+    "@settlekit/auth": "workspace:*",
     "@settlekit/bundles": "workspace:*",
     "@settlekit/circle": "workspace:*",
     "@settlekit/common": "workspace:*",

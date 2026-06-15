@@ -29,6 +29,7 @@ import {
   type SubscriptionRepository,
 } from "@settlekit/payments";
 import { ApiKeyService, InMemoryApiKeyStore, type ApiKeyStore } from "@settlekit/api-keys";
+import { AuthService, InMemoryAuthStore } from "@settlekit/auth";
 import { LicenseService, InMemoryLicenseStore, type LicenseStore } from "@settlekit/license-keys";
 import {
   SaasService,
@@ -139,6 +140,11 @@ export interface AppContext {
   readonly apiKeys: ApiKeyService;
   readonly licenses: LicenseService;
   readonly files: FileDeliveryService;
+
+  // Authentication (account/session/magic-link) for the public /v1/auth routes.
+  readonly auth: AuthService;
+  /** HMAC secret used to sign the `sk_session` cookie. */
+  readonly authCookieSecret: string;
 
   // Integration clients (real when configured; null/in-memory otherwise).
   readonly arcVerifier: PaymentVerifier | null;
@@ -251,6 +257,9 @@ export async function createContext(): Promise<AppContext> {
       defaultExpiresInSec: config.fileDelivery.defaultExpiresInSec,
       defaultMaxDownloads: config.fileDelivery.defaultMaxDownloads,
     }),
+
+    auth: new AuthService(new InMemoryAuthStore()),
+    authCookieSecret: config.authCookieSecret,
 
     arcVerifier: integrations.arcVerifier,
     circle: integrations.circle,

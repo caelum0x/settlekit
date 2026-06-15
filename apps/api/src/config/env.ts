@@ -85,6 +85,8 @@ export interface ApiConfig {
   port: number;
   licenseTokenSecret: string;
   webhookSigningSecret: string;
+  /** HMAC secret used to sign the `sk_session` cookie. */
+  authCookieSecret: string;
   fileDelivery: FileDeliveryConfig;
 
   /** Optional integration groups — null when their creds are absent. */
@@ -274,6 +276,7 @@ export function loadConfig(env: Env = process.env): ApiConfig {
     port: intInRange(env, "PORT", 8787, 1, 65_535),
     licenseTokenSecret: optionalString(env, "LICENSE_TOKEN_SECRET", "settlekit-dev-license-secret"),
     webhookSigningSecret: optionalString(env, "WEBHOOK_SIGNING_SECRET", "settlekit-dev-webhook-secret"),
+    authCookieSecret: optionalString(env, "AUTH_COOKIE_SECRET", "settlekit-dev-auth-cookie-secret"),
     fileDelivery: loadFileDelivery(env),
 
     database,

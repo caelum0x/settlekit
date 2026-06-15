@@ -33,6 +33,7 @@ import { agentServiceRoutes } from "./routes/agent-services.js";
 import { escrowRoutes } from "./routes/escrow.js";
 import { couponRoutes } from "./routes/coupons.js";
 import { invoiceRoutes } from "./routes/invoices.js";
+import { authRoutes } from "./routes/auth.js";
 
 /** Build the full SettleKit API app. Pass a context to share/isolate state. */
 export function createApp(ctx: AppContext): Hono<AppEnv> {
@@ -50,7 +51,11 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
   // Liveness probe (unauthenticated).
   app.get("/health", (c) => c.json({ data: { status: "ok", service: "settlekit-api" } }));
 
-  // Everything under /v1 requires a valid Bearer API key.
+  // Authentication is PUBLIC: no API key. Mounted before/outside the v1
+  // api-key-guarded group so sign-up/sign-in work without an existing key.
+  app.route("/v1/auth", authRoutes());
+
+  // Everything else under /v1 requires a valid Bearer API key.
   const v1 = new Hono<AppEnv>();
   v1.use("*", authMiddleware());
 

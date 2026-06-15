@@ -36,7 +36,12 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
-      <div className="sidebar-footer">Commerce OS · USDC native</div>
+      <div className="sidebar-footer">
+        <a href="/logout" className="sidebar-signout">
+          Sign out
+        </a>
+        <span>Commerce OS · USDC native</span>
+      </div>
     </aside>
   );
 }

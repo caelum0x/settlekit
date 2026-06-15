@@ -1,21 +1,15 @@
-import { addDays, type Money } from "@settlekit/common";
+export * from "./types.js";
+export * from "./dispute.js";
+export * from "./store.js";
+export * from "./service.js";
 
-export type DisputeStatus = "opened" | "evidence_due" | "under_review" | "won" | "lost";
-
-export interface Dispute {
-  id: string;
-  paymentId: string;
-  amount: Money;
-  reason: "fraud" | "not_received" | "duplicate" | "quality";
-  status: DisputeStatus;
-  evidenceDueAt: string;
-}
-
-export function openDispute(input: Omit<Dispute, "status" | "evidenceDueAt">, now = new Date()): Dispute {
-  return { ...input, status: "opened", evidenceDueAt: addDays(now, 7).toISOString() };
-}
-
-export function submitDisputeEvidence(dispute: Dispute): Dispute {
-  if (dispute.status === "won" || dispute.status === "lost") throw new Error("dispute already closed");
-  return { ...dispute, status: "under_review" };
-}
+// --- Legacy API (preserved for existing callers) -------------------------
+// The legacy Dispute/DisputeStatus/openDispute symbols are superseded by the
+// spec engine above; their original implementations remain available under
+// namespaced names plus the still-exported submitDisputeEvidence helper.
+export {
+  type LegacyDispute,
+  type LegacyDisputeStatus,
+  legacyOpenDispute,
+  submitDisputeEvidence,
+} from "./legacy.js";

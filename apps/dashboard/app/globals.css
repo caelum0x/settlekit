@@ -124,6 +124,87 @@ code {
   border-top: 1px solid var(--border);
   font-size: 11px;
   color: var(--text-dim);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.sidebar-signout {
+  display: inline-block;
+  align-self: flex-start;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 4px 0;
+}
+
+.sidebar-signout:hover {
+  color: var(--accent);
+}
+
+/* ---------- Auth shell ---------- */
+.auth-shell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 32px 20px;
+}
+
+.auth-shell-inner {
+  width: 100%;
+  max-width: 400px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.auth-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-weight: 700;
+  font-size: 18px;
+}
+
+.auth-heading {
+  text-align: center;
+}
+
+.auth-heading .page-title {
+  font-size: 20px;
+}
+
+.auth-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.auth-card .form {
+  max-width: none;
+}
+
+.auth-method-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+
+.auth-alt {
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.auth-alt a {
+  color: var(--accent);
+  font-weight: 600;
 }
 
 .main {

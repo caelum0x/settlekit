@@ -75,6 +75,9 @@ importers:
       '@settlekit/arc':
         specifier: workspace:*
         version: link:../../packages/arc
+      '@settlekit/auth':
+        specifier: workspace:*
+        version: link:../../packages/auth
       '@settlekit/bundles':
         specifier: workspace:*
         version: link:../../packages/bundles
@@ -871,6 +874,9 @@ importers:
         specifier: workspace:*
         version: link:../common
     devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -884,6 +890,9 @@ importers:
         specifier: workspace:*
         version: link:../common
     devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -1219,6 +1228,9 @@ importers:
         specifier: workspace:*
         version: link:../common
     devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -1309,6 +1321,9 @@ importers:
         specifier: workspace:*
         version: link:../common
     devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
