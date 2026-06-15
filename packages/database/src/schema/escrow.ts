@@ -124,6 +124,51 @@ export const escrowReleases = pgTable(
   }),
 );
 
+/** A refund of escrowed funds back to the buyer. */
+export const escrowRefunds = pgTable(
+  "escrow_refunds",
+  {
+    id: idColumn(),
+    escrowTaskId: text("escrow_task_id")
+      .notNull()
+      .references(() => escrowTasks.id),
+    currency: text("currency").notNull().default("USDC"),
+    amount: amountColumn("amount").notNull(),
+    reason: text("reason"),
+    txHash: text("tx_hash"),
+    refundedAt: requiredTimestamp("refunded_at"),
+    metadata: metadataColumn(),
+    ...timestamps,
+  },
+  (table) => ({
+    escrowTaskIdx: index("escrow_refunds_escrow_task_id_idx").on(
+      table.escrowTaskId,
+    ),
+  }),
+);
+
+/** A buyer's review/approval decision on a submitted deliverable. */
+export const escrowReviews = pgTable(
+  "escrow_reviews",
+  {
+    id: idColumn(),
+    escrowTaskId: text("escrow_task_id")
+      .notNull()
+      .references(() => escrowTasks.id),
+    submissionId: text("submission_id").references(() => escrowSubmissions.id),
+    decision: text("decision").notNull(),
+    notes: text("notes"),
+    reviewedAt: requiredTimestamp("reviewed_at"),
+    metadata: metadataColumn(),
+    ...timestamps,
+  },
+  (table) => ({
+    escrowTaskIdx: index("escrow_reviews_escrow_task_id_idx").on(
+      table.escrowTaskId,
+    ),
+  }),
+);
+
 /** A dispute raised against an escrow task. */
 export const escrowDisputes = pgTable(
   "escrow_disputes",

@@ -75,6 +75,8 @@ import {
   escrowFundings,
   escrowSubmissions,
   escrowReleases,
+  escrowRefunds,
+  escrowReviews,
   escrowDisputes,
 } from "./escrow.js";
 import { marketplaceListings, riskProfiles } from "./marketplace.js";
@@ -129,6 +131,8 @@ export const schema = {
   escrowFundings,
   escrowSubmissions,
   escrowReleases,
+  escrowRefunds,
+  escrowReviews,
   escrowDisputes,
   marketplaceListings,
   riskProfiles,

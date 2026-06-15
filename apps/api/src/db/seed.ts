@@ -10,12 +10,14 @@
  * (`metadata.__doc`) remains the source of truth for the entity itself.
  */
 
-import { eq, type Database, organizations, merchants } from "@settlekit/database";
+import { eq, type Database, organizations, merchants, customers } from "@settlekit/database";
 
 /** Stable id of the platform default organization (used when none is provided). */
 export const DEFAULT_ORG_ID = "org_settlekit_default";
 /** Stable id of the platform default merchant (satisfies merchant_id FKs). */
 export const DEFAULT_MERCHANT_ID = "mch_settlekit_default";
+/** Stable id of the platform default customer (satisfies buyer_customer_id FKs). */
+export const DEFAULT_CUSTOMER_ID = "cus_settlekit_default";
 
 /**
  * Idempotently create the default organization + merchant. Safe to call on
@@ -44,6 +46,16 @@ export async function seedDefaults(db: Database): Promise<void> {
       metadata: {},
     })
     .onConflictDoNothing({ target: merchants.id });
+
+  await db
+    .insert(customers)
+    .values({
+      id: DEFAULT_CUSTOMER_ID,
+      merchantId: DEFAULT_MERCHANT_ID,
+      email: "default@settlekit.local",
+      metadata: {},
+    })
+    .onConflictDoNothing({ target: customers.id });
 }
 
 /** True when the default organization row already exists. */

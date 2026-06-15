@@ -44,7 +44,7 @@ import {
   InMemoryAgentReputationStore,
   type AgentServiceStore,
 } from "@settlekit/agent-services";
-import { EscrowService, InMemoryEscrowStore } from "@settlekit/escrow";
+import { EscrowService, InMemoryEscrowStore, type EscrowStore } from "@settlekit/escrow";
 import { FileDeliveryService, InMemoryGrantStore } from "@settlekit/file-delivery";
 import {
   createDefaultRegistry,
@@ -89,6 +89,7 @@ import { PgLicenseStore } from "./db/pg/license-store.js";
 import { PgPlanStore } from "./db/pg/plan-store.js";
 import { PgBundleStore } from "./db/pg/bundle-store.js";
 import { PgAgentServiceStore } from "./db/pg/agent-service-store.js";
+import { PgEscrowStore } from "./db/pg/escrow-store.js";
 import { loadConfig } from "./config/env.js";
 import { buildIntegrations } from "./config/integrations.js";
 
@@ -233,7 +234,7 @@ export async function createContext(): Promise<AppContext> {
       reputation: new InMemoryAgentReputationStore(),
     }),
     agentServiceStore,
-    escrow: new EscrowService(new InMemoryEscrowStore()),
+    escrow: new EscrowService(pick<EscrowStore>(db, (d) => new PgEscrowStore(d), () => new InMemoryEscrowStore())),
   };
 }
 
