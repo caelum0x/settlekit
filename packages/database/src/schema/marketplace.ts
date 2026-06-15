@@ -71,3 +71,25 @@ export const riskProfiles = pgTable(
     customerIdx: index("risk_profiles_customer_id_idx").on(table.customerId),
   }),
 );
+
+/**
+ * A running reputation aggregate for an agent service listing. Keyed by the
+ * service id so the marketplace can sort/filter without re-scanning individual
+ * reviews. The canonical AgentReputation document lives in `metadata.__doc`;
+ * typed columns are projected for querying.
+ */
+export const agentReputations = pgTable(
+  "agent_reputations",
+  {
+    id: idColumn(),
+    serviceId: text("service_id").notNull(),
+    ratingCount: integer("rating_count").notNull().default(0),
+    ratingSum: integer("rating_sum").notNull().default(0),
+    ratingAverage: text("rating_average"),
+    metadata: metadataColumn(),
+    ...timestamps,
+  },
+  (table) => ({
+    serviceIdx: index("agent_reputations_service_id_idx").on(table.serviceId),
+  }),
+);

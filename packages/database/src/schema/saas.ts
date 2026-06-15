@@ -8,7 +8,6 @@ import {
 } from "drizzle-orm/pg-core";
 import { merchants, customers } from "./accounts.js";
 import { prices } from "./catalog.js";
-import { subscriptions } from "./payments.js";
 import { idColumn, timestamps, metadataColumn } from "./_shared.js";
 
 /** A packaged SaaS plan (tier) offered by a merchant. */
@@ -60,9 +59,7 @@ export const saasSeats = pgTable(
   "saas_seats",
   {
     id: idColumn(),
-    subscriptionId: text("subscription_id")
-      .notNull()
-      .references(() => subscriptions.id),
+    subscriptionId: text("subscription_id"),
     customerId: text("customer_id").references(() => customers.id),
     email: text("email"),
     status: text("status").notNull().default("active"),

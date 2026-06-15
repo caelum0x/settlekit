@@ -15,6 +15,7 @@ export * from "./saas.js";
 export * from "./agents.js";
 export * from "./escrow.js";
 export * from "./marketplace.js";
+export * from "./file_delivery.js";
 
 import {
   organizations,
@@ -79,7 +80,8 @@ import {
   escrowReviews,
   escrowDisputes,
 } from "./escrow.js";
-import { marketplaceListings, riskProfiles } from "./marketplace.js";
+import { marketplaceListings, riskProfiles, agentReputations } from "./marketplace.js";
+import { downloadGrants } from "./file_delivery.js";
 
 /**
  * The schema object handed to `drizzle(client, { schema })`. Keys are the
@@ -136,6 +138,8 @@ export const schema = {
   escrowDisputes,
   marketplaceListings,
   riskProfiles,
+  agentReputations,
+  downloadGrants,
 } as const;
 
 /** The static type of the SettleKit schema object. */

@@ -15,6 +15,13 @@
       "when": 1781513837110,
       "tag": "0001_escrow_refunds_reviews",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781530930791,
+      "tag": "0002_fullproduct_stores",
+      "breakpoints": true
     }
   ]
 }

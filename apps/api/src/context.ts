@@ -35,6 +35,7 @@ import {
   InMemoryPlanStore,
   InMemorySeatStore,
   type PlanStore,
+  type SeatStore,
 } from "@settlekit/saas";
 import { BundleService, InMemoryBundleStore, type BundleStore } from "@settlekit/bundles";
 import {
@@ -43,6 +44,8 @@ import {
   InMemoryAgentUsageStore,
   InMemoryAgentReputationStore,
   type AgentServiceStore,
+  type AgentUsageStore,
+  type AgentReputationStore,
 } from "@settlekit/agent-services";
 import { EscrowService, InMemoryEscrowStore, type EscrowStore } from "@settlekit/escrow";
 import { CouponService, InMemoryCouponStore, type CouponStore } from "@settlekit/coupons";
@@ -52,7 +55,11 @@ import {
   type InvoiceStore,
   type Merchant,
 } from "@settlekit/invoices";
-import { FileDeliveryService, InMemoryGrantStore } from "@settlekit/file-delivery";
+import {
+  FileDeliveryService,
+  InMemoryGrantStore,
+  type GrantStore,
+} from "@settlekit/file-delivery";
 import {
   createDefaultRegistry,
   type DeliveryClients,
@@ -96,6 +103,10 @@ import { PgLicenseStore } from "./db/pg/license-store.js";
 import { PgPlanStore } from "./db/pg/plan-store.js";
 import { PgBundleStore } from "./db/pg/bundle-store.js";
 import { PgAgentServiceStore } from "./db/pg/agent-service-store.js";
+import { PgAgentUsageStore } from "./db/pg/agent-usage-store.js";
+import { PgAgentReputationStore } from "./db/pg/agent-reputation-store.js";
+import { PgSeatStore } from "./db/pg/seat-store.js";
+import { PgGrantStore } from "./db/pg/file-grant-store.js";
 import { PgEscrowStore } from "./db/pg/escrow-store.js";
 import { loadConfig } from "./config/env.js";
 import { buildIntegrations } from "./config/integrations.js";
@@ -199,6 +210,10 @@ export async function createContext(): Promise<AppContext> {
   const planStore = pick<PlanStore>(db, (d) => new PgPlanStore(d), () => new InMemoryPlanStore());
   const bundleStore = pick<BundleStore>(db, (d) => new PgBundleStore(d), () => new InMemoryBundleStore());
   const agentServiceStore = pick<AgentServiceStore>(db, (d) => new PgAgentServiceStore(d), () => new InMemoryAgentServiceStore());
+  const seatStore = pick<SeatStore>(db, (d) => new PgSeatStore(d), () => new InMemorySeatStore());
+  const agentUsageStore = pick<AgentUsageStore>(db, (d) => new PgAgentUsageStore(d), () => new InMemoryAgentUsageStore());
+  const agentReputationStore = pick<AgentReputationStore>(db, (d) => new PgAgentReputationStore(d), () => new InMemoryAgentReputationStore());
+  const grantStore = pick<GrantStore>(db, (d) => new PgGrantStore(d), () => new InMemoryGrantStore());
 
   // Coupons + invoices use in-memory stores (interface-typed) on the context.
   const couponStore: CouponStore = new InMemoryCouponStore();
@@ -230,7 +245,7 @@ export async function createContext(): Promise<AppContext> {
 
     apiKeys: new ApiKeyService(apiKeyStore),
     licenses: new LicenseService(licenseStore, { tokenSecret: config.licenseTokenSecret }),
-    files: new FileDeliveryService(new InMemoryGrantStore(), {
+    files: new FileDeliveryService(grantStore, {
       baseUrl: config.fileDelivery.baseUrl,
       secret: config.fileDelivery.secret,
       defaultExpiresInSec: config.fileDelivery.defaultExpiresInSec,
@@ -249,13 +264,13 @@ export async function createContext(): Promise<AppContext> {
     discordConnections: pick<EntityStore<DiscordConnection>>(db, (d) => new PgDiscordConnectionStore(d), () => new InMemoryEntityStore<DiscordConnection>()),
     discordGrants: pick<EntityStore<DiscordRoleGrant>>(db, (d) => new PgDiscordRoleGrantStore(d), () => new InMemoryEntityStore<DiscordRoleGrant>()),
 
-    saas: new SaasService({ plans: planStore, seats: new InMemorySeatStore() }),
+    saas: new SaasService({ plans: planStore, seats: seatStore }),
     bundles: new BundleService(bundleStore, (productId: string) => knownProductIds.has(productId)),
     bundleStore,
     agentServices: new AgentServiceService({
       services: agentServiceStore,
-      usage: new InMemoryAgentUsageStore(),
-      reputation: new InMemoryAgentReputationStore(),
+      usage: agentUsageStore,
+      reputation: agentReputationStore,
     }),
     agentServiceStore,
     escrow: new EscrowService(pick<EscrowStore>(db, (d) => new PgEscrowStore(d), () => new InMemoryEscrowStore())),

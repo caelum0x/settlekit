@@ -1,0 +1,617 @@
+/**
+ * @settlekit/ui — unified design-system stylesheet.
+ *
+ * Merges the SettleKit dashboard (data-dense app surfaces: cards, tables,
+ * badges, stats, forms) and the web/marketing surface (gradient accent, nav,
+ * larger radii, glow) into one importable theme.
+ *
+ * Apps include this once at the root, e.g.:
+ *   import "@settlekit/ui/theme.css";
+ *
+ * Everything is namespaced under .sk-* / --sk-* to avoid clobbering existing
+ * app styles during incremental adoption.
+ */
+
+:root {
+  /* ---- Surfaces ---- */
+  --sk-bg: #07090f;
+  --sk-bg-soft: #0b0e16;
+  --sk-bg-panel: #11151f;
+  --sk-bg-elevated: #161b27;
+
+  /* ---- Borders ---- */
+  --sk-border: #232a39;
+  --sk-border-strong: #303a4d;
+
+  /* ---- Text ---- */
+  --sk-text: #eef1f7;
+  --sk-text-muted: #a4adbf;
+  --sk-text-dim: #6c7689;
+
+  /* ---- Accent / brand gradient ---- */
+  --sk-accent: #6b8cff;
+  --sk-accent-2: #9d6bff;
+  --sk-accent-hover: #4a7bf0;
+  --sk-accent-soft: rgba(107, 140, 255, 0.14);
+  --sk-grad: linear-gradient(135deg, #6b8cff 0%, #9d6bff 100%);
+
+  /* ---- Status tones ---- */
+  --sk-good: #3fcf8e;
+  --sk-good-soft: rgba(63, 207, 142, 0.14);
+  --sk-warn: #f5b740;
+  --sk-warn-soft: rgba(245, 183, 64, 0.14);
+  --sk-bad: #f06363;
+  --sk-bad-soft: rgba(240, 99, 99, 0.14);
+
+  /* ---- Radius ---- */
+  --sk-radius: 14px;
+  --sk-radius-md: 10px;
+  --sk-radius-sm: 8px;
+
+  /* ---- Spacing scale ---- */
+  --sk-space-1: 4px;
+  --sk-space-2: 8px;
+  --sk-space-3: 12px;
+  --sk-space-4: 16px;
+  --sk-space-5: 20px;
+  --sk-space-6: 24px;
+  --sk-space-8: 32px;
+
+  /* ---- Shadows ---- */
+  --sk-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
+  --sk-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  --sk-shadow-accent: 0 6px 24px rgba(107, 140, 255, 0.28);
+
+  /* ---- Fonts ---- */
+  --sk-font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
+    Helvetica, Arial, sans-serif;
+  --sk-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+
+  /* ---- Layout ---- */
+  --sk-maxw: 1180px;
+}
+
+/* ---------- Card ---------- */
+.sk-card {
+  background: var(--sk-bg-panel);
+  border: 1px solid var(--sk-border);
+  border-radius: var(--sk-radius);
+  padding: var(--sk-space-5);
+  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+}
+
+.sk-card-hover:hover {
+  border-color: var(--sk-border-strong);
+  transform: translateY(-3px);
+  box-shadow: var(--sk-shadow);
+}
+
+.sk-card-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 var(--sk-space-3);
+}
+
+/* ---------- Buttons ---------- */
+.sk-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 14px;
+  border-radius: var(--sk-radius-sm);
+  font-size: 13px;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  border: 1px solid var(--sk-border-strong);
+  background: var(--sk-bg-elevated);
+  color: var(--sk-text);
+  transition: background 0.15s, border-color 0.15s, transform 0.05s,
+    box-shadow 0.15s;
+  white-space: nowrap;
+}
+
+.sk-btn:hover {
+  border-color: var(--sk-accent);
+}
+
+.sk-btn:active {
+  transform: translateY(1px);
+}
+
+.sk-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+.sk-btn-lg {
+  padding: 12px 20px;
+  font-size: 15px;
+}
+
+.sk-btn-sm {
+  padding: 5px 10px;
+  font-size: 12px;
+}
+
+.sk-btn-primary {
+  background: var(--sk-grad);
+  border-color: transparent;
+  color: #fff;
+  box-shadow: var(--sk-shadow-accent);
+}
+
+.sk-btn-primary:hover {
+  border-color: transparent;
+  box-shadow: 0 8px 30px rgba(107, 140, 255, 0.42);
+}
+
+.sk-btn-ghost {
+  background: transparent;
+  border-color: transparent;
+  color: var(--sk-text-muted);
+}
+
+.sk-btn-ghost:hover {
+  background: var(--sk-bg-elevated);
+  border-color: transparent;
+  color: var(--sk-text);
+}
+
+.sk-btn-outline {
+  background: transparent;
+  border-color: var(--sk-border-strong);
+}
+
+.sk-btn-outline:hover {
+  border-color: var(--sk-accent);
+  color: var(--sk-accent);
+}
+
+.sk-btn-danger {
+  background: var(--sk-bad-soft);
+  border-color: rgba(240, 99, 99, 0.4);
+  color: var(--sk-bad);
+}
+
+.sk-btn-danger:hover {
+  border-color: var(--sk-bad);
+}
+
+/* ---------- Table ---------- */
+.sk-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--sk-border);
+  border-radius: var(--sk-radius-md);
+}
+
+.sk-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+.sk-table th {
+  text-align: left;
+  font-weight: 600;
+  color: var(--sk-text-muted);
+  padding: 10px 14px;
+  background: var(--sk-bg-elevated);
+  border-bottom: 1px solid var(--sk-border);
+  white-space: nowrap;
+}
+
+.sk-table td {
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--sk-border);
+  vertical-align: middle;
+}
+
+.sk-table tr:last-child td {
+  border-bottom: none;
+}
+
+.sk-table tbody tr:hover {
+  background: var(--sk-bg-elevated);
+}
+
+.sk-table-align-right {
+  text-align: right;
+}
+
+.sk-table-align-center {
+  text-align: center;
+}
+
+.sk-table-empty {
+  padding: 32px 14px;
+  text-align: center;
+  color: var(--sk-text-dim);
+}
+
+/* ---------- Badge ---------- */
+.sk-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: capitalize;
+  border: 1px solid transparent;
+  line-height: 1.6;
+}
+
+.sk-badge-good {
+  background: var(--sk-good-soft);
+  color: var(--sk-good);
+}
+
+.sk-badge-warn {
+  background: var(--sk-warn-soft);
+  color: var(--sk-warn);
+}
+
+.sk-badge-bad {
+  background: var(--sk-bad-soft);
+  color: var(--sk-bad);
+}
+
+.sk-badge-accent {
+  background: var(--sk-accent-soft);
+  color: var(--sk-accent);
+}
+
+.sk-badge-neutral {
+  background: var(--sk-bg-elevated);
+  color: var(--sk-text-muted);
+  border-color: var(--sk-border);
+}
+
+.sk-badge-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+/* ---------- Inputs ---------- */
+.sk-input,
+.sk-select,
+.sk-textarea {
+  width: 100%;
+  background: var(--sk-bg);
+  border: 1px solid var(--sk-border-strong);
+  border-radius: var(--sk-radius-sm);
+  color: var(--sk-text);
+  padding: 9px 11px;
+  font-size: 13px;
+  font-family: inherit;
+  transition: border-color 0.15s;
+}
+
+.sk-input::placeholder,
+.sk-textarea::placeholder {
+  color: var(--sk-text-dim);
+}
+
+.sk-input:focus,
+.sk-select:focus,
+.sk-textarea:focus {
+  outline: none;
+  border-color: var(--sk-accent);
+}
+
+.sk-input:disabled,
+.sk-select:disabled,
+.sk-textarea:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.sk-input-invalid,
+.sk-input-invalid:focus {
+  border-color: var(--sk-bad);
+}
+
+.sk-textarea {
+  resize: vertical;
+  min-height: 80px;
+}
+
+/* ---------- Form row / field ---------- */
+.sk-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sk-field-label {
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.sk-field-required {
+  color: var(--sk-bad);
+  margin-left: 2px;
+}
+
+.sk-field-hint {
+  font-size: 12px;
+  color: var(--sk-text-dim);
+}
+
+.sk-field-error {
+  font-size: 12px;
+  color: var(--sk-bad);
+}
+
+.sk-form-row {
+  display: flex;
+  gap: var(--sk-space-3);
+  flex-wrap: wrap;
+}
+
+.sk-form-row > .sk-field {
+  flex: 1;
+  min-width: 160px;
+}
+
+/* ---------- Grid ---------- */
+.sk-grid {
+  display: grid;
+  gap: var(--sk-space-4);
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+}
+
+.sk-grid-2 {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.sk-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.sk-grid-4 {
+  grid-template-columns: repeat(4, 1fr);
+}
+
+@media (max-width: 720px) {
+  .sk-grid-2,
+  .sk-grid-3,
+  .sk-grid-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ---------- Stat card ---------- */
+.sk-stat {
+  background: var(--sk-bg-panel);
+  border: 1px solid var(--sk-border);
+  border-left: 3px solid var(--sk-accent);
+  border-radius: var(--sk-radius-md);
+  padding: 16px 18px;
+}
+
+.sk-stat-good {
+  border-left-color: var(--sk-good);
+}
+
+.sk-stat-warn {
+  border-left-color: var(--sk-warn);
+}
+
+.sk-stat-bad {
+  border-left-color: var(--sk-bad);
+}
+
+.sk-stat-label {
+  font-size: 12px;
+  color: var(--sk-text-muted);
+  margin-bottom: 6px;
+}
+
+.sk-stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.sk-stat-hint {
+  font-size: 11px;
+  color: var(--sk-text-dim);
+  margin-top: 4px;
+}
+
+.sk-stat-trend-up {
+  color: var(--sk-good);
+}
+
+.sk-stat-trend-down {
+  color: var(--sk-bad);
+}
+
+/* ---------- Page header ---------- */
+.sk-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--sk-space-4);
+  margin-bottom: var(--sk-space-6);
+}
+
+.sk-page-title {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0;
+  letter-spacing: -0.01em;
+}
+
+.sk-page-desc {
+  color: var(--sk-text-muted);
+  margin: 4px 0 0;
+  font-size: 13px;
+}
+
+.sk-page-actions {
+  display: flex;
+  gap: var(--sk-space-2);
+  flex-shrink: 0;
+}
+
+.sk-breadcrumb {
+  font-size: 12px;
+  color: var(--sk-text-dim);
+  margin-bottom: 6px;
+}
+
+/* ---------- Nav ---------- */
+.sk-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--sk-space-1);
+  flex-wrap: wrap;
+}
+
+.sk-nav-link {
+  padding: 8px 12px;
+  border-radius: var(--sk-radius-sm);
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--sk-text-muted);
+  text-decoration: none;
+  transition: color 0.15s, background 0.15s;
+  cursor: pointer;
+}
+
+.sk-nav-link:hover {
+  color: var(--sk-text);
+  background: var(--sk-bg-elevated);
+}
+
+.sk-nav-link-active {
+  background: var(--sk-accent-soft);
+  color: var(--sk-accent);
+  font-weight: 600;
+}
+
+/* ---------- Empty state ---------- */
+.sk-empty {
+  text-align: center;
+  padding: 48px 24px;
+  border: 1px dashed var(--sk-border-strong);
+  border-radius: var(--sk-radius);
+  background: var(--sk-bg-panel);
+}
+
+.sk-empty-icon {
+  font-size: 28px;
+  color: var(--sk-text-dim);
+  margin-bottom: 8px;
+}
+
+.sk-empty-title {
+  font-weight: 600;
+  font-size: 15px;
+}
+
+.sk-empty-message {
+  color: var(--sk-text-muted);
+  max-width: 420px;
+  margin: 6px auto 0;
+  font-size: 13px;
+}
+
+.sk-empty-action {
+  margin-top: 16px;
+}
+
+/* ---------- Copy button ---------- */
+.sk-copy {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--sk-font-mono);
+  font-size: 12px;
+  background: var(--sk-bg-elevated);
+  border: 1px solid var(--sk-border);
+  border-radius: var(--sk-radius-sm);
+  color: var(--sk-text-muted);
+  padding: 4px 9px;
+  cursor: pointer;
+  transition: border-color 0.15s, color 0.15s;
+}
+
+.sk-copy:hover {
+  border-color: var(--sk-accent);
+  color: var(--sk-text);
+}
+
+.sk-copy-done {
+  color: var(--sk-good);
+  border-color: var(--sk-good);
+}
+
+/* ---------- Money ---------- */
+.sk-money {
+  font-family: var(--sk-font-mono);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.sk-money-currency {
+  color: var(--sk-text-dim);
+  margin-left: 4px;
+  font-size: 0.85em;
+}
+
+.sk-money-negative {
+  color: var(--sk-bad);
+}
+
+/* ---------- Spinner ---------- */
+.sk-spinner {
+  display: inline-block;
+  border: 2px solid var(--sk-border-strong);
+  border-top-color: var(--sk-accent);
+  border-radius: 50%;
+  width: 16px;
+  height: 16px;
+  animation: sk-spin 0.7s linear infinite;
+}
+
+.sk-spinner-lg {
+  width: 28px;
+  height: 28px;
+  border-width: 3px;
+}
+
+@keyframes sk-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- Utilities ---------- */
+.sk-mono {
+  font-family: var(--sk-font-mono);
+  font-size: 12px;
+}
+
+.sk-muted {
+  color: var(--sk-text-muted);
+}
+
+.sk-dim {
+  color: var(--sk-text-dim);
+}
+
+.sk-row-between {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--sk-space-3);
+}

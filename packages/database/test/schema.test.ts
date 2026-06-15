@@ -52,6 +52,8 @@ import {
   escrowDisputes,
   marketplaceListings,
   riskProfiles,
+  agentReputations,
+  downloadGrants,
   DATABASE_TABLES,
   isSchemaTable,
 } from "../src/index.js";
@@ -111,6 +113,8 @@ const EXPECTED_TABLE_NAMES = [
   "escrow_disputes",
   "marketplace_listings",
   "risk_profiles",
+  "agent_reputations",
+  "download_grants",
 ] as const;
 
 describe("schema table coverage", () => {
@@ -255,5 +259,14 @@ describe("column presence", () => {
     expect(getTableColumns(marketplaceListings).tags).toBeDefined();
     expect(getTableColumns(riskProfiles).score).toBeDefined();
     expect(getTableColumns(riskProfiles).level).toBeDefined();
+  });
+
+  it("models agent reputations and download grants", () => {
+    expect(getTableColumns(agentReputations).serviceId).toBeDefined();
+    expect(getTableColumns(agentReputations).ratingCount).toBeDefined();
+    expect(getTableColumns(agentReputations).ratingSum).toBeDefined();
+    expect(getTableColumns(downloadGrants).fileId).toBeDefined();
+    expect(getTableColumns(downloadGrants).downloadToken).toBeDefined();
+    expect(getTableColumns(downloadGrants).status).toBeDefined();
   });
 });

@@ -96,9 +96,7 @@ export const agentUsageEvents = pgTable(
     agentServiceId: text("agent_service_id")
       .notNull()
       .references(() => agentServices.id),
-    agentBuyerId: text("agent_buyer_id")
-      .notNull()
-      .references(() => agentBuyers.id),
+    agentBuyerId: text("agent_buyer_id"),
     paymentId: text("payment_id"),
     currency: text("currency").notNull().default("USDC"),
     amount: amountColumn("amount").notNull(),
