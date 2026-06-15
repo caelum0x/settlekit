@@ -16,6 +16,9 @@ import type {
   DiscordAccessGrant,
   DiscordRole,
   DiscordServer,
+  Dispute,
+  DisputeReason,
+  DunningState,
   Entitlement,
   EscrowTask,
   FileAsset,
@@ -30,12 +33,15 @@ import type {
   Payment,
   Payout,
   Product,
+  Refund,
+  RefundReason,
   SaasFeature,
   SaasPlan,
   Seat,
   Subscription,
   WebhookEndpoint,
 } from "./types";
+import type { DecimalMoney } from "./types";
 
 export const API_URL =
   process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
@@ -155,7 +161,77 @@ export const api = {
     create: (url: string, events: string[]) =>
       post<WebhookEndpoint>("/v1/webhooks", { url, events }),
   },
-  payouts: { list: () => getList<Payout>("/v1/payouts") },
+  // ---- Refunds ----
+  refunds: {
+    list: (filter?: { paymentId?: string; customerId?: string }) => {
+      const params = new URLSearchParams();
+      if (filter?.paymentId) params.set("paymentId", filter.paymentId);
+      if (filter?.customerId) params.set("customerId", filter.customerId);
+      const qs = params.toString();
+      return getList<Refund>(qs ? `/v1/refunds?${qs}` : "/v1/refunds");
+    },
+    create: (input: {
+      paymentId: string;
+      customerId: string;
+      amount: string;
+      reason: RefundReason;
+    }) => post<Refund>("/v1/refunds", input),
+    succeed: (id: string) => post<Refund>(`/v1/refunds/${encodeURIComponent(id)}/succeed`, {}),
+    fail: (id: string, reason?: string) =>
+      post<Refund>(`/v1/refunds/${encodeURIComponent(id)}/fail`, reason ? { reason } : {}),
+  },
+
+  // ---- Dunning ----
+  dunning: {
+    list: (due?: boolean) => getList<DunningState>(due ? "/v1/dunning?due=true" : "/v1/dunning"),
+    start: (subscriptionId: string) => post<DunningState>("/v1/dunning", { subscriptionId }),
+    attempt: (subscriptionId: string, outcome: "recovered" | "failed", failureReason?: string) =>
+      post<DunningState>(`/v1/dunning/${encodeURIComponent(subscriptionId)}/attempt`, {
+        outcome,
+        ...(failureReason ? { failureReason } : {}),
+      }),
+    recover: (subscriptionId: string) =>
+      post<DunningState>(`/v1/dunning/${encodeURIComponent(subscriptionId)}/recover`, {}),
+  },
+
+  // ---- Disputes ----
+  disputes: {
+    list: (status?: string) =>
+      getList<Dispute>(status ? `/v1/disputes?status=${encodeURIComponent(status)}` : "/v1/disputes"),
+    get: (id: string) => getItem<Dispute>(`/v1/disputes/${encodeURIComponent(id)}`),
+    open: (input: { paymentId: string; customerId: string; reason: DisputeReason }) =>
+      post<Dispute>("/v1/disputes", input),
+    evidence: (
+      id: string,
+      input: {
+        kind: "text" | "receipt" | "shipping" | "communication" | "url" | "file";
+        description: string;
+        value: string;
+      },
+    ) => post<Dispute>(`/v1/disputes/${encodeURIComponent(id)}/evidence`, input),
+    resolve: (id: string, outcome: "won" | "lost" | "refunded") =>
+      post<Dispute>(`/v1/disputes/${encodeURIComponent(id)}/resolve`, { outcome }),
+  },
+
+  // ---- Payouts ----
+  payouts: {
+    list: (organizationId?: string) =>
+      getList<Payout>(
+        organizationId ? `/v1/payouts?organizationId=${encodeURIComponent(organizationId)}` : "/v1/payouts",
+      ),
+    balance: (organizationId: string) =>
+      getItem<DecimalMoney>(`/v1/payouts/balance?organizationId=${encodeURIComponent(organizationId)}`),
+    create: (input: {
+      organizationId: string;
+      walletAddress: string;
+      amount: string;
+      network: "arc" | "base" | "ethereum";
+    }) => post<Payout>("/v1/payouts", input),
+    paid: (id: string, txHash: string) =>
+      post<Payout>(`/v1/payouts/${encodeURIComponent(id)}/paid`, { txHash }),
+    fail: (id: string, reason?: string) =>
+      post<Payout>(`/v1/payouts/${encodeURIComponent(id)}/fail`, reason ? { reason } : {}),
+  },
 
   // ---- GitHub ----
   github: {

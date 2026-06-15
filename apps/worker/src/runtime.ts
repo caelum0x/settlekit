@@ -13,7 +13,7 @@ import { createDefaultRegistry, DeliveryRunner } from "@settlekit/delivery";
 import type { GitHubApi } from "@settlekit/github";
 import type { DiscordApi } from "@settlekit/discord";
 import type { HttpSender } from "@settlekit/webhooks";
-import type { EmailTransport } from "@settlekit/notifications";
+import { createEmailClient, type EmailTransport } from "@settlekit/notifications";
 import type { WorkerConfig } from "./config.js";
 import { WorkerStores } from "./stores.js";
 import { createLogger, type Logger } from "./logger.js";
@@ -25,6 +25,10 @@ import {
   accessSyncJob,
   renewalSweepJob,
   webhookRetryJob,
+  receiptEmailJob,
+  renewalReminderJob,
+  dunningEmailJob,
+  accessGrantedEmailJob,
   type JobContext,
 } from "./jobs/index.js";
 
@@ -88,6 +92,14 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     now,
   });
 
+  // Real transactional-email client. Production builds a Resend-backed transport
+  // from the configured API key; tests inject an in-memory transport so nothing
+  // requires live network at construction.
+  const email = createEmailClient({
+    from: deps.config.email.from,
+    ...(deps.emailTransport ? { transport: deps.emailTransport } : { apiKey: deps.config.email.apiKey }),
+  });
+
   const ctx: JobContext = {
     config: deps.config,
     stores,
@@ -95,6 +107,7 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     runner,
     clients,
     arc,
+    email,
     githubApi: deps.githubApi,
     discordApi: deps.discordApi,
     now,
@@ -113,6 +126,10 @@ export function buildRuntime(deps: RuntimeDeps): WorkerRuntime {
     { job: accessSyncJob, intervalMs: intervals.accessSyncMs },
     { job: renewalSweepJob, intervalMs: intervals.renewalSweepMs },
     { job: webhookRetryJob, intervalMs: intervals.webhookRetryMs },
+    { job: receiptEmailJob, intervalMs: intervals.receiptEmailMs },
+    { job: renewalReminderJob, intervalMs: intervals.renewalReminderMs },
+    { job: dunningEmailJob, intervalMs: intervals.dunningEmailMs },
+    { job: accessGrantedEmailJob, intervalMs: intervals.accessEmailMs },
   ];
 
   const scheduler = new Scheduler(scheduled, ctx, logger);

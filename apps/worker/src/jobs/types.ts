@@ -11,6 +11,7 @@ import type { ArcClient } from "@settlekit/arc";
 import type { DeliveryClients } from "@settlekit/delivery";
 import type { GitHubApi } from "@settlekit/github";
 import type { DiscordApi } from "@settlekit/discord";
+import type { EmailClient } from "@settlekit/notifications";
 import type { WorkerConfig } from "../config.js";
 import type { WorkerStores } from "../stores.js";
 import type { Logger } from "../logger.js";
@@ -23,6 +24,12 @@ export interface JobContext {
   runner: DeliveryRunner;
   clients: DeliveryClients;
   arc: ArcClient;
+  /**
+   * Real transactional-email client (Resend-backed in prod, in-memory transport
+   * in tests). Used directly by the customer-communication jobs that render and
+   * send receipts, renewal reminders, dunning, and access-granted emails.
+   */
+  email: EmailClient;
   /** Raw GitHub transport for access reconciliation (not just delivery). */
   githubApi: GitHubApi;
   /** Raw Discord transport for access reconciliation (not just delivery). */

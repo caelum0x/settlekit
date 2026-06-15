@@ -27,6 +27,10 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Coupons", href: "/coupons" },
       { label: "Invoices", href: "/invoices" },
       { label: "Payments", href: "/payments" },
+      { label: "Refunds", href: "/refunds" },
+      { label: "Dunning", href: "/dunning" },
+      { label: "Disputes", href: "/disputes" },
+      { label: "Payouts", href: "/payouts" },
       { label: "Customers", href: "/customers" },
       { label: "Subscriptions", href: "/subscriptions" },
       { label: "Entitlements", href: "/entitlements" },
@@ -55,7 +59,6 @@ export const NAV_GROUPS: NavGroup[] = [
     title: "Platform",
     items: [
       { label: "Webhooks", href: "/webhooks" },
-      { label: "Payouts", href: "/payouts" },
       { label: "Settings", href: "/settings" },
     ],
   },

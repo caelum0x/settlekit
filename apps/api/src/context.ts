@@ -56,6 +56,11 @@ import {
   type InvoiceStore,
   type Merchant,
 } from "@settlekit/invoices";
+import { RefundService, InMemoryRefundStore, type RefundStore } from "@settlekit/refunds";
+import { DunningService, InMemoryDunningStore, type DunningStore } from "@settlekit/dunning";
+import { DisputeService, InMemoryDisputeStore, type DisputeStore } from "@settlekit/disputes";
+import { PayoutService, InMemoryPayoutStore, type PayoutStore } from "@settlekit/payouts";
+import { generateId } from "@settlekit/common";
 import {
   FileDeliveryService,
   InMemoryGrantStore,
@@ -176,6 +181,16 @@ export interface AppContext {
   readonly invoiceStore: InvoiceStore;
   /** Merchant identity used when rendering invoice HTML/text. */
   readonly merchant: Merchant;
+
+  // Commerce engines: refunds, dunning, disputes, payouts.
+  readonly refunds: RefundService;
+  readonly refundStore: RefundStore;
+  readonly dunning: DunningService;
+  readonly dunningStore: DunningStore;
+  readonly disputes: DisputeService;
+  readonly disputeStore: DisputeStore;
+  readonly payouts: PayoutService;
+  readonly payoutStore: PayoutStore;
 }
 
 /** Pick the Postgres implementation when `db` is set, else the in-memory one. */
@@ -224,6 +239,12 @@ export async function createContext(): Promise<AppContext> {
   // Coupons + invoices use in-memory stores (interface-typed) on the context.
   const couponStore: CouponStore = new InMemoryCouponStore();
   const invoiceStore: InvoiceStore = new InMemoryInvoiceStore();
+
+  // Refunds / dunning / disputes / payouts use in-memory stores (interface-typed).
+  const refundStore: RefundStore = new InMemoryRefundStore();
+  const dunningStore: DunningStore = new InMemoryDunningStore();
+  const disputeStore: DisputeStore = new InMemoryDisputeStore();
+  const payoutStore: PayoutStore = new InMemoryPayoutStore();
   const merchant: Merchant = {
     name: process.env.MERCHANT_NAME ?? "SettleKit Merchant",
     ...(process.env.MERCHANT_EMAIL ? { email: process.env.MERCHANT_EMAIL } : {}),
@@ -289,6 +310,19 @@ export async function createContext(): Promise<AppContext> {
     invoices: new InvoiceService(invoiceStore),
     invoiceStore,
     merchant,
+
+    refunds: new RefundService(refundStore, () => generateId("payment")),
+    refundStore,
+    dunning: new DunningService(dunningStore),
+    dunningStore,
+    disputes: new DisputeService(
+      disputeStore,
+      () => generateId("payment"),
+      () => generateId("payment"),
+    ),
+    disputeStore,
+    payouts: new PayoutService(payoutStore, () => generateId("payoutWallet")),
+    payoutStore,
   };
 }
 

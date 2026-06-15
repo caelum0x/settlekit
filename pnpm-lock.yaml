@@ -99,6 +99,12 @@ importers:
       '@settlekit/discord':
         specifier: workspace:*
         version: link:../../packages/discord
+      '@settlekit/disputes':
+        specifier: workspace:*
+        version: link:../../packages/disputes
+      '@settlekit/dunning':
+        specifier: workspace:*
+        version: link:../../packages/dunning
       '@settlekit/entitlements':
         specifier: workspace:*
         version: link:../../packages/entitlements
@@ -123,9 +129,15 @@ importers:
       '@settlekit/payments':
         specifier: workspace:*
         version: link:../../packages/payments
+      '@settlekit/payouts':
+        specifier: workspace:*
+        version: link:../../packages/payouts
       '@settlekit/product-catalog':
         specifier: workspace:*
         version: link:../../packages/product-catalog
+      '@settlekit/refunds':
+        specifier: workspace:*
+        version: link:../../packages/refunds
       '@settlekit/saas':
         specifier: workspace:*
         version: link:../../packages/saas

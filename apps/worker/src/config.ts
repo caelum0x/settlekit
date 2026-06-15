@@ -21,6 +21,14 @@ export interface JobIntervals {
   renewalSweepMs: number;
   /** How often failed webhooks are redelivered. */
   webhookRetryMs: number;
+  /** How often confirmed payments are swept for an unsent receipt email. */
+  receiptEmailMs: number;
+  /** How often upcoming renewals are swept for a reminder email. */
+  renewalReminderMs: number;
+  /** How often grace/past-due subscriptions are swept for a dunning email. */
+  dunningEmailMs: number;
+  /** How often succeeded delivery runs are swept for an access-granted email. */
+  accessEmailMs: number;
 }
 
 /** Arc (EVM USDC) settlement reader configuration. */
@@ -77,6 +85,8 @@ export interface WorkerConfig {
   graceDays: number;
   /** HMAC secret used to sign outbound webhooks dispatched by delivery actions. */
   webhookSigningSecret: string;
+  /** Send a renewal reminder when currentPeriodEnd is within this many days. */
+  renewalReminderDays: number;
 }
 
 /** Raised when a required environment variable is absent or malformed. */
@@ -134,6 +144,10 @@ export function loadConfig(env: Env = process.env): WorkerConfig {
     accessSyncMs: intInRange(env, "WORKER_ACCESS_SYNC_INTERVAL_MS", 300_000, 1_000, 86_400_000),
     renewalSweepMs: intInRange(env, "WORKER_RENEWAL_INTERVAL_MS", 600_000, 1_000, 86_400_000),
     webhookRetryMs: intInRange(env, "WORKER_WEBHOOK_RETRY_INTERVAL_MS", 30_000, 1_000, 86_400_000),
+    receiptEmailMs: intInRange(env, "WORKER_RECEIPT_EMAIL_INTERVAL_MS", 60_000, 1_000, 86_400_000),
+    renewalReminderMs: intInRange(env, "WORKER_RENEWAL_REMINDER_INTERVAL_MS", 3_600_000, 1_000, 86_400_000),
+    dunningEmailMs: intInRange(env, "WORKER_DUNNING_EMAIL_INTERVAL_MS", 3_600_000, 1_000, 86_400_000),
+    accessEmailMs: intInRange(env, "WORKER_ACCESS_EMAIL_INTERVAL_MS", 60_000, 1_000, 86_400_000),
   };
 
   return {
@@ -167,5 +181,6 @@ export function loadConfig(env: Env = process.env): WorkerConfig {
     },
     graceDays: intInRange(env, "SUBSCRIPTION_GRACE_DAYS", 3, 1, 365),
     webhookSigningSecret: requireString(env, "WEBHOOK_SIGNING_SECRET"),
+    renewalReminderDays: intInRange(env, "SUBSCRIPTION_RENEWAL_REMINDER_DAYS", 7, 1, 365),
   };
 }

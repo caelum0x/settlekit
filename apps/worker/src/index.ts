@@ -45,7 +45,7 @@ async function main(): Promise<void> {
 
   const shutdown = runtime.scheduler.installSignalHandlers();
   runtime.scheduler.start();
-  logger.info("worker started", { jobs: runtime.scheduler ? 5 : 0 });
+  logger.info("worker started", { jobs: 9 });
 
   await shutdown;
   logger.info("worker exited cleanly");

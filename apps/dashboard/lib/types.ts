@@ -132,12 +132,22 @@ export interface WebhookEndpoint {
   lastDeliveryAt: string | null;
 }
 
+/**
+ * A merchant payout from `@settlekit/payouts`. Money is a DECIMAL STRING
+ * amount (use `formatMoneyDecimal`); `walletAddress`/`network` describe the
+ * on-chain settlement destination.
+ */
 export interface Payout {
   id: string;
-  amount: Money;
-  status: "paid" | "in_transit" | "pending" | "failed";
-  destination: string;
-  arrivalDate: string;
+  organizationId: string;
+  walletAddress: string;
+  amount: DecimalMoney;
+  network: "arc" | "base" | "ethereum";
+  status: "pending" | "paid" | "failed";
+  txHash?: string;
+  failureReason?: string;
+  createdAt: string;
+  paidAt?: string;
 }
 
 export interface GithubInstallation {
@@ -332,4 +342,71 @@ export interface OrgSettings {
   payoutCurrency: string;
   webhookSecret: string;
   defaultRail: "arc" | "circle" | "x402";
+}
+
+// --- Refunds / dunning / disputes (decimal-string money) ------------------
+
+export type RefundReason =
+  | "duplicate"
+  | "fraudulent"
+  | "customer_request"
+  | "delivery_failed";
+
+/** A refund from `@settlekit/refunds`. Amount is a decimal string. */
+export interface Refund {
+  id: string;
+  paymentId: string;
+  customerId: string;
+  amount: DecimalMoney;
+  reason: RefundReason;
+  status: "pending" | "succeeded" | "failed";
+  failureReason?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface DunningSchedule {
+  offsetsDays: number[];
+}
+
+export interface DunningAttemptRecord {
+  attempt: number;
+  outcome: "succeeded" | "failed";
+  at: string;
+  failureReason?: string;
+}
+
+/** A dunning campaign from `@settlekit/dunning`, keyed by subscription. */
+export interface DunningState {
+  subscriptionId: string;
+  attempt: number;
+  schedule: DunningSchedule;
+  nextAttemptAt?: string;
+  status: "active" | "recovered" | "exhausted";
+  history: DunningAttemptRecord[];
+  startedAt: string;
+  updatedAt: string;
+}
+
+export type DisputeReason = "fraud" | "not_received" | "duplicate" | "quality" | "unrecognized";
+
+export interface DisputeEvidence {
+  id: string;
+  kind: "text" | "receipt" | "shipping" | "communication" | "url" | "file";
+  description: string;
+  value: string;
+  submittedAt: string;
+}
+
+/** A payment dispute / chargeback from `@settlekit/disputes`. */
+export interface Dispute {
+  id: string;
+  paymentId: string;
+  customerId: string;
+  reason: DisputeReason;
+  status: "open" | "under_review" | "won" | "lost" | "refunded";
+  evidence: DisputeEvidence[];
+  openedAt: string;
+  updatedAt: string;
+  resolvedAt?: string;
 }

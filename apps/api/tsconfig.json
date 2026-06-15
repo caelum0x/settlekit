@@ -26,6 +26,10 @@
     { "path": "../../packages/webhooks" },
     { "path": "../../packages/coupons" },
     { "path": "../../packages/invoices" },
+    { "path": "../../packages/refunds" },
+    { "path": "../../packages/dunning" },
+    { "path": "../../packages/disputes" },
+    { "path": "../../packages/payouts" },
     { "path": "../../packages/tax" }
   ],
   "include": ["src/**/*"],

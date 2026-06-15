@@ -9,11 +9,13 @@
  */
 
 import type {
+  Customer,
   DeliveryPlan,
   DeliveryRun,
   Entitlement,
   GitHubRepoAccessGrant,
   DiscordRoleGrant,
+  Merchant,
   Payment,
   Subscription,
   WebhookEndpoint,
@@ -85,6 +87,10 @@ export class WorkerStores {
   readonly githubGrants = new Table<GitHubRepoAccessGrant>();
   readonly discordGrants = new Table<DiscordRoleGrant>();
   readonly webhookJobs = new Table<WebhookJob>();
+  /** Buyer contact records, keyed by customer id (recipient for every email). */
+  readonly customers = new Table<Customer>();
+  /** Merchant branding used for receipt/access-granted email footers. */
+  readonly merchants = new Table<Merchant>();
 
   /**
    * Billing interval per subscription id. The `Subscription` record references a
@@ -92,6 +98,23 @@ export class WorkerStores {
    * requires; the worker tracks it alongside the subscription it renews.
    */
   readonly subscriptionIntervals = new Map<string, "monthly" | "yearly">();
+
+  /**
+   * Idempotency ledgers for the customer-communication jobs. Each set tracks
+   * which emails have already been sent so a tick that re-observes the same
+   * payment/subscription/run does not re-send. These are process-local mirrors
+   * of what a `sent_emails` table would hold in the Postgres-backed deployment.
+   */
+  /** Payment ids whose confirmed-payment receipt email has been sent. */
+  readonly sentReceipts = new Set<string>();
+  /** `${subscriptionId}:${currentPeriodEnd}` keys with a sent renewal reminder. */
+  readonly sentRenewalReminders = new Set<string>();
+  /** `${subscriptionId}:${attempt}` keys with a sent dunning email. */
+  readonly sentDunningEmails = new Set<string>();
+  /** Delivery run ids whose access-granted email has been sent. */
+  readonly sentAccessEmails = new Set<string>();
+  /** Dunning attempt counter per subscription id (one attempt per grace tick). */
+  readonly dunningAttempts = new Map<string, number>();
 
   /** Enqueue a delivery run keyed by its run id. */
   enqueueDelivery(item: QueuedDeliveryRun): QueuedDeliveryRun {

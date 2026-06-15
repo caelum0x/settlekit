@@ -33,6 +33,10 @@ import { agentServiceRoutes } from "./routes/agent-services.js";
 import { escrowRoutes } from "./routes/escrow.js";
 import { couponRoutes } from "./routes/coupons.js";
 import { invoiceRoutes } from "./routes/invoices.js";
+import { refundRoutes } from "./routes/refunds.js";
+import { dunningRoutes } from "./routes/dunning.js";
+import { disputeRoutes } from "./routes/disputes.js";
+import { payoutRoutes } from "./routes/payouts.js";
 import { authRoutes } from "./routes/auth.js";
 
 /** Build the full SettleKit API app. Pass a context to share/isolate state. */
@@ -98,6 +102,12 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
   // ---- Commerce engines: coupons + invoices ------------------------------
   v1.route("/coupons", couponRoutes());
   v1.route("/invoices", invoiceRoutes());
+
+  // ---- Commerce engines: refunds, dunning, disputes, payouts -------------
+  v1.route("/refunds", refundRoutes());
+  v1.route("/dunning", dunningRoutes());
+  v1.route("/disputes", disputeRoutes());
+  v1.route("/payouts", payoutRoutes());
 
   app.route("/v1", v1);
 
