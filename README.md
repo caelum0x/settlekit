@@ -205,3 +205,4 @@ repo conventions (ESM `.js` import suffixes, immutability, the
 ## License
 
 Open source — self-host or use the hosted cloud.
+# settlekit
