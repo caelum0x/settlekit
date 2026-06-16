@@ -510,6 +510,39 @@ describe("SettleKit API", () => {
     expect(secondUse.status).toBeGreaterThanOrEqual(400);
   });
 
+  it("creates, publishes, and discovers a marketplace listing", async () => {
+    const created = await call(app, "POST", "/v1/marketplace/listings", {
+      organizationId: "org_1",
+      merchantId: "mch_1",
+      productId: "prod_repo",
+      title: "AI SaaS Boilerplate",
+      summary: "Production-ready Next.js + USDC billing starter",
+      tags: ["nextjs", "saas", "usdc"],
+    });
+    expect(created.status).toBe(201);
+    expect(created.json.data.published).toBe(false);
+    const id = created.json.data.id as string;
+
+    // Unpublished listings are not discoverable.
+    const before = await call(app, "GET", "/v1/marketplace/listings");
+    expect(before.json.data.find((l: { id: string }) => l.id === id)).toBeUndefined();
+
+    const published = await call(app, "POST", `/v1/marketplace/listings/${id}/publish`);
+    expect(published.json.data.published).toBe(true);
+
+    // Now discoverable by tag.
+    const byTag = await call(app, "GET", "/v1/marketplace/listings?tag=saas");
+    expect(byTag.json.data.find((l: { id: string }) => l.id === id)).toBeDefined();
+
+    const rated = await call(app, "POST", `/v1/marketplace/listings/${id}/rate`, { stars: 5 });
+    expect(rated.json.data.ratingCount).toBe(1);
+    expect(rated.json.data.ratingAverage).toBe(5);
+
+    const seller = await call(app, "GET", "/v1/marketplace/sellers/mch_1");
+    expect(seller.json.data.totalListings).toBeGreaterThanOrEqual(1);
+    expect(seller.json.data.publishedListings).toBeGreaterThanOrEqual(1);
+  });
+
   // ---- Commerce engines (plan §6/§13/§31): create -> query -> transition ----
 
   it("creates a coupon and redeems it, decrementing remaining redemptions", async () => {
@@ -647,5 +680,55 @@ describe("SettleKit API", () => {
 
     const byOrg = await call(app, "GET", "/v1/payouts?organizationId=org_1");
     expect(byOrg.json.data).toHaveLength(1);
+  });
+
+  it("isolates tenants: each merchant gets its own org + key and sees only its products", async () => {
+    const app = await authedApp();
+
+    const register = async (email: string): Promise<string> => {
+      const res = await app.request("/v1/auth/register", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ email, password: "hunter2hunter2", type: "merchant" }),
+      });
+      const json = (await res.json()) as Json;
+      expect(res.status).toBe(201);
+      expect(json.data.account.organizationId).toMatch(/^org_/);
+      expect(json.data.apiKey).toMatch(/^sk_live_/);
+      return json.data.apiKey as string;
+    };
+
+    const callAs = async (key: string, method: string, path: string, body?: unknown) => {
+      const res = await app.request(path, {
+        method,
+        headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
+        ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
+      });
+      return (await res.json()) as Json;
+    };
+
+    const keyA = await register("merchant-a@example.com");
+    const keyB = await register("merchant-b@example.com");
+    expect(keyA).not.toEqual(keyB);
+
+    const product = { merchantId: "m", name: "X", type: "saas_plan", deliveryMode: "saas_entitlement" };
+    await callAs(keyA, "POST", "/v1/products", { ...product, name: "Alpha" });
+    await callAs(keyB, "POST", "/v1/products", { ...product, name: "Beta" });
+
+    // Each merchant sees ONLY its own product.
+    const aList = await callAs(keyA, "GET", "/v1/products");
+    const bList = await callAs(keyB, "GET", "/v1/products");
+    expect(aList.data.map((p: { name: string }) => p.name)).toEqual(["Alpha"]);
+    expect(bList.data.map((p: { name: string }) => p.name)).toEqual(["Beta"]);
+
+    // A client-supplied organizationId on create cannot escape the caller's tenant.
+    const evil = await callAs(keyA, "POST", "/v1/products", {
+      ...product,
+      name: "Evil",
+      organizationId: "org_victim",
+    });
+    expect(evil.data.organizationId).not.toBe("org_victim");
+    const bAfter = await callAs(keyB, "GET", "/v1/products");
+    expect(bAfter.data.map((p: { name: string }) => p.name)).toEqual(["Beta"]);
   });
 });

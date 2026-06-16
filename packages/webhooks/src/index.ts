@@ -9,6 +9,17 @@ export {
 export { buildWebhookEvent, serializeEvent } from "./events.js";
 
 export {
+  verifyCircleSignature,
+  parseCircleNotification,
+  extractTransaction,
+} from "./inbound.js";
+export type {
+  CirclePublicKey,
+  CircleNotification,
+  CircleTransactionNotification,
+} from "./inbound.js";
+
+export {
   DEFAULT_BACKOFF_SCHEDULE,
   fetchSender,
   buildWebhookRequest,

@@ -26,6 +26,12 @@ export interface CreateSubscriptionResult {
 export class SubscriptionsResource {
   constructor(private readonly http: HttpClient) {}
 
+  /** List subscriptions for an organization (defaults to the platform org). */
+  list(organizationId?: string, options?: RequestOptions): Promise<Subscription[]> {
+    const qs = organizationId ? `?organizationId=${encodeURIComponent(organizationId)}` : "";
+    return this.http.get<Subscription[]>(`/v1/subscriptions${qs}`, options);
+  }
+
   /** Create a subscription from a recurring price. */
   create(input: CreateSubscriptionInput, options?: RequestOptions): Promise<CreateSubscriptionResult> {
     return this.http.post<CreateSubscriptionResult>("/v1/subscriptions", input, options);

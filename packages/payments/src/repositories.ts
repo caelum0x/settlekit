@@ -35,9 +35,13 @@ export interface PaymentRepository extends Repository<Payment> {
    * merchant balance computation for payouts.
    */
   findConfirmedByOrganization(organizationId: string): Promise<Payment[]>;
+  /** All payments (any status) for an organization, newest first. */
+  listByOrganization(organizationId: string): Promise<Payment[]>;
 }
 
 export interface SubscriptionRepository extends Repository<Subscription> {
   /** All subscriptions belonging to a customer, newest first. */
   findByCustomerId(customerId: string): Promise<Subscription[]>;
+  /** All subscriptions for an organization, newest first. */
+  listByOrganization(organizationId: string): Promise<Subscription[]>;
 }

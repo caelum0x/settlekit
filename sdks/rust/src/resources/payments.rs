@@ -60,7 +60,11 @@ impl<'a> Payments<'a> {
     /// Confirm a payment, completing its session and granting entitlements.
     pub async fn confirm(&self, id: &str, body: &ConfirmPayment) -> Result<ConfirmResult> {
         self.client
-            .request(Method::POST, &format!("/v1/payments/{id}/confirm"), Some(body))
+            .request(
+                Method::POST,
+                &format!("/v1/payments/{id}/confirm"),
+                Some(body),
+            )
             .await
     }
 

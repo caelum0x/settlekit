@@ -56,6 +56,7 @@ import {
   type PriceResolver,
 } from "@settlekit/marketplace-core";
 import { toBaseUnits } from "@settlekit/common";
+import { UsageService, InMemoryMeterStore, type MeterStore } from "@settlekit/usage";
 import { CouponService, InMemoryCouponStore, type CouponStore } from "@settlekit/coupons";
 import {
   InvoiceService,
@@ -80,7 +81,22 @@ import {
 } from "@settlekit/delivery";
 import type { PaymentVerifier } from "@settlekit/x402";
 import type { CircleClient } from "@settlekit/circle";
+import type { PayoutExecutor } from "./payouts/executor.js";
+import type { ScreeningClient } from "@settlekit/compliance";
 import type { EmailClient } from "@settlekit/notifications";
+import type { ArcClient } from "@settlekit/arc";
+import { createCctpClient, type CctpClient } from "@settlekit/cctp";
+import { createGatewayClient, type GatewayClient } from "@settlekit/gateway";
+import {
+  createUserWalletsClient,
+  type UserWalletsClient,
+} from "@settlekit/circle-wallets";
+import { createGasStationClient, type GasStationClient } from "@settlekit/paymaster";
+import { createMintClient, createRfqClient, type MintClient, type RfqClient } from "@settlekit/stablefx";
+import {
+  createCirclePublicKeyResolver,
+  type CirclePublicKeyResolver,
+} from "./webhooks/circle-keys.js";
 import type {
   Customer,
   DeliveryRun,
@@ -130,6 +146,10 @@ import {
   PgPayoutStore,
   PgAuthStore,
   PgMarketplaceListingStore,
+  PgMeterStore,
+  PgOrgSettingsStore,
+  InMemoryOrgSettingsStore,
+  type OrgSettingsStore,
 } from "@settlekit/persistence";
 import { loadConfig } from "./config/env.js";
 import { buildIntegrations } from "./config/integrations.js";
@@ -171,8 +191,32 @@ export interface AppContext {
 
   // Integration clients (real when configured; null/in-memory otherwise).
   readonly arcVerifier: PaymentVerifier | null;
+  /** Raw Arc client for verify / fee-estimate / confirmations. */
+  readonly arc: ArcClient | null;
   readonly circle: CircleClient | null;
+  readonly payoutExecutor: PayoutExecutor | null;
+  /** Circle compliance screening client, or null when unconfigured. */
+  readonly screening: ScreeningClient | null;
+  /** Circle chain id to screen against for networks Circle does not list. */
+  readonly complianceDefaultChain: string;
   readonly email: EmailClient | null;
+
+  // On-chain stablecoin clients (permissionless; always present). CCTP
+  // cross-chain pay-in and Gateway unified balance. Their attested API calls
+  // only reach Circle when creds are supplied; tx-building is local. (StableFX
+  // quoting is pure math handled directly in the fx route — no client needed.)
+  readonly cctp: CctpClient;
+  readonly gateway: GatewayClient;
+  /** Circle Gas Station (sponsored gas policies), or null when unconfigured. */
+  readonly gasStation: GasStationClient | null;
+  /** Circle Mint (mint/redeem), or null when unconfigured. */
+  readonly mint: MintClient | null;
+  /** StableFX RFQ client (USDC<->EURC FX), or null when unconfigured. */
+  readonly rfq: RfqClient | null;
+  /** Resolver for Circle webhook public keys, or null when unconfigured. */
+  readonly circleWebhookKeys: CirclePublicKeyResolver | null;
+  /** Circle user-controlled wallets (customer self-custody), or null when unset. */
+  readonly userWallets: UserWalletsClient | null;
 
   // GitHub integration (management routes). Real Octokit-backed client when
   // GitHub App creds are configured; the in-memory double otherwise.
@@ -197,6 +241,12 @@ export interface AppContext {
   // Public marketplace (product listings + discovery).
   readonly marketplace: MarketplaceService;
   readonly marketplaceListings: ListingStore;
+
+  // Usage-based billing: metering + prepaid credits.
+  readonly usage: UsageService;
+
+  // Configurable per-organization dashboard settings.
+  readonly orgSettings: OrgSettingsStore;
 
   // Commerce engines: coupons (discounts) + invoices.
   readonly coupons: CouponService;
@@ -273,6 +323,10 @@ export async function createContext(): Promise<AppContext> {
     },
   };
   const marketplace = new MarketplaceService(marketplaceListings, marketplacePriceResolver);
+
+  // Usage metering + prepaid credits over the (Postgres or in-memory) meter store.
+  const usage = new UsageService(pick<MeterStore>(db, (d) => new PgMeterStore(d), () => new InMemoryMeterStore()));
+  const orgSettings = pick<OrgSettingsStore>(db, (d) => new PgOrgSettingsStore(d), () => new InMemoryOrgSettingsStore());
 
   // GitHub / Discord grant stores: shared between the management routes and the
   // delivery grant sink so delivery-issued grants are persisted where the
@@ -351,8 +405,48 @@ export async function createContext(): Promise<AppContext> {
     authCookieSecret: config.authCookieSecret,
 
     arcVerifier: integrations.arcVerifier,
+    arc: integrations.arc,
     circle: integrations.circle,
+    payoutExecutor: integrations.payoutExecutor,
+    screening: integrations.screening,
+    complianceDefaultChain: config.compliance?.defaultChain ?? "ETH",
     email: integrations.email,
+
+    cctp: createCctpClient(
+      config.cctpIrisBaseUrl ? { irisBaseUrl: config.cctpIrisBaseUrl } : {},
+    ),
+    gateway: createGatewayClient(config.arc ? { rpcUrl: config.arc.rpcUrl } : {}),
+    gasStation: config.gasStation
+      ? createGasStationClient({
+          apiKey: config.gasStation.apiKey,
+          ...(config.gasStation.baseUrl ? { baseUrl: config.gasStation.baseUrl } : {}),
+          ...(config.gasStation.policiesPath ? { policiesPath: config.gasStation.policiesPath } : {}),
+        })
+      : null,
+    mint: config.circleMint
+      ? createMintClient({
+          apiKey: config.circleMint.apiKey,
+          ...(config.circleMint.baseUrl ? { baseUrl: config.circleMint.baseUrl } : {}),
+        })
+      : null,
+    rfq: config.circleMint
+      ? createRfqClient({
+          apiKey: config.circleMint.apiKey,
+          ...(config.circleMint.baseUrl ? { baseUrl: config.circleMint.baseUrl } : {}),
+        })
+      : null,
+    circleWebhookKeys: config.circleWallets
+      ? createCirclePublicKeyResolver({
+          apiKey: config.circleWallets.apiKey,
+          ...(config.circleWallets.baseUrl ? { baseUrl: config.circleWallets.baseUrl } : {}),
+        })
+      : null,
+    userWallets: config.circleWallets
+      ? createUserWalletsClient({
+          apiKey: config.circleWallets.apiKey,
+          ...(config.circleWallets.baseUrl ? { baseUrl: config.circleWallets.baseUrl } : {}),
+        })
+      : null,
 
     githubClient: integrations.githubAccessClient,
     githubInstallations: pick<EntityStore<GitHubInstallation>>(db, (d) => new PgGitHubInstallationStore(d), () => new InMemoryEntityStore<GitHubInstallation>()),
@@ -375,6 +469,8 @@ export async function createContext(): Promise<AppContext> {
 
     marketplace,
     marketplaceListings,
+    usage,
+    orgSettings,
 
     coupons: new CouponService(couponStore),
     couponStore,
@@ -402,5 +498,7 @@ export interface AppEnv {
   Variables: {
     ctx: AppContext;
     apiKeyId?: string;
+    /** Organization the authenticated API key belongs to (tenant scope). */
+    organizationId?: string;
   };
 }

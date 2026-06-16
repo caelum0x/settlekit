@@ -11,7 +11,7 @@
  * construct the REAL client or fall back to the in-memory double.
  */
 
-import { isArcAddress, type ArcAddress } from "@settlekit/arc";
+import { getArcChain, isArcAddress, type ArcAddress } from "@settlekit/arc";
 
 /** Raised when an environment group is partially set or a value is malformed. */
 export class ConfigError extends Error {
@@ -41,6 +41,50 @@ export interface ArcConfig {
 export interface CircleConfig {
   apiKey: string;
   baseUrl?: string;
+}
+
+/**
+ * Circle developer-controlled wallets (W3S) used to EXECUTE payouts — moving
+ * USDC from a SettleKit treasury wallet to a merchant. Distinct from
+ * {@link CircleConfig} (the classic payments API).
+ */
+export interface CircleWalletsConfig {
+  apiKey: string;
+  /** The treasury wallet that funds payouts. */
+  walletId: string;
+  baseUrl?: string;
+  /**
+   * RSA-encrypted entity secret ciphertext. Circle expects a fresh ciphertext
+   * per mutating request; a single configured value suits low-volume/dev use.
+   * Leave unset to supply it per call from a KMS/signing service instead.
+   */
+  entitySecretCiphertext?: string;
+}
+
+/** Circle Gas Station — developer-sponsored gas via policies (W3S). */
+export interface GasStationConfig {
+  apiKey: string;
+  baseUrl?: string;
+  /** Override the policies REST path if your account exposes a different one. */
+  policiesPath?: string;
+}
+
+/** Circle Mint — mint/redeem USDC & EURC against fiat. */
+export interface CircleMintConfig {
+  apiKey: string;
+  baseUrl?: string;
+}
+
+/** Circle Compliance Engine — transaction (address) screening. */
+export interface ComplianceConfig {
+  apiKey: string;
+  baseUrl?: string;
+  /**
+   * Circle chain id to screen against when a payout network has no direct Circle
+   * mapping (e.g. Arc). Sanctioned addresses are chain-agnostic, so screening on
+   * a supported chain (default "ETH") still catches them. Defaults to "ETH".
+   */
+  defaultChain: string;
 }
 
 /** GitHub App credentials used to mint installation-scoped clients. */
@@ -88,11 +132,17 @@ export interface ApiConfig {
   /** HMAC secret used to sign the `sk_session` cookie. */
   authCookieSecret: string;
   fileDelivery: FileDeliveryConfig;
+  /** Override the CCTP Iris attestation base URL (defaults to testnet sandbox). */
+  cctpIrisBaseUrl?: string;
 
   /** Optional integration groups — null when their creds are absent. */
   database: DatabaseConfig | null;
   arc: ArcConfig | null;
   circle: CircleConfig | null;
+  circleWallets: CircleWalletsConfig | null;
+  gasStation: GasStationConfig | null;
+  circleMint: CircleMintConfig | null;
+  compliance: ComplianceConfig | null;
   github: GithubConfig | null;
   discord: DiscordConfig | null;
   email: EmailConfig | null;
@@ -102,6 +152,10 @@ export interface ApiConfig {
   hasDatabase: boolean;
   hasArc: boolean;
   hasCircle: boolean;
+  hasCircleWallets: boolean;
+  hasGasStation: boolean;
+  hasCircleMint: boolean;
+  hasCompliance: boolean;
   hasGithub: boolean;
   hasDiscord: boolean;
   hasEmail: boolean;
@@ -173,17 +227,37 @@ function loadDatabase(env: Env): DatabaseConfig | null {
 }
 
 function loadArc(env: Env): ArcConfig | null {
-  if (requireComplete("arc", env, ["ARC_RPC_URL", "ARC_USDC_ADDRESS", "ARC_CHAIN_ID"]) === "absent") {
+  // Arc is enabled by setting ARC_CHAIN_ID. For a known Arc chain (e.g. testnet
+  // 5042002) the RPC URL and USDC address default from the bundled chain
+  // definition; both can be overridden via env for private RPCs or custom
+  // deployments. For an unknown chain id, both must be supplied explicitly.
+  if (optionalRaw(env, "ARC_CHAIN_ID") === undefined) {
     return null;
   }
-  const usdcAddress = optionalRaw(env, "ARC_USDC_ADDRESS") as string;
+  const chainId = requiredInt(env, "ARC_CHAIN_ID", 1, 2_147_483_647);
+  const known = getArcChain(chainId);
+
+  const usdcAddress = optionalRaw(env, "ARC_USDC_ADDRESS") ?? known?.tokens.USDC.address;
+  if (usdcAddress === undefined) {
+    throw new ConfigError(
+      `ARC_USDC_ADDRESS is required for unknown Arc chain id ${chainId}`,
+    );
+  }
   if (!isArcAddress(usdcAddress)) {
     throw new ConfigError("Environment variable ARC_USDC_ADDRESS must be a 0x-prefixed 20-byte address");
   }
+
+  const rpcUrl = optionalRaw(env, "ARC_RPC_URL") ?? known?.rpcUrl;
+  if (rpcUrl === undefined) {
+    throw new ConfigError(
+      `ARC_RPC_URL is required for unknown Arc chain id ${chainId}`,
+    );
+  }
+
   return {
-    rpcUrl: optionalRaw(env, "ARC_RPC_URL") as string,
+    rpcUrl,
     usdcAddress,
-    chainId: requiredInt(env, "ARC_CHAIN_ID", 1, 2_147_483_647),
+    chainId,
     minConfirmations: intInRange(env, "ARC_MIN_CONFIRMATIONS", 3, 1, 1_000),
   };
 }
@@ -194,6 +268,55 @@ function loadCircle(env: Env): CircleConfig | null {
   return {
     apiKey: optionalRaw(env, "CIRCLE_API_KEY") as string,
     ...(baseUrl ? { baseUrl } : {}),
+  };
+}
+
+function loadCircleWallets(env: Env): CircleWalletsConfig | null {
+  if (
+    requireComplete("circleWallets", env, [
+      "CIRCLE_WALLETS_API_KEY",
+      "CIRCLE_WALLETS_WALLET_ID",
+    ]) === "absent"
+  ) {
+    return null;
+  }
+  const baseUrl = optionalRaw(env, "CIRCLE_WALLETS_BASE_URL");
+  const entitySecretCiphertext = optionalRaw(env, "CIRCLE_WALLETS_ENTITY_SECRET_CIPHERTEXT");
+  return {
+    apiKey: optionalRaw(env, "CIRCLE_WALLETS_API_KEY") as string,
+    walletId: optionalRaw(env, "CIRCLE_WALLETS_WALLET_ID") as string,
+    ...(baseUrl ? { baseUrl } : {}),
+    ...(entitySecretCiphertext ? { entitySecretCiphertext } : {}),
+  };
+}
+
+function loadGasStation(env: Env): GasStationConfig | null {
+  if (requireComplete("gasStation", env, ["GAS_STATION_API_KEY"]) === "absent") return null;
+  const baseUrl = optionalRaw(env, "GAS_STATION_BASE_URL");
+  const policiesPath = optionalRaw(env, "GAS_STATION_POLICIES_PATH");
+  return {
+    apiKey: optionalRaw(env, "GAS_STATION_API_KEY") as string,
+    ...(baseUrl ? { baseUrl } : {}),
+    ...(policiesPath ? { policiesPath } : {}),
+  };
+}
+
+function loadCircleMint(env: Env): CircleMintConfig | null {
+  if (requireComplete("circleMint", env, ["CIRCLE_MINT_API_KEY"]) === "absent") return null;
+  const baseUrl = optionalRaw(env, "CIRCLE_MINT_BASE_URL");
+  return {
+    apiKey: optionalRaw(env, "CIRCLE_MINT_API_KEY") as string,
+    ...(baseUrl ? { baseUrl } : {}),
+  };
+}
+
+function loadCompliance(env: Env): ComplianceConfig | null {
+  if (requireComplete("compliance", env, ["COMPLIANCE_API_KEY"]) === "absent") return null;
+  const baseUrl = optionalRaw(env, "COMPLIANCE_BASE_URL");
+  return {
+    apiKey: optionalRaw(env, "COMPLIANCE_API_KEY") as string,
+    ...(baseUrl ? { baseUrl } : {}),
+    defaultChain: optionalString(env, "COMPLIANCE_DEFAULT_CHAIN", "ETH"),
   };
 }
 
@@ -267,6 +390,10 @@ export function loadConfig(env: Env = process.env): ApiConfig {
   const database = loadDatabase(env);
   const arc = loadArc(env);
   const circle = loadCircle(env);
+  const circleWallets = loadCircleWallets(env);
+  const gasStation = loadGasStation(env);
+  const circleMint = loadCircleMint(env);
+  const compliance = loadCompliance(env);
   const github = loadGithub(env);
   const discord = loadDiscord(env);
   const email = loadEmail(env);
@@ -278,10 +405,17 @@ export function loadConfig(env: Env = process.env): ApiConfig {
     webhookSigningSecret: optionalString(env, "WEBHOOK_SIGNING_SECRET", "settlekit-dev-webhook-secret"),
     authCookieSecret: optionalString(env, "AUTH_COOKIE_SECRET", "settlekit-dev-auth-cookie-secret"),
     fileDelivery: loadFileDelivery(env),
+    ...(optionalRaw(env, "CCTP_IRIS_BASE_URL")
+      ? { cctpIrisBaseUrl: optionalRaw(env, "CCTP_IRIS_BASE_URL") as string }
+      : {}),
 
     database,
     arc,
     circle,
+    circleWallets,
+    gasStation,
+    circleMint,
+    compliance,
     github,
     discord,
     email,
@@ -290,6 +424,10 @@ export function loadConfig(env: Env = process.env): ApiConfig {
     hasDatabase: database !== null,
     hasArc: arc !== null,
     hasCircle: circle !== null,
+    hasCircleWallets: circleWallets !== null,
+    hasGasStation: gasStation !== null,
+    hasCircleMint: circleMint !== null,
+    hasCompliance: compliance !== null,
     hasGithub: github !== null,
     hasDiscord: discord !== null,
     hasEmail: email !== null,

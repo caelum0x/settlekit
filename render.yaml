@@ -1,0 +1,150 @@
+# SettleKit — Render Blueprint (Infrastructure-as-Code).
+#
+# In Render: New → Blueprint → connect this repo. Render reads this file and
+# provisions the database + services. Secrets marked `sync: false` are left blank
+# for you to fill in the dashboard (Circle/Arc API keys are added later, once the
+# product is live); signing secrets are auto-generated.
+#
+# Services:
+#   settlekit-db         Postgres (shared by api + worker)
+#   settlekit-api        REST API (Docker) — the backend everything talks to
+#   settlekit-worker     background jobs (Docker) — delivery, payouts, reconcile
+#   settlekit-web        marketing site (Next.js)
+#   settlekit-dashboard  merchant dashboard (Next.js)
+#   settlekit-marketplace public marketplace (Next.js)
+#   settlekit-docs       docs site (Next.js)
+
+databases:
+  - name: settlekit-db
+    databaseName: settlekit
+    user: settlekit
+    plan: free
+
+services:
+  # ---- Backend API (Docker) -------------------------------------------------
+  - type: web
+    name: settlekit-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8787
+      - key: DATABASE_URL
+        fromDatabase:
+          name: settlekit-db
+          property: connectionString
+      # Auto-generated signing secrets (tokens / cookies / outbound webhooks).
+      - key: LICENSE_TOKEN_SECRET
+        generateValue: true
+      - key: WEBHOOK_SIGNING_SECRET
+        generateValue: true
+      - key: AUTH_COOKIE_SECRET
+        generateValue: true
+      - key: FILE_DOWNLOAD_SECRET
+        generateValue: true
+      # Bootstrap API key for the very first authenticated call.
+      - key: API_BOOTSTRAP_KEY
+        generateValue: true
+      # On-chain settlement (Arc testnet). Set ARC_CHAIN_ID to enable; the rest
+      # default from the bundled chain config. Leave unset to run off-chain.
+      - key: ARC_CHAIN_ID
+        sync: false
+      # Circle integrations — added AFTER the product is live (cred-gated; unset
+      # = each feature is a no-op / clear "not configured" error).
+      - key: CIRCLE_API_KEY
+        sync: false
+      - key: CIRCLE_WALLETS_API_KEY
+        sync: false
+      - key: CIRCLE_WALLETS_WALLET_ID
+        sync: false
+      - key: CIRCLE_MINT_API_KEY
+        sync: false
+      - key: GAS_STATION_API_KEY
+        sync: false
+      - key: COMPLIANCE_API_KEY
+        sync: false
+
+  # ---- Background worker (Docker) -------------------------------------------
+  - type: worker
+    name: settlekit-worker
+    runtime: docker
+    dockerfilePath: ./apps/worker/Dockerfile
+    dockerContext: .
+    plan: free
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: settlekit-db
+          property: connectionString
+      - key: WEBHOOK_SIGNING_SECRET
+        fromService:
+          name: settlekit-api
+          type: web
+          envVarKey: WEBHOOK_SIGNING_SECRET
+      - key: ARC_CHAIN_ID
+        sync: false
+      - key: CIRCLE_WALLETS_API_KEY
+        sync: false
+      - key: CIRCLE_WALLETS_WALLET_ID
+        sync: false
+
+  # ---- Marketing site (Next.js, Node runtime) -------------------------------
+  - type: web
+    name: settlekit-web
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/web... build
+    startCommand: pnpm --filter @settlekit/web exec next start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_DASHBOARD_URL
+        sync: false
+      - key: NEXT_PUBLIC_MARKETPLACE_URL
+        sync: false
+      - key: NEXT_PUBLIC_DOCS_URL
+        sync: false
+
+  # ---- Merchant dashboard ---------------------------------------------------
+  - type: web
+    name: settlekit-dashboard
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/dashboard... build
+    startCommand: pnpm --filter @settlekit/dashboard exec next start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+  # ---- Public marketplace ---------------------------------------------------
+  - type: web
+    name: settlekit-marketplace
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/marketplace... build
+    startCommand: pnpm --filter @settlekit/marketplace exec next start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+  # ---- Docs site ------------------------------------------------------------
+  - type: web
+    name: settlekit-docs
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/docs... build
+    startCommand: pnpm --filter @settlekit/docs exec next start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"

@@ -81,12 +81,21 @@ importers:
       '@settlekit/bundles':
         specifier: workspace:*
         version: link:../../packages/bundles
+      '@settlekit/cctp':
+        specifier: workspace:*
+        version: link:../../packages/cctp
       '@settlekit/circle':
         specifier: workspace:*
         version: link:../../packages/circle
+      '@settlekit/circle-wallets':
+        specifier: workspace:*
+        version: link:../../packages/circle-wallets
       '@settlekit/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@settlekit/compliance':
+        specifier: workspace:*
+        version: link:../../packages/compliance
       '@settlekit/coupons':
         specifier: workspace:*
         version: link:../../packages/coupons
@@ -114,6 +123,9 @@ importers:
       '@settlekit/file-delivery':
         specifier: workspace:*
         version: link:../../packages/file-delivery
+      '@settlekit/gateway':
+        specifier: workspace:*
+        version: link:../../packages/gateway
       '@settlekit/github':
         specifier: workspace:*
         version: link:../../packages/github
@@ -129,6 +141,12 @@ importers:
       '@settlekit/notifications':
         specifier: workspace:*
         version: link:../../packages/notifications
+      '@settlekit/onchain':
+        specifier: workspace:*
+        version: link:../../packages/onchain
+      '@settlekit/paymaster':
+        specifier: workspace:*
+        version: link:../../packages/paymaster
       '@settlekit/payments':
         specifier: workspace:*
         version: link:../../packages/payments
@@ -141,12 +159,21 @@ importers:
       '@settlekit/product-catalog':
         specifier: workspace:*
         version: link:../../packages/product-catalog
+      '@settlekit/rate-limits':
+        specifier: workspace:*
+        version: link:../../packages/rate-limits
       '@settlekit/refunds':
         specifier: workspace:*
         version: link:../../packages/refunds
       '@settlekit/saas':
         specifier: workspace:*
         version: link:../../packages/saas
+      '@settlekit/stablefx':
+        specifier: workspace:*
+        version: link:../../packages/stablefx
+      '@settlekit/usage':
+        specifier: workspace:*
+        version: link:../../packages/usage
       '@settlekit/webhooks':
         specifier: workspace:*
         version: link:../../packages/webhooks
@@ -227,6 +254,22 @@ importers:
       '@types/react-dom':
         specifier: ^18.3.0
         version: 18.3.7(@types/react@18.3.31)
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+
+  apps/cli:
+    dependencies:
+      commander:
+        specifier: ^12.1.0
+        version: 12.1.0
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      tsx:
+        specifier: ^4.19.2
+        version: 4.22.4
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -356,9 +399,15 @@ importers:
       '@settlekit/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@settlekit/database':
+        specifier: workspace:*
+        version: link:../../packages/database
       '@settlekit/marketplace-core':
         specifier: workspace:*
         version: link:../../packages/marketplace-core
+      '@settlekit/persistence':
+        specifier: workspace:*
+        version: link:../../packages/persistence
       next:
         specifier: ^14.2.5
         version: 14.2.35(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -443,6 +492,9 @@ importers:
       '@settlekit/arc':
         specifier: workspace:*
         version: link:../../packages/arc
+      '@settlekit/circle-wallets':
+        specifier: workspace:*
+        version: link:../../packages/circle-wallets
       '@settlekit/common':
         specifier: workspace:*
         version: link:../../packages/common
@@ -473,6 +525,9 @@ importers:
       '@settlekit/payments':
         specifier: workspace:*
         version: link:../../packages/payments
+      '@settlekit/payouts':
+        specifier: workspace:*
+        version: link:../../packages/payouts
       '@settlekit/persistence':
         specifier: workspace:*
         version: link:../../packages/persistence
@@ -664,6 +719,28 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)
 
+  packages/cctp:
+    dependencies:
+      '@settlekit/arc':
+        specifier: workspace:*
+        version: link:../arc
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      viem:
+        specifier: ^2.21.0
+        version: 2.52.2(typescript@5.9.3)(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
   packages/changelog:
     dependencies:
       '@settlekit/common':
@@ -709,6 +786,28 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)
 
+  packages/circle-wallets:
+    dependencies:
+      '@settlekit/arc':
+        specifier: workspace:*
+        version: link:../arc
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      viem:
+        specifier: ^2.21.0
+        version: 2.52.2(typescript@5.9.3)(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
   packages/common:
     devDependencies:
       '@types/node':
@@ -727,6 +826,9 @@ importers:
         specifier: workspace:*
         version: link:../common
     devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -1033,6 +1135,28 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)
 
+  packages/gateway:
+    dependencies:
+      '@settlekit/arc':
+        specifier: workspace:*
+        version: link:../arc
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      viem:
+        specifier: ^2.21.0
+        version: 2.52.2(typescript@5.9.3)(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
   packages/github:
     dependencies:
       '@octokit/auth-app':
@@ -1226,12 +1350,53 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)
 
+  packages/onchain:
+    dependencies:
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      viem:
+        specifier: ^2.21.0
+        version: 2.52.2(typescript@5.9.3)(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
   packages/package-access:
     dependencies:
       '@settlekit/common':
         specifier: workspace:*
         version: link:../common
     devDependencies:
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
+  packages/paymaster:
+    dependencies:
+      '@settlekit/arc':
+        specifier: workspace:*
+        version: link:../arc
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      viem:
+        specifier: ^2.21.0
+        version: 2.52.2(typescript@5.9.3)(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -1330,6 +1495,9 @@ importers:
       '@settlekit/saas':
         specifier: workspace:*
         version: link:../saas
+      '@settlekit/usage':
+        specifier: workspace:*
+        version: link:../usage
     devDependencies:
       '@types/node':
         specifier: ^20.14.0
@@ -1563,6 +1731,28 @@ importers:
         specifier: workspace:*
         version: link:../common
     devDependencies:
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
+  packages/stablefx:
+    dependencies:
+      '@settlekit/arc':
+        specifier: workspace:*
+        version: link:../arc
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      viem:
+        specifier: ^2.21.0
+        version: 2.52.2(typescript@5.9.3)(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -2730,6 +2920,10 @@ packages:
   client-only@0.0.1:
     resolution: {integrity: sha512-IV3Ou0jSMzZrd3pZ48nLkT9DA7Ag1pnPzaiQhpW7c3RbcqqzvzzVu+L8gfqMp/8IM2MQtSiqaCxrrcfu8I8rMA==}
 
+  commander@12.1.0:
+    resolution: {integrity: sha512-Vw8qHK3bZM9y/P10u3Vib8o/DdkvA2OtPtZvD871QKjy74Wj1WSKFILMPRPSdUSx5RFK1arlJzEtA4PkFgnbuA==}
+    engines: {node: '>=18'}
+
   content-type@2.0.0:
     resolution: {integrity: sha512-j/O/d7GcZCyNl7/hwZAb606rzqkyvaDctLmckbxLzHvFBzTJHuGEdodATcP3yIRoDrLHkIATJuvzbFlp/ki2cQ==}
     engines: {node: '>=18'}
@@ -3830,6 +4024,8 @@ snapshots:
   check-error@2.1.3: {}
 
   client-only@0.0.1: {}
+
+  commander@12.1.0: {}
 
   content-type@2.0.0: {}
 

@@ -12,13 +12,43 @@ export async function createServer() {
   return createApp(ctx);
 }
 
+/** Emit a structured startup/shutdown log line (matches the request logger). */
+function log(message: string, fields: Record<string, unknown> = {}): void {
+  process.stdout.write(
+    `${JSON.stringify({ ts: new Date().toISOString(), app: "api", level: "info", msg: message, ...fields })}\n`,
+  );
+}
+
 /** Start listening. Returns the running server handle. */
 export async function startServer(port = Number(process.env.PORT ?? 8787)) {
   const app = await createServer();
   const server = serve({ fetch: app.fetch, port }, (info) => {
-    // eslint-disable-next-line no-console
-    console.log(`SettleKit API listening on http://localhost:${info.port}`);
+    log("api listening", { port: info.port, url: `http://localhost:${info.port}` });
   });
+
+  // Graceful shutdown: stop accepting new connections and let in-flight requests
+  // drain, then exit. A second signal (or a 10s timeout) forces exit.
+  let shuttingDown = false;
+  const shutdown = (signal: string): void => {
+    if (shuttingDown) {
+      log("api force exit", { signal });
+      process.exit(1);
+    }
+    shuttingDown = true;
+    log("api shutting down", { signal });
+    const force = setTimeout(() => {
+      log("api shutdown timed out; forcing exit", {});
+      process.exit(1);
+    }, 10_000);
+    force.unref();
+    server.close(() => {
+      log("api shut down cleanly", {});
+      process.exit(0);
+    });
+  };
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
+  process.on("SIGINT", () => shutdown("SIGINT"));
+
   return server;
 }
 

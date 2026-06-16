@@ -11,6 +11,8 @@
     { "path": "../../packages/database" },
     { "path": "../../packages/persistence" },
     { "path": "../../packages/payments" },
+    { "path": "../../packages/payouts" },
+    { "path": "../../packages/circle-wallets" },
     { "path": "../../packages/arc" },
     { "path": "../../packages/webhooks" },
     { "path": "../../packages/notifications" },

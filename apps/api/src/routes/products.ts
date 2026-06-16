@@ -12,6 +12,7 @@ import { createProductDraft, publishProduct } from "@settlekit/product-catalog";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
+import { requireOrg } from "../http/tenant.js";
 
 const PRODUCT_TYPES = [
   "saas_plan",
@@ -49,7 +50,8 @@ const DELIVERY_MODES = [
 
 const createProductSchema = z.object({
   merchantId: z.string().min(1),
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   name: z.string().min(1),
   description: z.string().default(""),
   type: z.enum(PRODUCT_TYPES),
@@ -72,9 +74,11 @@ export function productRoutes(): Hono<AppEnv> {
   // Create a product (draft).
   app.post("/", async (c) => {
     const body = await parseBody(c, createProductSchema);
+    // Tenant-scoped: the product belongs to the caller's org, never a
+    // client-supplied organizationId (which would allow cross-tenant writes).
     const draft = createProductDraft({
       merchantId: body.merchantId,
-      organizationId: body.organizationId,
+      organizationId: requireOrg(c),
       name: body.name,
       description: body.description,
       template: {
@@ -90,7 +94,9 @@ export function productRoutes(): Hono<AppEnv> {
 
   // List products.
   app.get("/", async (c) => {
-    const products = await c.get("ctx").products.list();
+    // Tenant-scoped: only the authenticated organization's products.
+    const org = requireOrg(c);
+    const products = await c.get("ctx").products.list((p) => p.organizationId === org);
     return data(c, products);
   });
 

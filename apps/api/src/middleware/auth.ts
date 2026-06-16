@@ -13,6 +13,7 @@
  */
 import type { MiddlewareHandler } from "hono";
 import { SettleKitError } from "@settlekit/common";
+import { DEFAULT_ORG_ID } from "@settlekit/persistence";
 import type { AppEnv } from "../context.js";
 
 const BEARER_RE = /^Bearer\s+(.+)$/i;
@@ -37,8 +38,10 @@ export function authMiddleware(): MiddlewareHandler<AppEnv> {
     const plaintext = match[1].trim();
 
     // Bootstrap path: a configured static key authenticates without the store.
+    // It operates on the platform default organization.
     if (bootstrapKey && plaintext === bootstrapKey) {
       c.set("apiKeyId", "bootstrap");
+      c.set("organizationId", DEFAULT_ORG_ID);
       await next();
       return;
     }
@@ -57,6 +60,8 @@ export function authMiddleware(): MiddlewareHandler<AppEnv> {
     }
 
     c.set("apiKeyId", result.apiKey.id);
+    // Bind the key's organization so routes can scope reads/writes to the tenant.
+    c.set("organizationId", result.apiKey.organizationId);
     await next();
   };
 }

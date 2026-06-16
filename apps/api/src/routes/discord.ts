@@ -80,6 +80,11 @@ export function discordIntegrationRoutes(): Hono<AppEnv> {
 export function discordAccessRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
+  // List all Discord role grants.
+  app.get("/", async (c) => {
+    return data(c, await c.get("ctx").discordGrants.list());
+  });
+
   app.post("/grant", async (c) => {
     const ctx = c.get("ctx");
     const body = await parseBody(c, grantSchema);

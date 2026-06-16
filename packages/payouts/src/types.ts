@@ -18,6 +18,12 @@ export interface Payout {
   status: PayoutStatus;
   /** On-chain transaction hash, set when marked paid. */
   txHash?: string;
+  /**
+   * Provider transaction reference (e.g. the Circle transaction id), set when a
+   * payout is executed but not yet settled on-chain. Used to reconcile the
+   * eventual txHash.
+   */
+  providerRef?: string;
   /** Reason a payout failed, set when marked failed. */
   failureReason?: string;
   createdAt: IsoTimestamp;

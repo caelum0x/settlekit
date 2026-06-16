@@ -36,6 +36,11 @@ export class LicenseService {
     this.now = options.now ?? (() => new Date());
   }
 
+  /** All issued license keys (merchant-wide), for dashboard listing. */
+  async list(): Promise<LicenseKey[]> {
+    return this.store.listAll();
+  }
+
   /** Issue a new license key and persist it. */
   async issue(input: CreateLicenseKeyInput): Promise<LicenseKey> {
     const license = createLicenseKey(input, this.now());

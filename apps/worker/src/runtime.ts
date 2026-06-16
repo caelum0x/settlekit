@@ -18,7 +18,9 @@ import type { WorkerConfig } from "./config.js";
 import { createDb } from "@settlekit/database";
 import { InMemoryWorkerStore, type WorkerStore } from "./stores.js";
 import { PgWorkerStore } from "./db/pg-worker-store.js";
-import { PgLicenseStore, PgApiKeyStore, PgGrantStore } from "@settlekit/persistence";
+import { PgLicenseStore, PgApiKeyStore, PgGrantStore, PgPayoutStore } from "@settlekit/persistence";
+import { InMemoryPayoutStore, type PayoutStore } from "@settlekit/payouts";
+import { createWalletsClient, type WalletsClient } from "@settlekit/circle-wallets";
 import { createLogger, type Logger } from "./logger.js";
 import { createDeliveryClients } from "./wiring/delivery-clients.js";
 import { Scheduler, type ScheduledJob } from "./scheduler.js";
@@ -32,6 +34,7 @@ import {
   renewalReminderJob,
   dunningEmailJob,
   accessGrantedEmailJob,
+  payoutReconcileJob,
   type JobContext,
 } from "./jobs/index.js";
 
@@ -50,6 +53,10 @@ export interface RuntimeDeps {
   webhookSender?: HttpSender;
   /** Override the logger. */
   logger?: Logger;
+  /** Override the payout store (defaults to Pg/in-memory like the API). */
+  payoutStore?: PayoutStore;
+  /** Override the Circle wallets client (tests inject an in-memory double). */
+  walletsClient?: WalletsClient | null;
   /** Override the clock (deterministic tests). */
   now?: () => Date;
 }
@@ -115,6 +122,28 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     ...(deps.emailTransport ? { transport: deps.emailTransport } : { apiKey: deps.config.email.apiKey }),
   });
 
+  // Payout reconciliation: the same Postgres-backed payout store the API writes
+  // to (or in-memory), plus a Circle wallets client when configured.
+  const payoutStore: PayoutStore =
+    deps.payoutStore ?? (db ? new PgPayoutStore(db) : new InMemoryPayoutStore());
+  const walletsClient: WalletsClient | null =
+    deps.walletsClient !== undefined
+      ? deps.walletsClient
+      : deps.config.circleWallets
+        ? createWalletsClient({
+            apiKey: deps.config.circleWallets.apiKey,
+            ...(deps.config.circleWallets.baseUrl
+              ? { baseUrl: deps.config.circleWallets.baseUrl }
+              : {}),
+            ...(deps.config.circleWallets.entitySecretCiphertext
+              ? {
+                  entitySecretProvider: () =>
+                    deps.config.circleWallets!.entitySecretCiphertext!,
+                }
+              : {}),
+          })
+        : null;
+
   const ctx: JobContext = {
     config: deps.config,
     stores,
@@ -125,6 +154,8 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     email,
     githubApi: deps.githubApi,
     discordApi: deps.discordApi,
+    payoutStore,
+    walletsClient,
     now,
   };
 
@@ -145,6 +176,7 @@ export function buildRuntime(deps: RuntimeDeps): WorkerRuntime {
     { job: renewalReminderJob, intervalMs: intervals.renewalReminderMs },
     { job: dunningEmailJob, intervalMs: intervals.dunningEmailMs },
     { job: accessGrantedEmailJob, intervalMs: intervals.accessEmailMs },
+    { job: payoutReconcileJob, intervalMs: intervals.payoutReconcileMs },
   ];
 
   const scheduler = new Scheduler(scheduled, ctx, logger);

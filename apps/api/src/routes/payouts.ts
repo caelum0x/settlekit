@@ -14,10 +14,12 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
+import { conflict, notFound, validationError } from "@settlekit/common";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
+import { screenAddressOrThrow } from "../compliance/screen.js";
 
 const amount = z.string().regex(/^\d+(\.\d+)?$/);
 
@@ -72,6 +74,80 @@ export function payoutRoutes(): Hono<AppEnv> {
     const payments = await ctx.payments.findConfirmedByOrganization(organizationId);
     const balance = await ctx.payouts.availableBalance(organizationId, payments);
     return data(c, balance);
+  });
+
+  // Execute a pending payout for real: move USDC from the SettleKit treasury
+  // wallet to the merchant via the configured executor (Circle wallets). When
+  // the transfer broadcasts synchronously with a txHash the payout is marked
+  // paid; otherwise it stays pending and the provider reference is returned for
+  // reconciliation (poll the provider / settle later via /paid).
+  app.post("/:id/execute", async (c) => {
+    const ctx = c.get("ctx");
+    const id = c.req.param("id");
+    if (!ctx.payoutExecutor) {
+      throw validationError(
+        "payout execution is not configured; set CIRCLE_WALLETS_* or settle manually via /paid",
+        { id },
+      );
+    }
+    const payout = await ctx.payoutStore.findById(id);
+    if (!payout) throw notFound("payout not found", { id });
+    if (payout.status !== "pending") {
+      throw conflict(`payout is ${payout.status}, only pending payouts can be executed`, { id });
+    }
+
+    // Compliance gate: screen the destination address before moving funds.
+    // No-op when screening is unconfigured; throws compliance_blocked on a hit.
+    await screenAddressOrThrow(
+      { screening: ctx.screening, defaultChain: ctx.complianceDefaultChain },
+      { address: payout.walletAddress, network: payout.network, context: `payout:${id}` },
+    );
+
+    const execution = await ctx.payoutExecutor.execute({
+      walletAddress: payout.walletAddress,
+      amount: payout.amount,
+      network: payout.network,
+      refId: payout.id,
+    });
+
+    // Persist the provider reference so an async settlement can be reconciled
+    // later (worker or POST /:id/reconcile).
+    await ctx.payoutStore.save({ ...payout, providerRef: execution.providerRef });
+
+    const settled = execution.txHash
+      ? unwrapResult(await ctx.payouts.markPaid(id, execution.txHash))
+      : await ctx.payoutStore.findById(id);
+    return data(c, { payout: settled, execution });
+  });
+
+  // Reconcile an executed-but-unsettled payout: re-poll the provider for the
+  // on-chain hash and mark paid (or failed) accordingly.
+  app.post("/:id/reconcile", async (c) => {
+    const ctx = c.get("ctx");
+    const id = c.req.param("id");
+    if (!ctx.payoutExecutor) {
+      throw validationError("payout execution is not configured", { id });
+    }
+    const payout = await ctx.payoutStore.findById(id);
+    if (!payout) throw notFound("payout not found", { id });
+    if (!payout.providerRef) {
+      throw conflict("payout has not been executed; nothing to reconcile", { id });
+    }
+    if (payout.status !== "pending") {
+      return data(c, { payout, execution: { providerRef: payout.providerRef, state: "settled" } });
+    }
+
+    const execution = await ctx.payoutExecutor.reconcile(payout.providerRef);
+    const FAILED_STATES = new Set(["FAILED", "CANCELLED", "DENIED"]);
+    let result = payout;
+    if (execution.txHash) {
+      result = unwrapResult(await ctx.payouts.markPaid(id, execution.txHash));
+    } else if (FAILED_STATES.has(execution.state)) {
+      result = unwrapResult(
+        await ctx.payouts.markFailed(id, `provider transfer ${execution.state.toLowerCase()}`),
+      );
+    }
+    return data(c, { payout: result, execution });
   });
 
   app.post("/:id/paid", async (c) => {

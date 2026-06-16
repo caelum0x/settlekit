@@ -52,6 +52,8 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Discord Access", href: "/discord" },
       { label: "SaaS Plans", href: "/saas/plans" },
       { label: "Agent Services", href: "/agent-services" },
+      { label: "Marketplace", href: "/marketplace" },
+      { label: "Usage & Credits", href: "/usage" },
       { label: "Escrow", href: "/escrow/tasks" },
     ],
   },

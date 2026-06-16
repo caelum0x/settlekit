@@ -1,0 +1,32 @@
+{
+  "name": "@settlekit/cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Official SettleKit command-line interface — manage products, customers, checkout, payments, licenses, coupons, invoices, marketplace listings, agent services, and payouts against the SettleKit HTTP API.",
+  "bin": {
+    "settlekit": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "node --import tsx/esm src/index.ts",
+    "typecheck": "tsc -b --noEmit",
+    "clean": "rm -rf dist"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "commander": "^12.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.5.4"
+  }
+}

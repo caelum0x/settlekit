@@ -1,0 +1,19 @@
+[project]
+name = "ai-export-pro"
+version = "0.1.0"
+description = "A runnable FastAPI SaaS demo gated by SettleKit entitlements and prepaid credits."
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "httpx>=0.27",
+    "settlekit>=0.1.0",
+]
+
+[project.optional-dependencies]
+# Editable monorepo install is expressed in requirements.txt; this extra is a hint
+# for tools that resolve from the local SDK path.
+local = []
+
+[tool.uvicorn]
+app = "app.main:app"

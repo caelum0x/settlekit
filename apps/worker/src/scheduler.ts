@@ -26,12 +26,42 @@ export interface SchedulerOptions {
 
 const DEFAULT_DRAIN_TIMEOUT_MS = 30_000;
 
+/** Aggregate scheduler throughput, exposed by the worker's health/metrics server. */
+export interface SchedulerStats {
+  jobs: number;
+  ticksTotal: number;
+  ticksSkipped: number;
+  ticksErrored: number;
+  itemsProcessed: number;
+  itemsFailed: number;
+  startedAt: string;
+}
+
 export class Scheduler {
   private readonly timers = new Map<string, ReturnType<typeof setInterval>>();
   private readonly inFlight = new Map<string, Promise<void>>();
   private readonly drainTimeoutMs: number;
   private readonly runOnStart: boolean;
   private stopping = false;
+  private ticksTotal = 0;
+  private ticksSkipped = 0;
+  private ticksErrored = 0;
+  private itemsProcessed = 0;
+  private itemsFailed = 0;
+  private readonly startedAt = new Date().toISOString();
+
+  /** A snapshot of cumulative throughput counters. */
+  stats(): SchedulerStats {
+    return {
+      jobs: this.scheduled.length,
+      ticksTotal: this.ticksTotal,
+      ticksSkipped: this.ticksSkipped,
+      ticksErrored: this.ticksErrored,
+      itemsProcessed: this.itemsProcessed,
+      itemsFailed: this.itemsFailed,
+      startedAt: this.startedAt,
+    };
+  }
 
   constructor(
     private readonly scheduled: readonly ScheduledJob[],
@@ -59,14 +89,18 @@ export class Scheduler {
   private async tick(job: Job): Promise<void> {
     if (this.stopping) return;
     if (this.inFlight.has(job.name)) {
+      this.ticksSkipped += 1;
       this.logger.warn("job tick skipped; previous tick still running", { job: job.name });
       return;
     }
 
     const started = Date.now();
+    this.ticksTotal += 1;
     const run = (async () => {
       try {
         const result = await job.run(this.ctx);
+        this.itemsProcessed += result.processed;
+        this.itemsFailed += result.failed;
         this.logger.info("job tick complete", {
           job: job.name,
           processed: result.processed,
@@ -74,6 +108,7 @@ export class Scheduler {
           durationMs: Date.now() - started,
         });
       } catch (error) {
+        this.ticksErrored += 1;
         this.logger.error("job tick threw", { job: job.name, error: errorMessage(error) });
       }
     })();

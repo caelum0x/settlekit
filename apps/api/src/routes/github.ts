@@ -107,6 +107,11 @@ export function githubIntegrationRoutes(): Hono<AppEnv> {
 export function githubAccessRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
+  // List all GitHub repo access grants.
+  app.get("/", async (c) => {
+    return data(c, await c.get("ctx").githubGrants.list());
+  });
+
   // Grant a customer access to a private repo (real granter + in-process client).
   app.post("/grant", async (c) => {
     const ctx = c.get("ctx");

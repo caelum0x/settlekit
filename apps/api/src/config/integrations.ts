@@ -14,9 +14,17 @@
 import { money, type DiscordRoleGrant, type GitHubRepoAccessGrant } from "@settlekit/common";
 import {
   createArcClient,
+  getArcChain,
+  isArcAsset,
   type ArcAddress,
   type ArcClient,
 } from "@settlekit/arc";
+import { createWalletsClient } from "@settlekit/circle-wallets";
+import { createScreeningClient, type ScreeningClient } from "@settlekit/compliance";
+import {
+  createCircleWalletsPayoutExecutor,
+  type PayoutExecutor,
+} from "../payouts/executor.js";
 import {
   OctokitGitHubApi,
   createGitHubAccessClient,
@@ -49,8 +57,14 @@ export interface Integrations {
   discordApi: DiscordApi;
   /** Arc settlement verifier for x402 paid calls, or null when Arc is unset. */
   arcVerifier: PaymentVerifier | null;
+  /** Raw Arc client (verify / fee-estimate / confirmations), or null when unset. */
+  arc: ArcClient | null;
   /** Real Circle REST client, or null when Circle is unset. */
   circle: CircleClient | null;
+  /** Real payout executor (Circle wallets), or null when unset. */
+  payoutExecutor: PayoutExecutor | null;
+  /** Circle compliance address-screening client, or null when unset. */
+  screening: ScreeningClient | null;
   /** Real email client, or null when email is unset. */
   email: EmailClient | null;
 }
@@ -101,6 +115,8 @@ function createInMemoryGrantSink(): DeliveryGrantSink {
  * configured `payTo` address with enough confirmations.
  */
 function buildArcVerifier(arc: ArcClient, minConfirmations: number): PaymentVerifier {
+  const chain = getArcChain(arc.config.chainId);
+
   return async (proof, requirements) => {
     if (proof.network !== "arc") {
       return { ok: false, reason: `Unsupported network: ${proof.network}` };
@@ -108,13 +124,33 @@ function buildArcVerifier(arc: ArcClient, minConfirmations: number): PaymentVeri
     if (!/^0x[a-fA-F0-9]{64}$/.test(proof.txHash)) {
       return { ok: false, reason: "Malformed transaction hash" };
     }
-    const result = await arc.verifyUsdcTransfer({
-      txHash: proof.txHash as `0x${string}`,
-      to: requirements.payTo as ArcAddress,
-      minAmount: money(requirements.amount, requirements.asset),
-    });
+
+    const txHash = proof.txHash as `0x${string}`;
+    const to = requirements.payTo as ArcAddress;
+    const minAmount = money(requirements.amount, requirements.asset);
+    // Widen to string: requirements.asset is typed as the literal "USDC", but
+    // EURC/USYC settlements flow through the same verifier at runtime.
+    const asset: string = requirements.asset;
+
+    // Resolve which token to look for. USDC uses the configured USDC address;
+    // other Arc stablecoins (EURC/USYC) resolve their contract from the chain
+    // definition so they settle through the same on-chain verification path.
+    let result;
+    if (asset === "USDC") {
+      result = await arc.verifyUsdcTransfer({ txHash, to, minAmount });
+    } else if (chain && isArcAsset(asset) && chain.tokens[asset]) {
+      result = await arc.verifyTokenTransfer({
+        txHash,
+        token: chain.tokens[asset].address,
+        to,
+        minAmount,
+      });
+    } else {
+      return { ok: false, reason: `Unsupported settlement asset on Arc: ${asset}` };
+    }
+
     if (!result.confirmed) {
-      return { ok: false, reason: "No matching USDC transfer found" };
+      return { ok: false, reason: `No matching ${asset} transfer found` };
     }
     if (result.confirmations < minConfirmations) {
       return {
@@ -190,21 +226,43 @@ export function buildIntegrations(
     });
   }
 
-  const arcVerifier = config.arc
-    ? buildArcVerifier(
-        createArcClient({
-          rpcUrl: config.arc.rpcUrl,
-          usdcAddress: config.arc.usdcAddress,
-          chainId: config.arc.chainId,
-        }),
-        config.arc.minConfirmations,
-      )
+  const arcClient = config.arc
+    ? createArcClient({
+        rpcUrl: config.arc.rpcUrl,
+        usdcAddress: config.arc.usdcAddress,
+        chainId: config.arc.chainId,
+      })
     : null;
+  const arcVerifier =
+    arcClient && config.arc ? buildArcVerifier(arcClient, config.arc.minConfirmations) : null;
 
   const circle = config.circle
     ? createCircleClient({
         apiKey: config.circle.apiKey,
         ...(config.circle.baseUrl ? { baseUrl: config.circle.baseUrl } : {}),
+      })
+    : null;
+
+  // Real payout execution over Circle developer-controlled wallets. The entity
+  // secret (when configured statically) is supplied per mutating call via the
+  // client's provider hook; otherwise the caller supplies it per request.
+  const payoutExecutor = config.circleWallets
+    ? createCircleWalletsPayoutExecutor(
+        createWalletsClient({
+          apiKey: config.circleWallets.apiKey,
+          ...(config.circleWallets.baseUrl ? { baseUrl: config.circleWallets.baseUrl } : {}),
+          ...(config.circleWallets.entitySecretCiphertext
+            ? { entitySecretProvider: () => config.circleWallets!.entitySecretCiphertext! }
+            : {}),
+        }),
+        { sourceWalletId: config.circleWallets.walletId },
+      )
+    : null;
+
+  const screening = config.compliance
+    ? createScreeningClient({
+        apiKey: config.compliance.apiKey,
+        ...(config.compliance.baseUrl ? { baseUrl: config.compliance.baseUrl } : {}),
       })
     : null;
 
@@ -217,7 +275,10 @@ export function buildIntegrations(
     githubAccessClient,
     discordApi,
     arcVerifier,
+    arc: arcClient,
     circle,
+    payoutExecutor,
+    screening,
     email,
   };
 }

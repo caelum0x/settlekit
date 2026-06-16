@@ -10,12 +10,20 @@
 import { createPublicClient, http } from "viem";
 import type { ArcClientConfig, ArcTransactionReceipt, Hex } from "./types.js";
 
+/** EIP-1559 fee components (18-decimal native/USDC units on Arc). */
+export interface ArcFeesPerGas {
+  maxFeePerGas: bigint;
+  maxPriorityFeePerGas: bigint;
+}
+
 /** The on-chain reads the Arc client depends on. */
 export interface ArcRpc {
   /** Fetch a transaction receipt, or `null` if not yet mined. */
   getTransactionReceipt(txHash: Hex): Promise<ArcTransactionReceipt | null>;
   /** Current head block number. */
   getBlockNumber(): Promise<bigint>;
+  /** Current EIP-1559 fee estimate for the chain. */
+  estimateFeesPerGas(): Promise<ArcFeesPerGas>;
 }
 
 /**
@@ -59,6 +67,14 @@ export function createViemArcRpc(config: ArcClientConfig): ArcRpc {
 
     async getBlockNumber(): Promise<bigint> {
       return client.getBlockNumber();
+    },
+
+    async estimateFeesPerGas(): Promise<ArcFeesPerGas> {
+      const fees = await client.estimateFeesPerGas();
+      return {
+        maxFeePerGas: fees.maxFeePerGas,
+        maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+      };
     },
   };
 }

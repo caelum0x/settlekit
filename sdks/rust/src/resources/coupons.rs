@@ -64,7 +64,9 @@ impl<'a> Coupons<'a> {
 
     /// List coupons.
     pub async fn list(&self) -> Result<Vec<Coupon>> {
-        self.client.request_no_body(Method::GET, "/v1/coupons").await
+        self.client
+            .request_no_body(Method::GET, "/v1/coupons")
+            .await
     }
 
     /// Fetch a coupon by code.
@@ -77,14 +79,22 @@ impl<'a> Coupons<'a> {
     /// Dry-run apply a coupon against a subtotal (no mutation).
     pub async fn validate(&self, code: &str, body: &ApplyCoupon) -> Result<CouponApplyResult> {
         self.client
-            .request(Method::POST, &format!("/v1/coupons/{code}/validate"), Some(body))
+            .request(
+                Method::POST,
+                &format!("/v1/coupons/{code}/validate"),
+                Some(body),
+            )
             .await
     }
 
     /// Redeem a coupon against a subtotal (increments its redemption count).
     pub async fn redeem(&self, code: &str, body: &ApplyCoupon) -> Result<CouponApplyResult> {
         self.client
-            .request(Method::POST, &format!("/v1/coupons/{code}/redeem"), Some(body))
+            .request(
+                Method::POST,
+                &format!("/v1/coupons/{code}/redeem"),
+                Some(body),
+            )
             .await
     }
 }

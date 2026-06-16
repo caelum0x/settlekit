@@ -13,6 +13,7 @@ export { receiptEmailJob } from "./receipt-email-job.js";
 export { renewalReminderJob } from "./renewal-reminder-job.js";
 export { dunningEmailJob } from "./dunning-email-job.js";
 export { accessGrantedEmailJob } from "./access-granted-email-job.js";
+export { payoutReconcileJob } from "./payout-reconcile-job.js";
 
 import type { Job } from "./types.js";
 import { deliveryRunnerJob } from "./delivery-runner-job.js";
@@ -24,6 +25,7 @@ import { receiptEmailJob } from "./receipt-email-job.js";
 import { renewalReminderJob } from "./renewal-reminder-job.js";
 import { dunningEmailJob } from "./dunning-email-job.js";
 import { accessGrantedEmailJob } from "./access-granted-email-job.js";
+import { payoutReconcileJob } from "./payout-reconcile-job.js";
 
 /** Stable list of the worker's primary scheduled jobs (plan §17). */
 export const workerJobs = [
@@ -36,6 +38,7 @@ export const workerJobs = [
   "renewal-reminder",
   "dunning-email",
   "access-granted-email",
+  "payout-reconcile",
 ] as const;
 
 export type WorkerJobName = (typeof workerJobs)[number];
@@ -52,5 +55,6 @@ export function allJobs(): Job[] {
     renewalReminderJob,
     dunningEmailJob,
     accessGrantedEmailJob,
+    payoutReconcileJob,
   ];
 }

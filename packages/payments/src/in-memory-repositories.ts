@@ -95,6 +95,11 @@ export class InMemoryPaymentRepository implements PaymentRepository {
     return newestFirst(matches).map(clone);
   }
 
+  async listByOrganization(organizationId: string): Promise<Payment[]> {
+    const matches = [...this.store.values()].filter((p) => p.organizationId === organizationId);
+    return newestFirst(matches).map(clone);
+  }
+
   size(): number {
     return this.store.size;
   }
@@ -119,6 +124,13 @@ export class InMemorySubscriptionRepository
   async findByCustomerId(customerId: string): Promise<Subscription[]> {
     const matches = [...this.store.values()].filter(
       (s) => s.customerId === customerId,
+    );
+    return newestFirst(matches).map(clone);
+  }
+
+  async listByOrganization(organizationId: string): Promise<Subscription[]> {
+    const matches = [...this.store.values()].filter(
+      (s) => s.organizationId === organizationId,
     );
     return newestFirst(matches).map(clone);
   }

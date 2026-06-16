@@ -61,7 +61,10 @@ impl<'a> Payouts<'a> {
         self.client
             .request_no_body(
                 Method::GET,
-                &format!("/v1/payouts/balance?organizationId={}", encode(organization_id)),
+                &format!(
+                    "/v1/payouts/balance?organizationId={}",
+                    encode(organization_id)
+                ),
             )
             .await
     }

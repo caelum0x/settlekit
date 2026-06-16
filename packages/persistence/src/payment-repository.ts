@@ -65,4 +65,9 @@ export class PgPaymentRepository implements PaymentRepository {
       .where(eq(payments.status, "confirmed"));
     return unpackDocs<Payment>(rows).filter((p) => p.organizationId === organizationId);
   }
+
+  async listByOrganization(organizationId: string): Promise<Payment[]> {
+    const rows = await this.db.select({ metadata: payments.metadata }).from(payments);
+    return unpackDocs<Payment>(rows).filter((p) => p.organizationId === organizationId);
+  }
 }

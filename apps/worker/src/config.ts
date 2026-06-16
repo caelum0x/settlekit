@@ -29,6 +29,16 @@ export interface JobIntervals {
   dunningEmailMs: number;
   /** How often succeeded delivery runs are swept for an access-granted email. */
   accessEmailMs: number;
+  /** How often executed-but-unsettled payouts are reconciled against Circle. */
+  payoutReconcileMs: number;
+}
+
+/** Circle developer-controlled wallets used to reconcile executed payouts. */
+export interface CircleWalletsConfig {
+  apiKey: string;
+  walletId: string;
+  baseUrl?: string;
+  entitySecretCiphertext?: string;
 }
 
 /** Arc (EVM USDC) settlement reader configuration. */
@@ -81,6 +91,8 @@ export interface WorkerConfig {
   discord: DiscordConfig;
   fileDelivery: FileDeliveryConfig;
   license: LicenseConfig;
+  /** Circle wallets for payout reconciliation; null when unconfigured. */
+  circleWallets: CircleWalletsConfig | null;
   /** Default grace window (days) applied when a renewal is missed. */
   graceDays: number;
   /** HMAC secret used to sign outbound webhooks dispatched by delivery actions. */
@@ -153,10 +165,24 @@ export function loadConfig(env: Env = process.env): WorkerConfig {
     renewalReminderMs: intInRange(env, "WORKER_RENEWAL_REMINDER_INTERVAL_MS", 3_600_000, 1_000, 86_400_000),
     dunningEmailMs: intInRange(env, "WORKER_DUNNING_EMAIL_INTERVAL_MS", 3_600_000, 1_000, 86_400_000),
     accessEmailMs: intInRange(env, "WORKER_ACCESS_EMAIL_INTERVAL_MS", 60_000, 1_000, 86_400_000),
+    payoutReconcileMs: intInRange(env, "WORKER_PAYOUT_RECONCILE_INTERVAL_MS", 60_000, 1_000, 86_400_000),
   };
+
+  const circleWallets: CircleWalletsConfig | null =
+    env.CIRCLE_WALLETS_API_KEY && env.CIRCLE_WALLETS_WALLET_ID
+      ? {
+          apiKey: env.CIRCLE_WALLETS_API_KEY,
+          walletId: env.CIRCLE_WALLETS_WALLET_ID,
+          ...(env.CIRCLE_WALLETS_BASE_URL ? { baseUrl: env.CIRCLE_WALLETS_BASE_URL } : {}),
+          ...(env.CIRCLE_WALLETS_ENTITY_SECRET_CIPHERTEXT
+            ? { entitySecretCiphertext: env.CIRCLE_WALLETS_ENTITY_SECRET_CIPHERTEXT }
+            : {}),
+        }
+      : null;
 
   return {
     intervals,
+    circleWallets,
     arc: {
       rpcUrl: requireString(env, "ARC_RPC_URL"),
       usdcAddress: requireArcAddress(env, "ARC_USDC_ADDRESS"),

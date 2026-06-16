@@ -49,7 +49,19 @@ settlekit/
 │   ├── marketplace/  Public marketplace (Next.js 14)
 │   ├── admin/        Internal admin + risk console (Next.js 14)
 │   ├── docs/         Developer documentation site (Next.js 14)
+│   ├── cli/          Official `settlekit` CLI (commander) — manage everything
 │   └── examples/     Runnable usage examples
+├── sdks/
+│   ├── node/         (packages/sdk) TypeScript/Node SDK
+│   ├── python/       Python SDK — client + verify + x402 paid-API middleware
+│   ├── go/           Go SDK
+│   └── rust/         Rust SDK
+├── clis/
+│   └── agentpay/     Go CLI for AI-agent commerce (x402 discover → pay → call)
+├── services/
+│   ├── arc-indexer/      (Rust) Arc USDC settlement indexer
+│   ├── x402-gateway/     (Go) x402 paid-API gateway
+│   └── license-gateway/  (Rust) caching license/api-key/entitlement verifier
 └── packages/
     ├── common/       Domain types, Result/ok/err, SettleKitError, money(), generateId
     ├── entitlements/ Universal entitlement model (core)
@@ -206,6 +218,47 @@ persistence/dual-backend design, package layering, and the data model — read
 [ARCHITECTURE.md](./ARCHITECTURE.md).
 
 ---
+
+## SDKs, CLIs & services
+
+SettleKit ships first-party clients and edge services in four languages, all
+speaking the same `/v1` API:
+
+| Component | Language | Path | What it does |
+| --- | --- | --- | --- |
+| Node SDK | TypeScript | `packages/sdk` | Typed client for every resource |
+| Python SDK | Python | `sdks/python` | Client + `verify_*` helpers + x402 `require_payment` middleware |
+| Go SDK | Go | `sdks/go` | Typed Go client |
+| Rust SDK | Rust | `sdks/rust` | Typed Rust client |
+| React SDK | TypeScript | `packages/react` | `<Paywall>`, `useEntitlement`, checkout hooks |
+| **CLI** | TypeScript | `apps/cli` | `settlekit` — manage products, checkout, license keys, coupons, invoices, marketplace, usage, payouts from the terminal |
+| **agentpay** | Go | `clis/agentpay` | AI-agent commerce CLI: discover services → pay per call via x402 |
+| arc-indexer | Rust | `services/arc-indexer` | Indexes Arc USDC settlements |
+| x402-gateway | Go | `services/x402-gateway` | Fronts paid APIs with x402 challenge/verify |
+| license-gateway | Rust | `services/license-gateway` | Sub-ms cached verification of license keys / API keys / entitlements |
+
+```bash
+# CLI
+pnpm --filter @settlekit/cli build && node apps/cli/dist/index.js products list
+# Python SDK
+pip install -e sdks/python
+# Go agent CLI / Rust gateway
+( cd clis/agentpay && go build ./... )
+( cd services/license-gateway && cargo run --release )
+```
+
+## Documentation
+
+| Doc | What's inside |
+| --- | --- |
+| [docs/QUICKSTART.md](./docs/QUICKSTART.md) | Zero-to-sale walkthrough: product → checkout → payment → delivery → usage billing (curl + CLI) |
+| [ARCHITECTURE.md](./ARCHITECTURE.md) | Universal entitlements, delivery flow, persistence/dual-backend, package layering, data model |
+| [PRODUCTION.md](./PRODUCTION.md) | Production topology, deployment, migrations, security hardening, scaling, observability, go-live checklist |
+| [docs/API.md](./docs/API.md) | Complete REST reference for every `/v1` endpoint (curl + responses) + the x402 paid-API flow |
+| [docs/CONFIGURATION.md](./docs/CONFIGURATION.md) | Every environment variable, per component (API, worker, services, SDKs/CLIs) |
+| [CONTRIBUTING.md](./CONTRIBUTING.md) | Repo conventions and how to add a package or app |
+
+Per-component docs live next to their code: every SDK (`packages/sdk`, `sdks/python`, `sdks/go`, `sdks/rust`), CLI (`apps/cli`, `clis/agentpay`), service (`services/*`), and example (`examples/*`) ships its own `README.md`.
 
 ## Contributing
 

@@ -34,7 +34,8 @@
     "@settlekit/payments": "workspace:*",
     "@settlekit/payouts": "workspace:*",
     "@settlekit/refunds": "workspace:*",
-    "@settlekit/saas": "workspace:*"
+    "@settlekit/saas": "workspace:*",
+    "@settlekit/usage": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

@@ -23,7 +23,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { setCookie, deleteCookie } from "hono/cookie";
 import { z } from "zod";
-import { SettleKitError } from "@settlekit/common";
+import { SettleKitError, generateId } from "@settlekit/common";
 import { signCookie } from "@settlekit/auth";
 import type { Account, Session } from "@settlekit/auth";
 import type { AppEnv } from "../context.js";
@@ -32,6 +32,13 @@ import { parseBody, unwrapResult } from "../http/validate.js";
 
 /** Name of the cookie clients store the opaque session token in. */
 const SESSION_COOKIE = "sk_session";
+
+/**
+ * Sentinel product/entitlement id for a merchant **platform** key. Platform keys
+ * are org-scoped admin credentials (not tied to a sold product), so they reuse
+ * the api-key store with this sentinel + the `platform:admin` scope.
+ */
+const PLATFORM_SENTINEL = "__platform__";
 
 const BEARER_RE = /^Bearer\s+(.+)$/i;
 
@@ -89,23 +96,52 @@ export function authRoutes(): Hono<AppEnv> {
 
   // POST /register -> create a password account and open a session.
   app.post("/register", async (c) => {
+    const ctx = c.get("ctx");
     const body = await parseBody(c, registerSchema);
+
+    // A new merchant gets its own organization (its tenant boundary). Customers
+    // join an explicitly-provided org. The org id is attached to the account so
+    // the merchant's platform key — and every scoped read/write — is isolated.
+    const organizationId =
+      body.organizationId ??
+      (body.type === "merchant" ? generateId("organization") : undefined);
+
     const account: Account = unwrapResult(
-      await c.get("ctx").auth.registerWithPassword({
+      await ctx.auth.registerWithPassword({
         type: body.type,
         email: body.email,
         password: body.password,
-        ...(body.organizationId !== undefined ? { organizationId: body.organizationId } : {}),
+        ...(organizationId !== undefined ? { organizationId } : {}),
         ...(body.displayName !== undefined ? { displayName: body.displayName } : {}),
       }),
     );
 
+    // Issue the merchant's platform API key (Stripe-style `sk_…`), scoped to the
+    // org with admin rights. Shown ONCE here; the auth middleware binds its org
+    // on every subsequent `/v1/*` call. Customers don't get a platform key.
+    let apiKey: string | undefined;
+    if (account.type === "merchant" && organizationId) {
+      const issued = await ctx.apiKeys.issue({
+        organizationId,
+        customerId: account.id,
+        productId: PLATFORM_SENTINEL,
+        entitlementId: PLATFORM_SENTINEL,
+        scopes: ["platform:admin"],
+        env: "live",
+      });
+      apiKey = issued.plaintext;
+    }
+
     // Open a session immediately so registration returns a usable token.
     const login = unwrapResult(
-      await c.get("ctx").auth.loginWithPassword({ email: body.email, password: body.password }),
+      await ctx.auth.loginWithPassword({ email: body.email, password: body.password }),
     );
     setSessionCookie(c, login.session);
-    return created(c, { account, sessionToken: login.session.token });
+    return created(c, {
+      account,
+      sessionToken: login.session.token,
+      ...(apiKey ? { apiKey } : {}),
+    });
   });
 
   // POST /login -> verify credentials and open a session.

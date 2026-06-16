@@ -14,6 +14,8 @@ export interface LicenseStore {
   findByKey(key: string): Promise<LicenseKey | null>;
   /** All licenses belonging to a customer. */
   listByCustomer(customerId: string): Promise<LicenseKey[]>;
+  /** All licenses (merchant-wide), for dashboard listing. */
+  listAll(): Promise<LicenseKey[]>;
 }
 
 /**
@@ -64,5 +66,9 @@ export class InMemoryLicenseStore implements LicenseStore {
       if (license.customerId === customerId) out.push(this.clone(license));
     }
     return out;
+  }
+
+  async listAll(): Promise<LicenseKey[]> {
+    return [...this.byId.values()].map((l) => this.clone(l));
   }
 }

@@ -10,6 +10,8 @@ export interface ApiKeyStore {
   findByHash(keyHash: string): Promise<ApiKey | undefined>;
   /** Insert or replace a key record. Keyed by `apiKey.keyHash`. */
   save(apiKey: ApiKey): Promise<void>;
+  /** All key records (merchant-wide), for dashboard listing. */
+  listAll(): Promise<ApiKey[]>;
 }
 
 /**
@@ -30,6 +32,10 @@ export class InMemoryApiKeyStore implements ApiKeyStore {
 
   async save(apiKey: ApiKey): Promise<void> {
     this.byHash.set(apiKey.keyHash, { ...apiKey, scopes: [...apiKey.scopes] });
+  }
+
+  async listAll(): Promise<ApiKey[]> {
+    return [...this.byHash.values()].map((k) => ({ ...k, scopes: [...k.scopes] }));
   }
 
   /** Convenience for tests/tooling: resolve a record from its plaintext key. */

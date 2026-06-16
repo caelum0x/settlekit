@@ -11,6 +11,7 @@ import { OctokitGitHubApi } from "@settlekit/github";
 import { createDiscordClient } from "@settlekit/discord";
 import { loadConfig, ConfigError } from "./config.js";
 import { buildRuntime } from "./runtime.js";
+import { startHealthServer } from "./health-server.js";
 import { createLogger, errorMessage } from "./logger.js";
 
 async function main(): Promise<void> {
@@ -56,9 +57,12 @@ async function main(): Promise<void> {
 
   const shutdown = runtime.scheduler.installSignalHandlers();
   runtime.scheduler.start();
+  // Liveness/readiness/metrics endpoint for production orchestrators.
+  const healthServer = startHealthServer(runtime.scheduler, logger);
   logger.info("worker started", { jobs: 9 });
 
   await shutdown;
+  healthServer.close();
   logger.info("worker exited cleanly");
 }
 

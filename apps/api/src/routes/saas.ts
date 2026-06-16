@@ -82,6 +82,29 @@ export function saasRoutes(): Hono<AppEnv> {
     return data(c, plans);
   });
 
+  // List the distinct features across all plans (flattened plan × feature).
+  app.get("/features", async (c) => {
+    const productId = c.req.query("productId");
+    const plans = await c.get("ctx").saas.listPlans(productId ? { productId } : {});
+    const features = plans.flatMap((plan) =>
+      Object.entries(plan.features).map(([key, value]) => ({
+        planId: plan.id,
+        planName: plan.name,
+        feature: key,
+        kind: typeof value === "boolean" ? "flag" : "limit",
+        value,
+      })),
+    );
+    return data(c, features);
+  });
+
+  // List a customer's seats (requires ?customerId).
+  app.get("/seats", async (c) => {
+    const customerId = c.req.query("customerId");
+    if (!customerId) return data(c, []);
+    return data(c, await c.get("ctx").saas.listSeats(customerId));
+  });
+
   // Grant a feature-bearing tenant entitlement from a plan.
   app.post("/features", async (c) => {
     const body = await parseBody(c, grantSchema);

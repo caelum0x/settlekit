@@ -146,6 +146,13 @@ h4 {
   font-size: 13px;
 }
 
+.brand-logo {
+  width: 28px;
+  height: 28px;
+  border-radius: 7px;
+  object-fit: contain;
+}
+
 /* ---------- Nav ---------- */
 .nav {
   position: sticky;

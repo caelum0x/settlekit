@@ -14,6 +14,7 @@ import {
   createSubscription,
   renewSubscription,
 } from "@settlekit/payments";
+import { DEFAULT_ORG_ID } from "@settlekit/persistence";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
@@ -56,6 +57,12 @@ export function subscriptionRoutes(): Hono<AppEnv> {
       product,
     });
     return created(c, { subscription: saved, entitlement });
+  });
+
+  // List subscriptions for an organization (defaults to the platform org).
+  app.get("/", async (c) => {
+    const organizationId = c.req.query("organizationId") ?? DEFAULT_ORG_ID;
+    return data(c, await c.get("ctx").subscriptions.listByOrganization(organizationId));
   });
 
   app.get("/:id", async (c) => {

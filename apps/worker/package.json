@@ -19,6 +19,8 @@
     "@settlekit/database": "workspace:*",
     "@settlekit/persistence": "workspace:*",
     "@settlekit/payments": "workspace:*",
+    "@settlekit/payouts": "workspace:*",
+    "@settlekit/circle-wallets": "workspace:*",
     "@settlekit/arc": "workspace:*",
     "@settlekit/webhooks": "workspace:*",
     "@settlekit/notifications": "workspace:*",

@@ -143,11 +143,10 @@ async fn poll_once(
     Ok(to_block)
 }
 
-/// Confirm a decoded transfer against the SettleKit API, logging the outcome.
-///
-/// The on-chain transaction hash is used as the payment reference for the
-/// confirm endpoint; failures are logged but do not abort the loop so a single
-/// bad confirmation cannot stall the indexer.
+/// Report a decoded transfer to the SettleKit observe endpoint, logging the
+/// outcome. The API re-verifies the transfer on-chain and screens the sender;
+/// failures are logged but do not abort the loop so a single bad report cannot
+/// stall the indexer.
 async fn handle_transfer(api: &SettleKitClient, config: &Config, head: u64, transfer: &Transfer) {
     let confirmations = head.saturating_sub(transfer.block_number) + 1;
     println!(
@@ -156,13 +155,13 @@ async fn handle_transfer(api: &SettleKitClient, config: &Config, head: u64, tran
     );
 
     match api
-        .confirm_payment(
+        .observe_payment(
+            &config.organization_id,
             &transfer.tx_hash,
-            &transfer.tx_hash,
+            &config.watch_address,
             &transfer.from,
             transfer.value,
             confirmations,
-            config.confirmations,
         )
         .await
     {

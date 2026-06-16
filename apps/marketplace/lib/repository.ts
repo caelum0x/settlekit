@@ -7,7 +7,6 @@ import {
 } from "@settlekit/agent-services";
 import { getData, type DataLayer } from "@/lib/data";
 import type { AgentServiceDTO, ListingDTO, SellerDTO } from "@/lib/types";
-import { SEED_MERCHANTS } from "@/lib/seed";
 
 /**
  * Repository over the seeded data layer. Translates domain objects from
@@ -29,11 +28,11 @@ export interface AgentSearchParams {
   minPrice?: string;
 }
 
-function listingToDTO(
+async function listingToDTO(
   data: DataLayer,
   listing: MarketplaceListing,
-): ListingDTO {
-  const merchant = data.merchantsById.get(listing.merchantId);
+): Promise<ListingDTO> {
+  const merchant = await data.merchantById(listing.merchantId);
   return {
     id: listing.id,
     organizationId: listing.organizationId,
@@ -47,7 +46,7 @@ function listingToDTO(
     title: listing.title,
     summary: listing.summary,
     tags: listing.tags,
-    priceUsdc: data.listingPrices.get(listing.id) ?? "0.00",
+    priceUsdc: await data.listingPriceUsdc(listing),
     ratingAverage: listing.ratingAverage,
     ratingCount: listing.ratingCount,
     createdAt: listing.createdAt,
@@ -58,7 +57,7 @@ async function agentToDTO(
   data: DataLayer,
   service: AgentService,
 ): Promise<AgentServiceDTO> {
-  const merchant = data.merchantsById.get(service.merchantId);
+  const merchant = await data.merchantById(service.merchantId);
   const reputation = await data.agents.getReputation(service.id);
   return {
     id: service.id,
@@ -95,7 +94,7 @@ export async function searchListings(
     ...(params.tags && params.tags.length > 0 ? { tags: params.tags } : {}),
     sort: params.sort ?? "top",
   });
-  return results.map((listing) => listingToDTO(data, listing));
+  return Promise.all(results.map((listing) => listingToDTO(data, listing)));
 }
 
 /** The distinct set of tags across all published listings, sorted. */
@@ -115,6 +114,7 @@ export async function getListing(id: string): Promise<ListingDTO | null> {
   if (listing === null || !listing.published) return null;
   return listingToDTO(data, listing);
 }
+
 
 /** Discover published agent services. */
 export async function searchAgentServices(
@@ -154,7 +154,7 @@ export async function getAgentMetadata(
 /** Build the public seller profile for a merchant slug, or null. */
 export async function getSeller(slug: string): Promise<SellerDTO | null> {
   const data = await getData();
-  const merchant = data.merchantsBySlug.get(slug);
+  const merchant = await data.merchantBySlug(slug);
   if (!merchant) return null;
 
   const profile = await data.marketplace.sellerProfile(merchant.id);
@@ -182,6 +182,7 @@ export async function getSeller(slug: string): Promise<SellerDTO | null> {
 }
 
 /** All seller slugs (used for static params / directory linking). */
-export function allSellerSlugs(): string[] {
-  return SEED_MERCHANTS.map((m) => m.slug);
+export async function allSellerSlugs(): Promise<string[]> {
+  const data = await getData();
+  return data.allSellerSlugs();
 }

@@ -13,7 +13,7 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { conflict, notFound, validationError, type Entitlement } from "@settlekit/common";
+import { conflict, money, notFound, validationError, type Entitlement, type Money } from "@settlekit/common";
 import {
   confirmPayment,
   failPayment,
@@ -21,10 +21,12 @@ import {
   refundPayment,
 } from "@settlekit/payments";
 import { completeSession } from "@settlekit/payments";
+import { DEFAULT_ORG_ID } from "@settlekit/persistence";
 import { X402_SCHEME } from "@settlekit/x402";
 import type { AppEnv, AppContext } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
+import { screenAddressOrThrow } from "../compliance/screen.js";
 
 const recordSchema = z.object({
   checkoutSessionId: z.string().min(1),
@@ -35,6 +37,21 @@ const confirmSchema = z.object({
   txHash: z.string().min(1),
   confirmations: z.number().int().nonnegative(),
   minConfirmations: z.number().int().positive().optional(),
+});
+
+const observeSchema = z.object({
+  organizationId: z.string().min(1),
+  txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/, "must be a 0x tx hash"),
+  /** The watched (recipient) address the transfer landed at. */
+  to: z.string().regex(/^0x[a-fA-F0-9]{40}$/, "must be a 0x address"),
+  amount: z.string().regex(/^\d+(\.\d+)?$/, "must be a decimal amount"),
+  asset: z.enum(["USDC", "EURC", "USYC"]).default("USDC"),
+  network: z.enum(["arc", "base", "ethereum"]).default("arc"),
+  /** Sender, if the indexer decoded it; screened when present. */
+  from: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
+  /** Optional customer attribution; defaults to a synthetic direct-payment id. */
+  customerId: z.string().optional(),
+  confirmations: z.number().int().nonnegative().default(0),
 });
 
 export function paymentRoutes(): Hono<AppEnv> {
@@ -61,6 +78,12 @@ export function paymentRoutes(): Hono<AppEnv> {
       ...(body.txHash !== undefined ? { txHash: body.txHash } : {}),
     });
     return created(c, await ctx.payments.save(payment));
+  });
+
+  // List payments for an organization (defaults to the platform org).
+  app.get("/", async (c) => {
+    const organizationId = c.req.query("organizationId") ?? DEFAULT_ORG_ID;
+    return data(c, await c.get("ctx").payments.listByOrganization(organizationId));
   });
 
   app.get("/:id", async (c) => {
@@ -145,6 +168,72 @@ export function paymentRoutes(): Hono<AppEnv> {
     const payment = await ctx.payments.findById(c.req.param("id"));
     if (!payment) throw notFound("payment not found", { id: c.req.param("id") });
     return data(c, await ctx.payments.save(refundPayment(payment)));
+  });
+
+  // Observe a DIRECT on-chain payment: a merchant accepts USDC by sharing an Arc
+  // address; the arc-indexer watches it and posts observed Transfers here. We
+  // RE-VERIFY the transfer on-chain (never trust the indexer's claim), screen
+  // the sender, and record a confirmed payment attributed to the org — which
+  // flows into the merchant's withdrawable balance. Idempotent on txHash.
+  app.post("/observe", async (c) => {
+    const ctx = c.get("ctx");
+    const body = await parseBody(c, observeSchema);
+
+    if (!ctx.arcVerifier) {
+      throw validationError(
+        "Arc is not configured; observed transfers cannot be verified (set ARC_CHAIN_ID)",
+      );
+    }
+
+    // Idempotency: a confirmed payment for this txHash already exists?
+    const confirmed = await ctx.payments.findConfirmedByOrganization(body.organizationId);
+    const dupe = confirmed.find((p) => p.txHash === body.txHash);
+    if (dupe) return data(c, { payment: dupe, deduped: true });
+
+    // Independently re-verify the transfer on-chain via the same Arc verifier
+    // the checkout-confirm path uses. This enforces recipient + amount +
+    // confirmations against the chain, so a spoofed `observe` body is rejected.
+    const verification = await ctx.arcVerifier(
+      { txHash: body.txHash, from: body.from ?? "", amount: body.amount, network: body.network, nonce: "" },
+      {
+        scheme: X402_SCHEME,
+        amount: body.amount,
+        // The verifier widens asset to string at runtime to resolve EURC/USYC.
+        asset: body.asset as "USDC",
+        network: body.network,
+        payTo: body.to,
+        productId: "",
+        resource: `observe:${body.txHash}`,
+        nonce: "",
+      },
+    );
+    if (!verification.ok) {
+      throw validationError(`on-chain verification failed: ${verification.reason ?? "unverified"}`, {
+        txHash: body.txHash,
+      });
+    }
+
+    // Screen the sender (when decoded) before crediting the merchant.
+    if (body.from) {
+      await screenAddressOrThrow(
+        { screening: ctx.screening, defaultChain: ctx.complianceDefaultChain },
+        { address: body.from, network: body.network, context: `observe:${body.txHash}` },
+      );
+    }
+
+    const amount = { amount: money(body.amount).amount, currency: body.asset } as unknown as Money;
+    const pending = recordPendingPayment({
+      organizationId: body.organizationId,
+      checkoutSessionId: `direct:${body.txHash}`,
+      customerId: body.customerId ?? `direct:${body.from ?? "unknown"}`,
+      amount,
+      network: body.network,
+      txHash: body.txHash,
+    });
+    // The on-chain verifier already enforced confirmations; mark confirmed.
+    const settled = confirmPayment(pending, body.txHash, Math.max(body.confirmations, 1), 1);
+    const saved = await ctx.payments.save(settled);
+    return created(c, { payment: saved, deduped: false });
   });
 
   return app;

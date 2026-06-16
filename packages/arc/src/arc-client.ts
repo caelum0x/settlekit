@@ -14,9 +14,20 @@ import type {
   ArcClientConfig,
   ArcTransactionReceipt,
   Hex,
+  TransferFeeEstimate,
+  VerifyTokenTransferParams,
   VerifyUsdcTransferParams,
   VerifyUsdcTransferResult,
 } from "./types.js";
+
+/**
+ * Scale from 18-decimal native gas accounting to the 6-decimal USDC ERC-20
+ * interface: `10 ** (18 - 6)`.
+ */
+const NATIVE_TO_USDC_SCALE = 1_000_000_000_000n;
+
+/** Typical gas used by an ERC-20 `transfer`; the default fee-estimate basis. */
+const DEFAULT_TRANSFER_GAS = 65_000n;
 
 /** Options for {@link ArcClient.waitForConfirmations}. */
 export interface WaitForConfirmationsOptions {
@@ -37,6 +48,21 @@ export interface ArcClient {
   verifyUsdcTransfer(
     params: VerifyUsdcTransferParams,
   ): Promise<VerifyUsdcTransferResult>;
+  /**
+   * Verify a transfer of any Arc stablecoin by its ERC-20 contract address
+   * (USDC, EURC, USYC). Same semantics as {@link verifyUsdcTransfer} but the
+   * caller chooses the token, so EURC/USYC settlements verify identically.
+   */
+  verifyTokenTransfer(
+    params: VerifyTokenTransferParams,
+  ): Promise<VerifyUsdcTransferResult>;
+  /**
+   * Estimate the USDC-denominated fee of a stablecoin transfer on Arc. Pass a
+   * `gasLimit` to override the default ERC-20 transfer gas assumption.
+   */
+  estimateTransferFee(options?: {
+    gasLimit?: bigint;
+  }): Promise<TransferFeeEstimate>;
   getConfirmations(txHash: Hex): Promise<number>;
   waitForConfirmations(
     txHash: Hex,
@@ -78,8 +104,13 @@ export function createArcClient(
     return computeConfirmations(head, receipt.blockNumber);
   }
 
-  async function verifyUsdcTransfer(
-    params: VerifyUsdcTransferParams,
+  /**
+   * Core verification: find a `Transfer` of `token` to `to` of at least
+   * `minAmount` in the named transaction, returning the matched transfer plus
+   * the transaction's current confirmation count.
+   */
+  async function verifyTokenTransfer(
+    params: VerifyTokenTransferParams,
   ): Promise<VerifyUsdcTransferResult> {
     const receipt = await rpc.getTransactionReceipt(params.txHash);
     if (receipt === null || receipt.status !== "success") {
@@ -92,7 +123,7 @@ export function createArcClient(
     const expectedTo = normalizeAddress(params.to);
     const minBase = toBaseUnitsFromMoney(params.minAmount);
 
-    const transfers = decodeTransfers(receipt, usdcAddress);
+    const transfers = decodeTransfers(receipt, normalizeAddress(params.token));
     for (const transfer of transfers) {
       if (transfer.to !== expectedTo) continue;
       if (transfer.value < minBase) continue;
@@ -105,6 +136,39 @@ export function createArcClient(
     }
 
     return { confirmed: false, from: null, amount: null, confirmations };
+  }
+
+  /** Verify a USDC transfer against the client's configured USDC address. */
+  async function verifyUsdcTransfer(
+    params: VerifyUsdcTransferParams,
+  ): Promise<VerifyUsdcTransferResult> {
+    return verifyTokenTransfer({
+      txHash: params.txHash,
+      token: usdcAddress,
+      to: params.to,
+      minAmount: params.minAmount,
+    });
+  }
+
+  /** Estimate the USDC fee for a stablecoin transfer at current gas prices. */
+  async function estimateTransferFee(
+    options: { gasLimit?: bigint } = {},
+  ): Promise<TransferFeeEstimate> {
+    const gasLimit = options.gasLimit ?? DEFAULT_TRANSFER_GAS;
+    const fees = await rpc.estimateFeesPerGas();
+    const feeWei = gasLimit * fees.maxFeePerGas;
+    // Arc gas is paid in USDC; native accounting is 18-decimal while the USDC
+    // ERC-20 interface is 6-decimal. Convert with ceiling division so a
+    // worst-case fee is never understated by sub-cent dust.
+    const usdcBaseUnits =
+      (feeWei + NATIVE_TO_USDC_SCALE - 1n) / NATIVE_TO_USDC_SCALE;
+    return {
+      gasLimit,
+      maxFeePerGas: fees.maxFeePerGas,
+      maxPriorityFeePerGas: fees.maxPriorityFeePerGas,
+      feeWei,
+      fee: money(fromBaseUnits(usdcBaseUnits), "USDC"),
+    };
   }
 
   async function waitForConfirmations(
@@ -132,6 +196,8 @@ export function createArcClient(
     config,
     getTransactionReceipt,
     verifyUsdcTransfer,
+    verifyTokenTransfer,
+    estimateTransferFee,
     getConfirmations,
     waitForConfirmations,
   };

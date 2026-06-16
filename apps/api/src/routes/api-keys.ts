@@ -33,6 +33,11 @@ const revokeSchema = z.object({
 export function apiKeyRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
+  // List all API key records (merchant-wide; never exposes plaintext).
+  app.get("/", async (c) => {
+    return data(c, await c.get("ctx").apiKeys.list());
+  });
+
   // Issue a new API key. Returns the one-time plaintext.
   app.post("/", async (c) => {
     const body = await parseBody(c, issueSchema);

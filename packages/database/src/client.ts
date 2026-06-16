@@ -1,5 +1,6 @@
 import { drizzle } from "drizzle-orm/postgres-js";
 import type { PostgresJsDatabase } from "drizzle-orm/postgres-js";
+import { sql } from "drizzle-orm";
 import postgres from "postgres";
 import type { Sql, Options } from "postgres";
 import { schema } from "./schema/index.js";
@@ -70,4 +71,18 @@ export function createConnection(
     client,
     close: () => client.end(),
   };
+}
+
+/**
+ * Liveness/readiness ping: runs a trivial `SELECT 1` and resolves `true` when the
+ * database answers. Resolves `false` on any error (so a readiness probe can map
+ * it to 503 rather than throwing). Used by the API's `/health/ready` endpoint.
+ */
+export async function ping(db: Database): Promise<boolean> {
+  try {
+    await db.execute(sql`select 1`);
+    return true;
+  } catch {
+    return false;
+  }
 }

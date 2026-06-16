@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@settlekit/common": "workspace:*",
+    "@settlekit/database": "workspace:*",
+    "@settlekit/persistence": "workspace:*",
     "@settlekit/marketplace-core": "workspace:*",
     "@settlekit/agent-services": "workspace:*",
     "next": "^14.2.5",

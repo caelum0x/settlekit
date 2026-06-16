@@ -24,6 +24,16 @@ import { EscrowResource } from "./resources/escrow.js";
 import { GitHubResource } from "./resources/github.js";
 import { DiscordResource } from "./resources/discord.js";
 import { SaasResource } from "./resources/saas.js";
+import { UsageResource } from "./resources/usage.js";
+import { MarketplaceResource } from "./resources/marketplace.js";
+import { AnalyticsResource } from "./resources/analytics.js";
+import { CouponsResource } from "./resources/coupons.js";
+import { InvoicesResource } from "./resources/invoices.js";
+import { PayoutsResource } from "./resources/payouts.js";
+import { RefundsResource } from "./resources/refunds.js";
+import { DisputesResource } from "./resources/disputes.js";
+import { DunningResource } from "./resources/dunning.js";
+import { SettingsResource } from "./resources/settings.js";
 
 /** Options for constructing a {@link SettleKit} client. */
 export type SettleKitOptions = HttpClientOptions;
@@ -51,6 +61,16 @@ export class SettleKit {
   readonly github: GitHubResource;
   readonly discord: DiscordResource;
   readonly saas: SaasResource;
+  readonly usage: UsageResource;
+  readonly marketplace: MarketplaceResource;
+  readonly analytics: AnalyticsResource;
+  readonly coupons: CouponsResource;
+  readonly invoices: InvoicesResource;
+  readonly payouts: PayoutsResource;
+  readonly refunds: RefundsResource;
+  readonly disputes: DisputesResource;
+  readonly dunning: DunningResource;
+  readonly settings: SettingsResource;
 
   constructor(options: SettleKitOptions) {
     this.http = new HttpClient(options);
@@ -72,6 +92,16 @@ export class SettleKit {
     this.github = new GitHubResource(this.http);
     this.discord = new DiscordResource(this.http);
     this.saas = new SaasResource(this.http);
+    this.usage = new UsageResource(this.http);
+    this.marketplace = new MarketplaceResource(this.http);
+    this.analytics = new AnalyticsResource(this.http);
+    this.coupons = new CouponsResource(this.http);
+    this.invoices = new InvoicesResource(this.http);
+    this.payouts = new PayoutsResource(this.http);
+    this.refunds = new RefundsResource(this.http);
+    this.disputes = new DisputesResource(this.http);
+    this.dunning = new DunningResource(this.http);
+    this.settings = new SettingsResource(this.http);
   }
 }
 

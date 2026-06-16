@@ -55,4 +55,9 @@ export class PgLicenseStore implements LicenseStore {
     const all = unpackDocs<LicenseKey>(rows);
     return all.filter((l) => l.customerId === customerId);
   }
+
+  async listAll(): Promise<LicenseKey[]> {
+    const rows = await this.db.select({ metadata: licenseKeys.metadata }).from(licenseKeys);
+    return unpackDocs<LicenseKey>(rows);
+  }
 }

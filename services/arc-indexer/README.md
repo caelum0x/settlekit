@@ -19,32 +19,37 @@ Each poll cycle:
    - `topics[2]` = the watched recipient address (left-padded to 32 bytes),
    over the inclusive block range `(last_processed, safe_head]` (chunked to at
    most 2000 blocks per request when catching up).
-4. Decode each log (`from`/`to` from topics, `value` from data) and POST a
-   confirmation to `POST {SETTLEKIT_API_URL}/v1/payments/{txHash}/confirm` with a
-   `Bearer` API key.
+4. Decode each log (`from`/`to` from topics, `value` from data) and POST it to
+   the SettleKit **direct-payment** endpoint
+   `POST {SETTLEKIT_API_URL}/v1/payments/observe` with a `Bearer` API key.
 5. Advance an in-memory cursor.
 
 Shutdown is graceful — `Ctrl-C` stops the loop cleanly.
 
-### Confirmation request
+### Observe request
 
-The transaction hash is used as the payment reference. The request body matches
-the SettleKit confirm schema (extra fields are ignored by the API):
+The API **re-verifies the transfer on-chain** (it never trusts the indexer's
+claim), screens the sender, and records a confirmed payment attributed to
+`ORGANIZATION_ID`. The endpoint is idempotent on `txHash`. Request body:
 
 ```json
 {
+  "organizationId": "org_…",
   "txHash": "0x…",
-  "confirmations": 5,
-  "minConfirmations": 3,
-  "from": "0x…",
-  "amount": "1000000"
+  "to": "0x…watched address",
+  "amount": "10.5",
+  "asset": "USDC",
+  "network": "arc",
+  "from": "0x…sender",
+  "confirmations": 5
 }
 ```
 
-`amount` is the USDC value in base units (USDC has 6 decimals) as a decimal
-string to avoid precision loss. SettleKit replies with a `{ "data": … }`
-envelope on success or `{ "error": { "code", "message", "details"? } }` (with the
-HTTP status carrying the error) on failure.
+`amount` is a decimal **major-unit** string (the indexer converts USDC base
+units → major units). SettleKit replies with a `{ "data": … }` envelope on
+success or `{ "error": { "code", "message", "details"? } }` (with the HTTP status
+carrying the error) on failure — e.g. `validation_error` when on-chain
+re-verification fails, or `compliance_blocked` when the sender is sanctioned.
 
 ## Configuration
 
@@ -55,6 +60,7 @@ All configuration comes from environment variables and is validated at startup.
 | `ARC_RPC_URL`         | yes      | —       | Arc/EVM JSON-RPC HTTP endpoint.                        |
 | `ARC_USDC_ADDRESS`    | yes      | —       | USDC ERC-20 contract address (20-byte hex).            |
 | `WATCH_ADDRESS`       | yes      | —       | Watched payout address (the Transfer `to`).            |
+| `ORGANIZATION_ID`     | yes      | —       | Org that owns the watched address (payment attribution).|
 | `SETTLEKIT_API_URL`   | yes      | —       | SettleKit API base URL (e.g. `http://localhost:8787`). |
 | `SETTLEKIT_API_KEY`   | yes      | —       | Bearer API key for the SettleKit API.                  |
 | `POLL_INTERVAL_SECS`  | no       | `12`    | Seconds between polls (must be > 0).                   |

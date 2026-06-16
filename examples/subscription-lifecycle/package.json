@@ -1,0 +1,17 @@
+{
+  "name": "settlekit-subscription-lifecycle",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "TypeScript walkthrough of the full recurring-billing lifecycle (subscribe → entitlement → dunning recovery → cancel) using @settlekit/sdk.",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js",
+    "dev": "tsx src/main.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.16.2",
+    "typescript": "^5.5.4"
+  }
+}

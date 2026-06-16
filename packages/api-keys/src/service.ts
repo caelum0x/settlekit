@@ -16,6 +16,11 @@ import { verifyApiKey } from "./verify.js";
 export class ApiKeyService {
   constructor(private readonly store: ApiKeyStore) {}
 
+  /** All API key records (merchant-wide), for dashboard listing. */
+  async list(): Promise<ApiKey[]> {
+    return this.store.listAll();
+  }
+
   /** Mint a new key, persist it, and return the one-time plaintext. */
   async issue(input: IssueApiKeyInput, now: Date = new Date()): Promise<IssueApiKeyResult> {
     const result = issueApiKey(input, now);

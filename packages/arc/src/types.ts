@@ -49,6 +49,22 @@ export interface VerifyUsdcTransferParams {
   minAmount: Money;
 }
 
+/**
+ * Parameters for verifying a transfer of an arbitrary Arc stablecoin (USDC,
+ * EURC, USYC, …) by its ERC-20 contract address. Generalizes
+ * {@link VerifyUsdcTransferParams} so EURC/USYC settlements verify identically.
+ */
+export interface VerifyTokenTransferParams {
+  /** Hash of the transaction that should contain the transfer. */
+  txHash: Hex;
+  /** ERC-20 token contract whose `Transfer` logs to match. */
+  token: Hex;
+  /** The expected recipient of the transfer. */
+  to: Hex;
+  /** Minimum amount that must have been transferred (major-unit decimal). */
+  minAmount: Money;
+}
+
 /** Result of verifying a USDC transfer. */
 export interface VerifyUsdcTransferResult {
   /** True when a matching transfer >= minAmount to `to` was found. */
@@ -59,6 +75,24 @@ export interface VerifyUsdcTransferResult {
   amount: Money | null;
   /** Number of confirmations the transaction currently has. */
   confirmations: number;
+}
+
+/**
+ * An estimated transaction fee on Arc. Because USDC is the native gas token,
+ * the fee is naturally denominated in USDC. Native gas accounting uses 18
+ * decimals (like wei), distinct from the 6-decimal ERC-20 transfer interface.
+ */
+export interface TransferFeeEstimate {
+  /** Gas units assumed for the transfer. */
+  gasLimit: bigint;
+  /** EIP-1559 max fee per gas (18-decimal native units). */
+  maxFeePerGas: bigint;
+  /** EIP-1559 max priority fee per gas (18-decimal native units). */
+  maxPriorityFeePerGas: bigint;
+  /** Worst-case total fee `gasLimit * maxFeePerGas`, in 18-decimal native units. */
+  feeWei: bigint;
+  /** The fee expressed as a USDC {@link Money} amount (major units). */
+  fee: Money;
 }
 
 /** A decoded USDC `Transfer` event. */

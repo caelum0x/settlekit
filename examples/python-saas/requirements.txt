@@ -1,0 +1,12 @@
+# AI Export Pro — runnable FastAPI SaaS gated by SettleKit entitlements + credits.
+#
+# The SettleKit Python SDK is installed in editable mode from the monorepo. If you
+# are running this example outside the monorepo, replace the editable line below
+# with the published package:  settlekit>=0.1.0
+fastapi>=0.110
+uvicorn[standard]>=0.29
+httpx>=0.27
+
+# SettleKit Python SDK (editable install from the monorepo).
+# From examples/python-saas/ this resolves to sdks/python.
+-e ../../sdks/python

@@ -28,6 +28,24 @@ export type {
 export { SettleKitApiError } from "./errors.js";
 export type { SettleKitApiErrorOptions, ApiErrorBody } from "./errors.js";
 
+// Core domain entity types (re-exported so consumers can name what the
+// resource methods return without importing `@settlekit/common` directly).
+export type {
+  Money,
+  Product,
+  ProductType,
+  DeliveryMode,
+  Price,
+  Customer,
+  CheckoutSession,
+  Payment,
+  Subscription,
+  Entitlement,
+  LicenseKey,
+  ApiKey,
+  Bundle,
+} from "@settlekit/common";
+
 // Resource clients.
 export { ProductsResource } from "./resources/products.js";
 export { PricesResource } from "./resources/prices.js";
@@ -40,13 +58,58 @@ export { LicenseKeysResource } from "./resources/license-keys.js";
 export { ApiKeysResource } from "./resources/api-keys.js";
 export { BundlesResource } from "./resources/bundles.js";
 export { FilesResource } from "./resources/files.js";
-export { WebhooksResource } from "./resources/webhooks.js";
+export { WebhooksResource, verifyWebhookSignature, WEBHOOK_SIGNATURE_HEADER } from "./resources/webhooks.js";
+export type { VerifyWebhookOptions } from "./resources/webhooks.js";
 export { DeliveryRunsResource } from "./resources/delivery-runs.js";
 export { AgentServicesResource } from "./resources/agent-services.js";
 export { EscrowResource } from "./resources/escrow.js";
 export { GitHubResource } from "./resources/github.js";
 export { DiscordResource } from "./resources/discord.js";
 export { SaasResource } from "./resources/saas.js";
+export { UsageResource } from "./resources/usage.js";
+export type { MeterRef, BalanceRef, LimitCheck } from "./resources/usage.js";
+export { MarketplaceResource } from "./resources/marketplace.js";
+export type { CreateListingInput, ListingSearch, SellerProfile } from "./resources/marketplace.js";
+export { AnalyticsResource } from "./resources/analytics.js";
+export type { AnalyticsSummary } from "./resources/analytics.js";
+export { CouponsResource } from "./resources/coupons.js";
+export type { Coupon, CouponDiscount, CreateCouponInput, CouponApplyResult } from "./resources/coupons.js";
+export { InvoicesResource } from "./resources/invoices.js";
+export type { Invoice, InvoiceLineItemInput, CreateInvoiceInput } from "./resources/invoices.js";
+export { PayoutsResource } from "./resources/payouts.js";
+export type { Payout, CreatePayoutInput } from "./resources/payouts.js";
+export { RefundsResource } from "./resources/refunds.js";
+export type {
+  Refund,
+  RefundReason,
+  RefundStatus,
+  CreateRefundInput,
+  ListRefundsInput,
+} from "./resources/refunds.js";
+export { DisputesResource } from "./resources/disputes.js";
+export type {
+  Dispute,
+  DisputeReason,
+  DisputeStatus,
+  DisputeEvidence,
+  DisputeEvidenceKind,
+  DisputeOutcome,
+  OpenDisputeInput,
+  SubmitEvidenceInput,
+} from "./resources/disputes.js";
+export { DunningResource } from "./resources/dunning.js";
+export type {
+  DunningState,
+  DunningStatus,
+  DunningAttemptRecord,
+  DunningOutcome,
+} from "./resources/dunning.js";
+export { SettingsResource } from "./resources/settings.js";
+export type {
+  OrgSettings,
+  PaymentRail,
+  UpdateSettingsInput,
+} from "./resources/settings.js";
 
 // Resource input/output option types.
 export type { CreateProductInput, CreatePriceInput } from "./resources/products.js";

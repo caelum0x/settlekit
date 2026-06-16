@@ -98,7 +98,11 @@ impl<'a> Entitlements<'a> {
     pub async fn revoke(&self, id: &str, reason: &str) -> Result<Entitlement> {
         let body = RevokeBody { reason };
         self.client
-            .request(Method::POST, &format!("/v1/entitlements/{id}/revoke"), Some(&body))
+            .request(
+                Method::POST,
+                &format!("/v1/entitlements/{id}/revoke"),
+                Some(&body),
+            )
             .await
     }
 }

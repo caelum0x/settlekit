@@ -27,9 +27,12 @@ import type {
   GithubRepository,
   GithubTeam,
   Invoice,
+  CreditBalance,
   LicenseKey,
+  MarketplaceListing,
   Money,
   OrgSettings,
+  UsageMeter,
   Payment,
   Payout,
   Product,
@@ -334,6 +337,48 @@ export const api = {
     get: (id: string) => getItem<EscrowTask>(`/v1/escrow/tasks/${id}`),
     create: (title: string, buyerEmail: string, amount: number) =>
       post<EscrowTask>("/v1/escrow/tasks", { title, buyerEmail, amount }),
+  },
+
+  // ---- Usage-based billing ----
+  usage: {
+    record: (input: {
+      organizationId: string;
+      customerId: string;
+      productId: string;
+      metric: string;
+      quantity: number;
+    }) => post<UsageMeter>("/v1/usage/record", input),
+    grantCredits: (input: {
+      organizationId: string;
+      customerId: string;
+      productId: string;
+      credits: number;
+    }) => post<CreditBalance>("/v1/usage/credits/grant", input),
+    consumeCredits: (input: {
+      organizationId: string;
+      customerId: string;
+      productId: string;
+      credits: number;
+    }) => post<CreditBalance>("/v1/usage/credits/consume", input),
+    credits: (organizationId: string, customerId: string, productId: string) =>
+      getItem<CreditBalance>(
+        `/v1/usage/credits?organizationId=${encodeURIComponent(organizationId)}&customerId=${encodeURIComponent(customerId)}&productId=${encodeURIComponent(productId)}`,
+      ),
+  },
+
+  // ---- Marketplace ----
+  marketplace: {
+    listings: () => getList<MarketplaceListing>("/v1/marketplace/listings"),
+    create: (input: {
+      organizationId: string;
+      merchantId: string;
+      productId: string;
+      title: string;
+      summary: string;
+      tags: string[];
+    }) => post<MarketplaceListing>("/v1/marketplace/listings", input),
+    publish: (id: string) =>
+      post<MarketplaceListing>(`/v1/marketplace/listings/${encodeURIComponent(id)}/publish`, {}),
   },
 
   // ---- Settings ----

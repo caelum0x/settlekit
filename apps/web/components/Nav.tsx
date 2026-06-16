@@ -13,7 +13,8 @@ export function Nav() {
     <header className="nav">
       <div className="nav-inner container">
         <Link href={internalLinks.home} className="brand">
-          <span className="brand-mark">◆</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo-mark.png" alt="SettleKit" className="brand-logo" width={28} height={28} />
           <span className="brand-name">SettleKit</span>
         </Link>
 

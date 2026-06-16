@@ -12,6 +12,8 @@ import type { DeliveryClients } from "@settlekit/delivery";
 import type { GitHubApi } from "@settlekit/github";
 import type { DiscordApi } from "@settlekit/discord";
 import type { EmailClient } from "@settlekit/notifications";
+import type { PayoutStore } from "@settlekit/payouts";
+import type { WalletsClient } from "@settlekit/circle-wallets";
 import type { WorkerConfig } from "../config.js";
 import type { WorkerStore } from "../stores.js";
 import type { Logger } from "../logger.js";
@@ -34,6 +36,10 @@ export interface JobContext {
   githubApi: GitHubApi;
   /** Raw Discord transport for access reconciliation (not just delivery). */
   discordApi: DiscordApi;
+  /** Payout store, for reconciling executed-but-unsettled payouts. */
+  payoutStore: PayoutStore;
+  /** Circle wallets client for payout reconciliation; null when unconfigured. */
+  walletsClient: WalletsClient | null;
   /** Injectable clock for deterministic tests. */
   now: () => Date;
 }

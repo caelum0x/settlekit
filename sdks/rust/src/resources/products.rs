@@ -60,7 +60,9 @@ impl<'a> Products<'a> {
 
     /// List all products.
     pub async fn list(&self) -> Result<Vec<Product>> {
-        self.client.request_no_body(Method::GET, "/v1/products").await
+        self.client
+            .request_no_body(Method::GET, "/v1/products")
+            .await
     }
 
     /// Fetch a single product by id.

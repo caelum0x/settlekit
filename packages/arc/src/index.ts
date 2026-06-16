@@ -21,8 +21,17 @@ export interface ArcSettlementInstruction {
 export { createArcClient } from "./arc-client.js";
 export type { ArcClient, WaitForConfirmationsOptions } from "./arc-client.js";
 
+export {
+  ARC_TESTNET,
+  ARC_CHAINS,
+  getArcChain,
+  getArcToken,
+  isArcAsset,
+} from "./chains.js";
+export type { ArcAsset, ArcChain, ArcContracts, ArcTokenInfo } from "./chains.js";
+
 export { createViemArcRpc } from "./rpc.js";
-export type { ArcRpc } from "./rpc.js";
+export type { ArcRpc, ArcFeesPerGas } from "./rpc.js";
 
 export {
   decodeTransferLog,
@@ -38,6 +47,8 @@ export type {
   ArcTransactionReceipt,
   DecodedUsdcTransfer,
   Hex,
+  TransferFeeEstimate,
+  VerifyTokenTransferParams,
   VerifyUsdcTransferParams,
   VerifyUsdcTransferResult,
 } from "./types.js";

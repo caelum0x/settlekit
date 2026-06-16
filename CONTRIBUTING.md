@@ -24,10 +24,32 @@ individual apps and [ARCHITECTURE.md](./ARCHITECTURE.md) for the system model.
 ## Repo layout
 
 - `packages/*` — reusable domain libraries published as `@settlekit/<name>`.
-- `apps/*` — deployable apps (`api`, `worker`, and the Next.js frontends).
+  `@settlekit/persistence` holds every Postgres store; `@settlekit/database` the
+  drizzle schema, migrations, and doc codec.
+- `apps/*` — deployable apps (`api`, `worker`, `cli`, and the Next.js frontends).
+- `sdks/*` — first-party SDKs in TypeScript (`packages/sdk`), Python, Go, Rust.
+- `clis/*` — standalone CLIs (e.g. the Go `agentpay` x402 agent client).
+- `services/*` — edge services in Rust/Go (arc-indexer, x402-gateway,
+  license-gateway, webhook-relay).
+- `examples/*` — runnable integration examples (Python SaaS, Express x402, Go
+  paid client, Rust license check, Next.js SaaS starter).
 - `tsconfig.base.json` — shared compiler options (NodeNext, strict,
   `verbatimModuleSyntax`, `noUncheckedIndexedAccess`).
-- The workspace is defined in `pnpm-workspace.yaml` (`packages/*`, `apps/*`).
+- The pnpm workspace covers `packages/*` + `apps/*` only; `sdks/`, `clis/`,
+  `services/`, and `examples/` are self-contained (their own toolchains) so they
+  never affect `pnpm -r build`.
+
+### Adding an API endpoint (keep clients in sync)
+
+A new `/v1` endpoint isn't done until the clients can call it. After adding the
+route (`apps/api/src/routes/*.ts` + mount in `app.ts` + any context wiring):
+
+1. **TS SDK** (`packages/sdk`): add/extend a resource in `src/resources/`,
+   register it in `src/client.ts`, and export it from `src/index.ts`.
+2. **Python / Go / Rust SDKs** (`sdks/*`): add the matching method (Python:
+   sync + async classes; Go: a `*Client` method; Rust: a resource accessor).
+3. If it's a list endpoint backing a dashboard page, thread the listing method
+   through the interface → in-memory → Postgres store, not just the route.
 
 ---
 

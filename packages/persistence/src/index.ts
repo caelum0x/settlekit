@@ -30,6 +30,8 @@ export * from "./github-installations-store.js";
 export * from "./invoice-store.js";
 export * from "./license-store.js";
 export * from "./marketplace-listing-store.js";
+export * from "./meter-store.js";
+export * from "./org-settings-store.js";
 export * from "./payment-repository.js";
 export * from "./payout-store.js";
 export * from "./plan-store.js";

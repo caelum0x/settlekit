@@ -14,3 +14,22 @@ export function decideCompliance(signals: ComplianceSignal[]): ComplianceDecisio
 export function kybComplete(fields: { legalName?: string; country?: string; taxId?: string }): boolean {
   return Boolean(fields.legalName && fields.country && fields.taxId);
 }
+
+export {
+  createScreeningClient,
+  parseScreening,
+  screeningToSignals,
+  DEFAULT_CIRCLE_COMPLIANCE_BASE_URL,
+} from "./screening.js";
+export type {
+  ScreeningClient,
+  ScreeningClientConfig,
+  ScreenAddressInput,
+  AddressScreening,
+  ScreeningResult,
+  ScreeningRiskSignal,
+  RiskCategory,
+} from "./screening.js";
+
+export { createFetchComplianceHttp } from "./http.js";
+export type { ComplianceHttp, ComplianceRequest, ComplianceResponse } from "./http.js";

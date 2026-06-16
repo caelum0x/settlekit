@@ -50,8 +50,7 @@ impl Client {
     /// Panics only if the underlying TLS backend fails to initialize, which is
     /// effectively impossible on a correctly built platform.
     pub fn new(api_key: impl Into<String>) -> Self {
-        Self::builder(api_key, DEFAULT_BASE_URL)
-            .expect("failed to build reqwest client")
+        Self::builder(api_key, DEFAULT_BASE_URL).expect("failed to build reqwest client")
     }
 
     /// Override the base URL (e.g. point at a hosted environment).
@@ -139,10 +138,7 @@ impl Client {
         let url = format!("{}{}", self.base_url, path);
         let is_write = method != Method::GET && method != Method::HEAD;
 
-        let mut req = self
-            .http
-            .request(method, &url)
-            .bearer_auth(&self.api_key);
+        let mut req = self.http.request(method, &url).bearer_auth(&self.api_key);
 
         if is_write {
             req = req.header("Idempotency-Key", Self::idempotency_key());

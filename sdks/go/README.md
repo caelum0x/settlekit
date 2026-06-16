@@ -180,6 +180,88 @@ func main() {
 | `coupons.go`      | `CreateCoupon`, `ListCoupons`, `GetCoupon`, `ValidateCoupon`, `RedeemCoupon`        |
 | `invoices.go`     | `CreateInvoice`, `ListInvoices`, `GetInvoice`, `FinalizeInvoice`, `PayInvoice`, `VoidInvoice` |
 | `auth.go`         | `Register`, `Login`, `RequestMagicLink`, `CompleteMagicLink`, `Session`, `Logout`  |
+| `marketplace.go`  | `CreateListing`, `ListListings`, `GetListing`, `PublishListing`, `RateListing`, `SellerProfile` |
+| `agentservices.go`| `CreateAgentService`, `ListAgentServices`, `PublishAgentService`, `AgentServiceMetadata` |
+| `usage.go`        | `RecordUsage`, `GetCredits`, `GrantCredits`, `ConsumeCredits`                       |
+| `subscriptions.go`| `CreateSubscription`, `ListSubscriptions`                                           |
+| `payouts.go`      | Payout status constants — payout methods (`CreatePayout`, `ListPayouts`, `MarkPayoutPaid`, `PayoutBalance`, `FailPayout`) live in `payments.go` |
+| `webhooks.go`     | `CreateWebhookEndpoint`, `EmitEvent`, `ComputeSignature`, `VerifySignature`         |
+
+## Marketplace, agent services, usage & subscriptions
+
+```go
+// Publish a marketplace listing and discover it.
+listing, _ := c.CreateListing(ctx, settlekit.CreateListingInput{
+    OrganizationID: "org_123", MerchantID: "merchant_123", ProductID: product.ID,
+    Title: "Pro Plan", Tags: []string{"saas", "api"},
+})
+c.PublishListing(ctx, listing.ID)
+top, _ := c.ListListings(ctx, settlekit.ListListingsOptions{Query: "pro", Tag: "saas", Sort: "top"})
+profile, _ := c.SellerProfile(ctx, "merchant_123")
+
+// Register a paid agent service and read its metadata.json.
+svc, _ := c.CreateAgentService(ctx, settlekit.CreateAgentServiceInput{
+    OrganizationID: "org_123", MerchantID: "merchant_123",
+    Name: "summarize", Endpoint: "https://agents.example.com/summarize",
+    Amount: "0.01", Currency: "USDC", Network: "base",
+})
+c.PublishAgentService(ctx, svc.ID)
+meta, _ := c.AgentServiceMetadata(ctx, svc.ID)
+
+// Metered usage and prepaid credits.
+c.RecordUsage(ctx, settlekit.RecordUsageInput{
+    OrganizationID: "org_123", CustomerID: customer.ID, ProductID: product.ID,
+    Metric: "api_calls", Quantity: 5,
+})
+c.GrantCredits(ctx, "org_123", 1000)
+balance, _ := c.GetCredits(ctx, "org_123")
+c.ConsumeCredits(ctx, "org_123", 10)
+
+// Recurring subscriptions.
+sub, _ := c.CreateSubscription(ctx, settlekit.CreateSubscriptionInput{
+    OrganizationID: "org_123", CustomerID: customer.ID,
+    ProductID: product.ID, PriceID: price.ID,
+})
+subs, _ := c.ListSubscriptions(ctx, customer.ID)
+```
+
+## Webhooks
+
+Register an endpoint, emit events, and verify delivered-event signatures. Each
+delivery carries an `X-SettleKit-Signature: v1=<hex>` header, where the hex is
+the HMAC-SHA256 of the **raw request body** keyed by the endpoint's signing
+secret:
+
+```go
+ep, _ := c.CreateWebhookEndpoint(ctx, settlekit.CreateWebhookEndpointInput{
+    OrganizationID: "org_123",
+    URL:            "https://example.com/webhooks/settlekit",
+    EnabledEvents:  []string{"payment.confirmed", "subscription.created"},
+})
+secret := ep.SigningSecret // returned once at creation — store it securely
+
+c.EmitEvent(ctx, settlekit.EmitEventInput{
+    OrganizationID: "org_123",
+    Type:           "payment.confirmed",
+    Data:           map[string]any{"paymentId": "pay_123"},
+})
+
+// In your HTTP handler, verify before trusting the payload:
+func handler(w http.ResponseWriter, r *http.Request) {
+    body, _ := io.ReadAll(r.Body)
+    if !settlekit.VerifySignature(secret, body, r.Header.Get(settlekit.SignatureHeader)) {
+        http.Error(w, "invalid signature", http.StatusUnauthorized)
+        return
+    }
+    var event settlekit.WebhookEvent
+    json.Unmarshal(body, &event)
+    // ... handle event.Type
+}
+```
+
+`VerifySignature` compares in constant time (`hmac.Equal`) and returns `false`
+for missing, malformed, or mismatched signatures. `ComputeSignature` produces
+the same `v1=<hex>` value the server sends, for testing or re-signing.
 
 ## Money
 

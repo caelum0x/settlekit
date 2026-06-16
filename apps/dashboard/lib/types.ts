@@ -272,6 +272,41 @@ export interface EscrowTask {
   createdAt: string;
 }
 
+export interface UsageMeter {
+  id: string;
+  organizationId: string;
+  customerId: string;
+  productId: string;
+  metric: string;
+  value: number;
+  periodStart: string;
+  periodEnd: string;
+}
+
+export interface CreditBalance {
+  id: string;
+  organizationId: string;
+  customerId: string;
+  productId: string;
+  creditsRemaining: number;
+  creditsGranted: number;
+  updatedAt: string;
+}
+
+export interface MarketplaceListing {
+  id: string;
+  organizationId: string;
+  merchantId: string;
+  productId?: string;
+  title: string;
+  summary: string;
+  tags: string[];
+  published: boolean;
+  ratingAverage: number;
+  ratingCount: number;
+  createdAt: string;
+}
+
 export interface AnalyticsSummary {
   revenue: Money;
   customers: number;

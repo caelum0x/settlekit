@@ -31,6 +31,11 @@ const verifySchema = z.object({
 export function licenseRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
+  // List all issued license keys (merchant-wide).
+  app.get("/", async (c) => {
+    return data(c, await c.get("ctx").licenses.list());
+  });
+
   // Issue a license key.
   app.post("/", async (c) => {
     const body = await parseBody(c, issueSchema);

@@ -4,8 +4,61 @@
  * Manage webhook endpoints (url + signing secret + enabled events) and emit
  * events. Emitting returns the signed payload deliveries per matching endpoint.
  */
+import { createHmac, timingSafeEqual } from "node:crypto";
 import type { WebhookEndpoint, WebhookEvent, WebhookEventType } from "@settlekit/common";
 import type { HttpClient, RequestOptions } from "../http-client.js";
+
+/** The header SettleKit sends the signature in (HTTP header lookup is case-insensitive). */
+export const WEBHOOK_SIGNATURE_HEADER = "SettleKit-Signature";
+
+/** Options for {@link verifyWebhookSignature}. */
+export interface VerifyWebhookOptions {
+  /**
+   * Max age (seconds) of the signed timestamp before a payload is rejected as a
+   * possible replay. Defaults to 300 (5 minutes); pass `0` to skip the check.
+   */
+  toleranceSeconds?: number;
+  /** Current time (ms) — injectable for testing. */
+  now?: number;
+}
+
+/**
+ * Verify an inbound SettleKit webhook signature against the raw request body.
+ *
+ * SettleKit signs deliveries Stripe-style: the header value is
+ * `t=<unix-seconds>,v1=<hex hmac-sha256("${t}.${rawBody}", secret)>`. Pass the
+ * EXACT raw body string you received (do not re-serialize the parsed JSON — key
+ * order / whitespace must match). Returns `true` only when the signature is
+ * valid and (unless disabled) within the tolerance window.
+ */
+export function verifyWebhookSignature(
+  secret: string,
+  rawBody: string,
+  signatureHeader: string,
+  options: VerifyWebhookOptions = {},
+): boolean {
+  const parts = new Map<string, string>();
+  for (const segment of signatureHeader.split(",")) {
+    const idx = segment.indexOf("=");
+    if (idx > 0) parts.set(segment.slice(0, idx).trim(), segment.slice(idx + 1).trim());
+  }
+  const t = parts.get("t");
+  const v1 = parts.get("v1");
+  if (!t || !v1) return false;
+
+  const tolerance = options.toleranceSeconds ?? 300;
+  if (tolerance > 0) {
+    const ts = Number.parseInt(t, 10);
+    if (!Number.isFinite(ts)) return false;
+    const nowSec = Math.floor((options.now ?? Date.now()) / 1000);
+    if (Math.abs(nowSec - ts) > tolerance) return false;
+  }
+
+  const expected = createHmac("sha256", secret).update(`${t}.${rawBody}`).digest("hex");
+  const a = Buffer.from(expected, "utf8");
+  const b = Buffer.from(v1, "utf8");
+  return a.length === b.length && timingSafeEqual(a, b);
+}
 
 /** Input for {@link WebhooksResource.createEndpoint}. */
 export interface CreateWebhookEndpointInput {

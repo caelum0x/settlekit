@@ -42,6 +42,15 @@ const emitSchema = z.object({
 export function webhookRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
+  // List endpoints at the resource root (alias of GET /endpoints).
+  app.get("/", async (c) => {
+    const orgId = c.req.query("organizationId");
+    const list = await c.get("ctx").webhookEndpoints.list(
+      orgId ? (e) => e.organizationId === orgId : undefined,
+    );
+    return data(c, list);
+  });
+
   // Register a webhook endpoint with a freshly-minted signing secret.
   app.post("/endpoints", async (c) => {
     const body = await parseBody(c, createEndpointSchema);

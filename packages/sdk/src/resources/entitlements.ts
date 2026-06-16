@@ -21,12 +21,16 @@ export interface VerifyEntitlementInput {
   requiredCredits?: number;
 }
 
-/** Result of an entitlement verification. */
+/** Result of an entitlement verification (mirrors the API's verify response). */
 export interface VerifyEntitlementResult {
-  granted: boolean;
-  entitlement?: Entitlement;
+  /** Whether access is granted. */
+  allowed: boolean;
+  /** Machine-readable reason when `allowed` is false (e.g. `no_active_entitlement`). */
   reason?: string;
-  creditsRemaining?: number;
+  /** The matched entitlement, when access was granted. */
+  entitlement?: Entitlement;
+  /** Feature/credit value associated with the check, when applicable. */
+  value?: boolean | number | string;
   [key: string]: unknown;
 }
 

@@ -45,4 +45,9 @@ export class PgSubscriptionRepository implements SubscriptionRepository {
       .where(eq(subscriptions.customerId, customerId));
     return unpackDocs<Subscription>(rows);
   }
+
+  async listByOrganization(organizationId: string): Promise<Subscription[]> {
+    const rows = await this.db.select({ metadata: subscriptions.metadata }).from(subscriptions);
+    return unpackDocs<Subscription>(rows).filter((s) => s.organizationId === organizationId);
+  }
 }

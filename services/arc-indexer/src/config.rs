@@ -21,6 +21,9 @@ pub struct Config {
     pub usdc_address: String,
     /// Watched payout address (the `to` of relevant Transfer events).
     pub watch_address: String,
+    /// Organization that owns the watched address; observed payments are
+    /// attributed to it.
+    pub organization_id: String,
     /// Base URL of the SettleKit API (no trailing slash).
     pub api_url: String,
     /// Bearer API key used to authenticate confirmation requests.
@@ -39,6 +42,7 @@ impl Config {
         let rpc_url = required("ARC_RPC_URL")?;
         let usdc_address = normalize_address("ARC_USDC_ADDRESS", &required("ARC_USDC_ADDRESS")?)?;
         let watch_address = normalize_address("WATCH_ADDRESS", &required("WATCH_ADDRESS")?)?;
+        let organization_id = required("ORGANIZATION_ID")?;
         let api_url = required("SETTLEKIT_API_URL")?
             .trim_end_matches('/')
             .to_string();
@@ -64,6 +68,7 @@ impl Config {
             rpc_url,
             usdc_address,
             watch_address,
+            organization_id,
             api_url,
             api_key,
             poll_interval_secs,

@@ -6,7 +6,7 @@
 import { eq, type Database, apiKeys } from "@settlekit/database";
 import type { ApiKey } from "@settlekit/common";
 import type { ApiKeyStore } from "@settlekit/api-keys";
-import { packDoc, unpackDoc } from "./codec.js";
+import { packDoc, unpackDoc, unpackDocs } from "./codec.js";
 import { DEFAULT_MERCHANT_ID } from "./seed.js";
 
 export class PgApiKeyStore implements ApiKeyStore {
@@ -35,5 +35,10 @@ export class PgApiKeyStore implements ApiKeyStore {
       .where(eq(apiKeys.hashedKey, keyHash))
       .limit(1);
     return unpackDoc<ApiKey>(rows[0]) ?? undefined;
+  }
+
+  async listAll(): Promise<ApiKey[]> {
+    const rows = await this.db.select({ metadata: apiKeys.metadata }).from(apiKeys);
+    return unpackDocs<ApiKey>(rows);
   }
 }

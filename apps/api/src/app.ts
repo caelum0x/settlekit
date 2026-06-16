@@ -9,8 +9,12 @@
  */
 import { Hono } from "hono";
 import { SettleKitError } from "@settlekit/common";
+import { ping } from "@settlekit/database";
 import { type AppContext, type AppEnv } from "./context.js";
 import { errorMiddleware } from "./middleware/error.js";
+import { corsMiddleware, requestIdMiddleware, rateLimitMiddleware } from "./middleware/hardening.js";
+import { loggingMiddleware } from "./middleware/logging.js";
+import { metricsMiddleware, metricsRegistry } from "./middleware/metrics.js";
 import { authMiddleware } from "./middleware/auth.js";
 import { error } from "./http/respond.js";
 
@@ -31,6 +35,10 @@ import { bundleRoutes } from "./routes/bundles.js";
 import { deliveryRunRoutes, deliveryActionRoutes } from "./routes/delivery.js";
 import { agentServiceRoutes } from "./routes/agent-services.js";
 import { marketplaceRoutes } from "./routes/marketplace.js";
+import { usageRoutes } from "./routes/usage.js";
+import { analyticsRoutes } from "./routes/analytics.js";
+import { settingsRoutes } from "./routes/settings.js";
+import { x402Routes } from "./routes/x402.js";
 import { escrowRoutes } from "./routes/escrow.js";
 import { couponRoutes } from "./routes/coupons.js";
 import { invoiceRoutes } from "./routes/invoices.js";
@@ -38,6 +46,15 @@ import { refundRoutes } from "./routes/refunds.js";
 import { dunningRoutes } from "./routes/dunning.js";
 import { disputeRoutes } from "./routes/disputes.js";
 import { payoutRoutes } from "./routes/payouts.js";
+import { cctpRoutes } from "./routes/cctp.js";
+import { gatewayRoutes } from "./routes/gateway.js";
+import { fxRoutes } from "./routes/fx.js";
+import { paymasterRoutes } from "./routes/paymaster.js";
+import { mintRoutes } from "./routes/mint.js";
+import { arcRoutes } from "./routes/arc.js";
+import { circleWebhookRoutes } from "./routes/circle-webhooks.js";
+import { userWalletRoutes } from "./routes/user-wallets.js";
+import { onchainEscrowRoutes } from "./routes/onchain-escrow.js";
 import { authRoutes } from "./routes/auth.js";
 
 /** Build the full SettleKit API app. Pass a context to share/isolate state. */
@@ -47,18 +64,55 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
   // Centralized error mapping wraps the entire pipeline.
   app.use("*", errorMiddleware());
 
+  // Production hardening: CORS (incl. preflight), request-id propagation, and a
+  // per-instance rate limiter. CORS runs first so even rate-limited / errored
+  // responses carry the right headers.
+  app.use("*", corsMiddleware());
+  app.use("*", requestIdMiddleware());
+  app.use("*", metricsMiddleware());
+  app.use("*", loggingMiddleware());
+  app.use("*", rateLimitMiddleware());
+
   // Attach the shared context to every request.
   app.use("*", async (c, next) => {
     c.set("ctx", ctx);
     await next();
   });
 
-  // Liveness probe (unauthenticated).
+  // Liveness probe (unauthenticated): the process is up and serving.
   app.get("/health", (c) => c.json({ data: { status: "ok", service: "settlekit-api" } }));
+
+  // Prometheus metrics (unauthenticated, for scraping). Text exposition format.
+  app.get("/metrics", (c) => {
+    return c.body(metricsRegistry.render(), 200, { "Content-Type": "text/plain; version=0.0.4" });
+  });
+
+  // Readiness probe: the process can serve traffic. In Postgres mode this pings
+  // the database (503 if unreachable); in-memory mode is always ready.
+  app.get("/health/ready", async (c) => {
+    const ctx = c.get("ctx");
+    if (!ctx.db) {
+      return c.json({ data: { ready: true, persistence: "in-memory" } });
+    }
+    const ok = await ping(ctx.db);
+    return c.json(
+      { data: { ready: ok, persistence: "postgres", database: ok ? "connected" : "unreachable" } },
+      ok ? 200 : 503,
+    );
+  });
 
   // Authentication is PUBLIC: no API key. Mounted before/outside the v1
   // api-key-guarded group so sign-up/sign-in work without an existing key.
   app.route("/v1/auth", authRoutes());
+
+  // x402 paid APIs are PUBLIC: the USDC payment IS the authorization, so these
+  // are mounted outside the API-key guard (humans + AI agents pay per call).
+  app.route("/v1/paid", x402Routes());
+
+  // Inbound Circle webhooks are PUBLIC: authenticated by Circle's ECDSA
+  // signature (verified in the handler), not an API key. Mounted outside the
+  // v1 api-key guard. POST /v1/circle/webhooks.
+  app.route("/v1/circle", circleWebhookRoutes());
 
   // Everything else under /v1 requires a valid Bearer API key.
   const v1 = new Hono<AppEnv>();
@@ -100,6 +154,15 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
   // ---- Marketplace (plan §11) --------------------------------------------
   v1.route("/marketplace", marketplaceRoutes());
 
+  // ---- Usage-based billing (plan §5, §31) --------------------------------
+  v1.route("/usage", usageRoutes());
+
+  // ---- Analytics (merchant dashboard summary) ----------------------------
+  v1.route("/analytics", analyticsRoutes());
+
+  // ---- Organization settings ---------------------------------------------
+  v1.route("/settings", settingsRoutes());
+
   // ---- Escrow (plan §26) -------------------------------------------------
   v1.route("/escrow", escrowRoutes());
 
@@ -112,6 +175,15 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
   v1.route("/dunning", dunningRoutes());
   v1.route("/disputes", disputeRoutes());
   v1.route("/payouts", payoutRoutes());
+  v1.route("/arc", arcRoutes());
+  v1.route("/cctp", cctpRoutes());
+  v1.route("/gateway", gatewayRoutes());
+  v1.route("/fx", fxRoutes());
+  v1.route("/mint", mintRoutes());
+  v1.route("/user-wallets", userWalletRoutes());
+  v1.route("/onchain-escrow", onchainEscrowRoutes());
+  // paymaster + gas-station share one router (paths are /paymaster/* and /gas-station/*).
+  v1.route("/", paymasterRoutes());
 
   app.route("/v1", v1);
 

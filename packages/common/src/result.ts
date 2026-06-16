@@ -41,6 +41,7 @@ export type ErrorCode =
   | "delivery_failed"
   | "insufficient_credits"
   | "entitlement_expired"
+  | "compliance_blocked"
   | "internal_error";
 
 export interface SettleKitErrorOptions {
@@ -68,6 +69,7 @@ const DEFAULT_STATUS: Record<ErrorCode, number> = {
   delivery_failed: 500,
   insufficient_credits: 402,
   entitlement_expired: 403,
+  compliance_blocked: 403,
   internal_error: 500,
 };
 

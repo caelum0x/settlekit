@@ -346,6 +346,96 @@ pub struct Refund {
     pub updated_at: String,
 }
 
+/// A single piece of evidence attached to a dispute.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DisputeEvidence {
+    pub id: String,
+    pub kind: String,
+    pub description: String,
+    pub value: String,
+    pub submitted_at: String,
+}
+
+/// A dispute opened against a confirmed payment.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Dispute {
+    pub id: String,
+    pub payment_id: String,
+    pub customer_id: String,
+    pub reason: String,
+    pub status: String,
+    #[serde(default)]
+    pub evidence: Vec<DisputeEvidence>,
+    pub opened_at: String,
+    pub updated_at: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub resolved_at: Option<String>,
+}
+
+/// One recorded dunning attempt.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DunningAttemptRecord {
+    pub attempt: u32,
+    pub outcome: String,
+    pub at: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub failure_reason: Option<String>,
+}
+
+/// The recovery state of a subscription's dunning campaign.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct DunningState {
+    pub subscription_id: String,
+    pub attempt: u32,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub next_attempt_at: Option<String>,
+    #[serde(default)]
+    pub history: Vec<DunningAttemptRecord>,
+    pub started_at: String,
+    pub updated_at: String,
+}
+
+/// The merchant dashboard's editable organization config.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct OrgSettings {
+    pub org_name: String,
+    pub support_email: String,
+    pub payout_currency: String,
+    pub webhook_secret: String,
+    pub default_rail: String,
+}
+
+/// A recurring subscription bound to a customer and a recurring price.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Subscription {
+    pub id: String,
+    pub organization_id: String,
+    pub customer_id: String,
+    pub product_id: String,
+    pub price_id: String,
+    pub status: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub interval: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub amount: Option<Money>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub current_period_start: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub current_period_end: Option<String>,
+    #[serde(default)]
+    pub cancel_at_period_end: bool,
+    pub created_at: String,
+    #[serde(skip_serializing_if = "Option::is_none", default)]
+    pub updated_at: Option<String>,
+}
+
 /// A settlement of funds from the platform to a merchant wallet.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]

@@ -26,6 +26,8 @@ function uint256(value: bigint): Hex {
 function inMemoryRpc(args: {
   receipt: ArcTransactionReceipt | null;
   head: bigint;
+  maxFeePerGas?: bigint;
+  maxPriorityFeePerGas?: bigint;
 }): ArcRpc {
   return {
     async getTransactionReceipt(txHash: Hex) {
@@ -34,6 +36,12 @@ function inMemoryRpc(args: {
     },
     async getBlockNumber() {
       return args.head;
+    },
+    async estimateFeesPerGas() {
+      return {
+        maxFeePerGas: args.maxFeePerGas ?? 1_000_000_000n,
+        maxPriorityFeePerGas: args.maxPriorityFeePerGas ?? 100_000_000n,
+      };
     },
   };
 }
@@ -145,6 +153,82 @@ describe("createArcClient.verifyUsdcTransfer", () => {
 
     expect(result.confirmed).toBe(false);
     expect(result.confirmations).toBe(0);
+  });
+});
+
+const EURC: Hex = "0x89B50855Aa3bE2F677cD6303Cec089B5F319D72a";
+
+function receiptWithTokenTransfer(token: Hex, value: bigint): ArcTransactionReceipt {
+  return {
+    transactionHash: TX,
+    blockNumber: 100n,
+    status: "success",
+    from: FROM,
+    to: token,
+    logs: [
+      {
+        address: token,
+        topics: [TRANSFER_EVENT_TOPIC, addressTopic(FROM), addressTopic(TO)],
+        data: uint256(value),
+        logIndex: 0,
+      },
+    ],
+  };
+}
+
+describe("createArcClient.verifyTokenTransfer (multi-asset)", () => {
+  it("confirms an EURC transfer against the EURC token address", async () => {
+    const rpc = inMemoryRpc({ receipt: receiptWithTokenTransfer(EURC, 10_000_000n), head: 103n });
+    const client = createArcClient(
+      { rpcUrl: "http://localhost:8545", usdcAddress: USDC, chainId: 5_042_002 },
+      rpc,
+    );
+    const result = await client.verifyTokenTransfer({
+      txHash: TX,
+      token: EURC,
+      to: TO,
+      minAmount: money("10", "EURC"),
+    });
+    expect(result.confirmed).toBe(true);
+    expect(result.amount).toEqual(money("10", "EURC"));
+    expect(result.confirmations).toBe(4);
+  });
+
+  it("does NOT match an EURC transfer when verifying against USDC", async () => {
+    const rpc = inMemoryRpc({ receipt: receiptWithTokenTransfer(EURC, 10_000_000n), head: 103n });
+    const client = createArcClient(
+      { rpcUrl: "http://localhost:8545", usdcAddress: USDC, chainId: 5_042_002 },
+      rpc,
+    );
+    // The legacy USDC verifier only matches the configured USDC contract.
+    const result = await client.verifyUsdcTransfer({ txHash: TX, to: TO, minAmount: money("10") });
+    expect(result.confirmed).toBe(false);
+  });
+});
+
+describe("createArcClient.estimateTransferFee", () => {
+  it("returns a USDC-denominated fee from current gas prices", async () => {
+    const rpc = inMemoryRpc({ receipt: null, head: 0n, maxFeePerGas: 1_000_000_000n });
+    const client = createArcClient(
+      { rpcUrl: "http://localhost:8545", usdcAddress: USDC, chainId: 5_042_002 },
+      rpc,
+    );
+    const est = await client.estimateTransferFee();
+    // 65000 gas * 1e9 = 6.5e13 native (18-dec) => 65 USDC base units (6-dec).
+    expect(est.gasLimit).toBe(65_000n);
+    expect(est.feeWei).toBe(65_000_000_000_000n);
+    expect(est.fee).toEqual(money("0.000065", "USDC"));
+  });
+
+  it("honors a custom gas limit", async () => {
+    const rpc = inMemoryRpc({ receipt: null, head: 0n, maxFeePerGas: 2_000_000_000n });
+    const client = createArcClient(
+      { rpcUrl: "http://localhost:8545", usdcAddress: USDC, chainId: 5_042_002 },
+      rpc,
+    );
+    const est = await client.estimateTransferFee({ gasLimit: 100_000n });
+    expect(est.feeWei).toBe(200_000_000_000_000n);
+    expect(est.fee).toEqual(money("0.0002", "USDC"));
   });
 });
 
