@@ -19,6 +19,7 @@ import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
+import { requireOrg } from "../http/tenant.js";
 import { screenAddressOrThrow } from "../compliance/screen.js";
 
 const amount = z.string().regex(/^\d+(\.\d+)?$/);
@@ -26,7 +27,8 @@ const amount = z.string().regex(/^\d+(\.\d+)?$/);
 const networkSchema = z.enum(["arc", "base", "ethereum"]);
 
 const createSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   walletAddress: z.string().min(1),
   amount,
   network: networkSchema,
@@ -46,10 +48,12 @@ export function payoutRoutes(): Hono<AppEnv> {
   app.post("/", async (c) => {
     const body = await parseBody(c, createSchema);
     const ctx = c.get("ctx");
-    const payments = await ctx.payments.findConfirmedByOrganization(body.organizationId);
+    // Tenant-scoped: payouts settle the authenticated org's balance.
+    const organizationId = requireOrg(c);
+    const payments = await ctx.payments.findConfirmedByOrganization(organizationId);
     const payout = unwrapResult(
       await ctx.payouts.create({
-        organizationId: body.organizationId,
+        organizationId,
         walletAddress: body.walletAddress,
         amount: body.amount,
         network: body.network,
@@ -60,16 +64,14 @@ export function payoutRoutes(): Hono<AppEnv> {
   });
 
   app.get("/", async (c) => {
-    const organizationId = c.req.query("organizationId");
+    // Tenant-scoped: only the authenticated organization's payouts.
     const ctx = c.get("ctx");
-    if (organizationId) {
-      return data(c, await ctx.payouts.listByOrganization(organizationId));
-    }
-    return data(c, await ctx.payoutStore.listAll());
+    return data(c, await ctx.payouts.listByOrganization(requireOrg(c)));
   });
 
   app.get("/balance", async (c) => {
-    const organizationId = c.req.query("organizationId") ?? "";
+    // Tenant-scoped: balance for the authenticated organization.
+    const organizationId = requireOrg(c);
     const ctx = c.get("ctx");
     const payments = await ctx.payments.findConfirmedByOrganization(organizationId);
     const balance = await ctx.payouts.availableBalance(organizationId, payments);

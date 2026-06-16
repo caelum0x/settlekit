@@ -21,11 +21,11 @@ import {
   refundPayment,
 } from "@settlekit/payments";
 import { completeSession } from "@settlekit/payments";
-import { DEFAULT_ORG_ID } from "@settlekit/persistence";
 import { X402_SCHEME } from "@settlekit/x402";
 import type { AppEnv, AppContext } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
+import { requireOrg } from "../http/tenant.js";
 import { screenAddressOrThrow } from "../compliance/screen.js";
 
 const recordSchema = z.object({
@@ -40,7 +40,8 @@ const confirmSchema = z.object({
 });
 
 const observeSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/, "must be a 0x tx hash"),
   /** The watched (recipient) address the transfer landed at. */
   to: z.string().regex(/^0x[a-fA-F0-9]{40}$/, "must be a 0x address"),
@@ -80,10 +81,9 @@ export function paymentRoutes(): Hono<AppEnv> {
     return created(c, await ctx.payments.save(payment));
   });
 
-  // List payments for an organization (defaults to the platform org).
+  // List payments for the authenticated organization.
   app.get("/", async (c) => {
-    const organizationId = c.req.query("organizationId") ?? DEFAULT_ORG_ID;
-    return data(c, await c.get("ctx").payments.listByOrganization(organizationId));
+    return data(c, await c.get("ctx").payments.listByOrganization(requireOrg(c)));
   });
 
   app.get("/:id", async (c) => {
@@ -178,6 +178,8 @@ export function paymentRoutes(): Hono<AppEnv> {
   app.post("/observe", async (c) => {
     const ctx = c.get("ctx");
     const body = await parseBody(c, observeSchema);
+    // Tenant-scoped: credit the authenticated org, never a client-supplied one.
+    const organizationId = requireOrg(c);
 
     if (!ctx.arcVerifier) {
       throw validationError(
@@ -186,7 +188,7 @@ export function paymentRoutes(): Hono<AppEnv> {
     }
 
     // Idempotency: a confirmed payment for this txHash already exists?
-    const confirmed = await ctx.payments.findConfirmedByOrganization(body.organizationId);
+    const confirmed = await ctx.payments.findConfirmedByOrganization(organizationId);
     const dupe = confirmed.find((p) => p.txHash === body.txHash);
     if (dupe) return data(c, { payment: dupe, deduped: true });
 
@@ -223,7 +225,7 @@ export function paymentRoutes(): Hono<AppEnv> {
 
     const amount = { amount: money(body.amount).amount, currency: body.asset } as unknown as Money;
     const pending = recordPendingPayment({
-      organizationId: body.organizationId,
+      organizationId,
       checkoutSessionId: `direct:${body.txHash}`,
       customerId: body.customerId ?? `direct:${body.from ?? "unknown"}`,
       amount,

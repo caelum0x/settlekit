@@ -14,13 +14,14 @@ import {
   createSubscription,
   renewSubscription,
 } from "@settlekit/payments";
-import { DEFAULT_ORG_ID } from "@settlekit/persistence";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
+import { requireOrg } from "../http/tenant.js";
 
 const createSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   customerId: z.string().min(1),
   productId: z.string().min(1),
   priceId: z.string().min(1),
@@ -44,7 +45,7 @@ export function subscriptionRoutes(): Hono<AppEnv> {
     if (!product) throw notFound("product not found", { id: body.productId });
 
     const subscription = createSubscription({
-      organizationId: body.organizationId,
+      organizationId: requireOrg(c),
       customerId: body.customerId,
       productId: body.productId,
       price,
@@ -59,10 +60,9 @@ export function subscriptionRoutes(): Hono<AppEnv> {
     return created(c, { subscription: saved, entitlement });
   });
 
-  // List subscriptions for an organization (defaults to the platform org).
+  // List subscriptions for the authenticated organization.
   app.get("/", async (c) => {
-    const organizationId = c.req.query("organizationId") ?? DEFAULT_ORG_ID;
-    return data(c, await c.get("ctx").subscriptions.listByOrganization(organizationId));
+    return data(c, await c.get("ctx").subscriptions.listByOrganization(requireOrg(c)));
   });
 
   app.get("/:id", async (c) => {

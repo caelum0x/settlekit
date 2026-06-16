@@ -8,7 +8,7 @@
 // security. Client components POST the sessionToken to that route after a
 // successful auth call.
 
-import { API_URL } from "./api";
+import { API_URL } from "./config";
 
 /** Account type. The dashboard registers merchants. */
 export type AccountType = "merchant" | "customer";

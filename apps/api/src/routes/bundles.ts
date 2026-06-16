@@ -16,10 +16,12 @@ import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
+import { requireOrg } from "../http/tenant.js";
 
 const createSchema = z.object({
   merchantId: z.string().min(1),
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   name: z.string().min(1),
   description: z.string().optional(),
   productIds: z.array(z.string().min(1)).min(1),
@@ -42,7 +44,7 @@ export function bundleRoutes(): Hono<AppEnv> {
     const bundle = unwrapResult(
       await c.get("ctx").bundles.createBundle({
         merchantId: body.merchantId,
-        organizationId: body.organizationId,
+        organizationId: requireOrg(c),
         name: body.name,
         ...(body.description !== undefined ? { description: body.description } : {}),
         productIds: body.productIds,
@@ -55,10 +57,8 @@ export function bundleRoutes(): Hono<AppEnv> {
   });
 
   app.get("/", async (c) => {
-    const orgId = c.req.query("organizationId");
-    const bundles = await c.get("ctx").bundles.listBundles(
-      orgId ? { organizationId: orgId } : undefined,
-    );
+    // Tenant-scoped: only the authenticated organization's bundles.
+    const bundles = await c.get("ctx").bundles.listBundles({ organizationId: requireOrg(c) });
     return data(c, bundles);
   });
 

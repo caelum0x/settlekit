@@ -9,10 +9,10 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { DEFAULT_ORG_ID } from "@settlekit/persistence";
 import type { AppEnv } from "../context.js";
 import { data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
+import { requireOrg } from "../http/tenant.js";
 
 const patchSchema = z.object({
   organizationId: z.string().min(1).optional(),
@@ -27,15 +27,17 @@ export function settingsRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
   app.get("/", async (c) => {
-    const organizationId = c.req.query("organizationId") ?? DEFAULT_ORG_ID;
-    const settings = await c.get("ctx").orgSettings.get(organizationId);
+    // Tenant-scoped: settings for the authenticated organization.
+    const settings = await c.get("ctx").orgSettings.get(requireOrg(c));
     return data(c, settings);
   });
 
   app.post("/", async (c) => {
     const body = await parseBody(c, patchSchema);
+    // Drop any client-supplied organizationId; the tenant is the authenticated org.
     const { organizationId, ...patch } = body;
-    const settings = await c.get("ctx").orgSettings.update(organizationId ?? DEFAULT_ORG_ID, patch);
+    void organizationId;
+    const settings = await c.get("ctx").orgSettings.update(requireOrg(c), patch);
     return data(c, settings);
   });
 

@@ -11,9 +11,11 @@ import { z } from "zod";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
+import { requireOrg } from "../http/tenant.js";
 
 const issueSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   customerId: z.string().min(1),
   productId: z.string().min(1),
   entitlementId: z.string().min(1),
@@ -42,7 +44,7 @@ export function apiKeyRoutes(): Hono<AppEnv> {
   app.post("/", async (c) => {
     const body = await parseBody(c, issueSchema);
     const result = await c.get("ctx").apiKeys.issue({
-      organizationId: body.organizationId,
+      organizationId: requireOrg(c),
       customerId: body.customerId,
       productId: body.productId,
       entitlementId: body.entitlementId,

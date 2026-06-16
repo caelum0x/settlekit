@@ -24,6 +24,7 @@ import type { DeliveryContext as RunnerContext } from "@settlekit/delivery";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
+import { requireOrg } from "../http/tenant.js";
 
 // Zod schema for the discriminated DeliveryAction union (plan §15).
 const actionSchema = z.discriminatedUnion("type", [
@@ -39,7 +40,8 @@ const actionSchema = z.discriminatedUnion("type", [
 ]);
 
 const testSchema = z.object({
-  organizationId: z.string().min(1).default("org_test"),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   customerId: z.string().min(1).default("cus_test"),
   productId: z.string().min(1).default("prod_test"),
   paymentId: z.string().min(1).default("pay_test"),
@@ -55,10 +57,11 @@ export function deliveryRunRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
   app.get("/", async (c) => {
-    const orgId = c.req.query("organizationId");
+    // Tenant-scoped: only the authenticated organization's delivery runs.
+    const orgId = requireOrg(c);
     const paymentId = c.req.query("paymentId");
     const runs = await c.get("ctx").deliveryRuns.list((r) => {
-      if (orgId && r.organizationId !== orgId) return false;
+      if (r.organizationId !== orgId) return false;
       if (paymentId && r.paymentId !== paymentId) return false;
       return true;
     });
@@ -108,7 +111,7 @@ export function deliveryActionRoutes(): Hono<AppEnv> {
     }
 
     const runnerCtx: RunnerContext = {
-      organizationId: body.organizationId,
+      organizationId: requireOrg(c),
       customerId: body.customerId,
       productId: body.productId,
       paymentId: body.paymentId,

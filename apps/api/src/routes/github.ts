@@ -12,7 +12,7 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { generateId, notFound, validationError, type GitHubInstallation } from "@settlekit/common";
+import { generateId, notFound, type GitHubInstallation } from "@settlekit/common";
 import {
   grantGitHubRepoAccess,
   revokeGitHubRepoAccess,
@@ -22,16 +22,19 @@ import {
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
+import { requireOrg } from "../http/tenant.js";
 
 const installSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   installationId: z.number().int().positive(),
   accountLogin: z.string().min(1),
   accountType: z.enum(["User", "Organization"]),
 });
 
 const grantSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   installationId: z.number().int().positive(),
   customerId: z.string().min(1),
   entitlementId: z.string().min(1),
@@ -54,7 +57,7 @@ export function githubIntegrationRoutes(): Hono<AppEnv> {
     const body = await parseBody(c, installSchema);
     const installation: GitHubInstallation = {
       id: generateId("githubInstallation"),
-      organizationId: body.organizationId,
+      organizationId: requireOrg(c),
       installationId: body.installationId,
       accountLogin: body.accountLogin,
       accountType: body.accountType,
@@ -64,12 +67,11 @@ export function githubIntegrationRoutes(): Hono<AppEnv> {
   });
 
   app.get("/installations", async (c) => {
-    const orgId = c.req.query("organizationId");
+    // Tenant-scoped: only the authenticated organization's installations.
+    const orgId = requireOrg(c);
     return data(
       c,
-      await c.get("ctx").githubInstallations.list(
-        orgId ? (i) => i.organizationId === orgId : undefined,
-      ),
+      await c.get("ctx").githubInstallations.list((i) => i.organizationId === orgId),
     );
   });
 
@@ -90,9 +92,10 @@ export function githubIntegrationRoutes(): Hono<AppEnv> {
 
   // Org teams (synthesized from team-style grants / installations).
   app.get("/teams", async (c) => {
-    const orgId = c.req.query("organizationId");
+    // Tenant-scoped: only the authenticated organization's installations.
+    const orgId = requireOrg(c);
     const installs = await c.get("ctx").githubInstallations.list(
-      orgId ? (i) => i.organizationId === orgId : undefined,
+      (i) => i.organizationId === orgId,
     );
     const teams = installs
       .filter((i) => i.accountType === "Organization")
@@ -117,7 +120,7 @@ export function githubAccessRoutes(): Hono<AppEnv> {
     const ctx = c.get("ctx");
     const body = await parseBody(c, grantSchema);
     const grant = await grantGitHubRepoAccess(ctx.githubClient, {
-      organizationId: body.organizationId,
+      organizationId: requireOrg(c),
       installationId: body.installationId,
       customerId: body.customerId,
       entitlementId: body.entitlementId,
@@ -148,15 +151,14 @@ export function githubAccessRoutes(): Hono<AppEnv> {
   // in-process client now reports as accepted (permission != "none").
   app.post("/sync", async (c) => {
     const ctx = c.get("ctx");
-    const body = await parseBody(
+    // Drop any client-supplied organizationId; the tenant is the authenticated org.
+    await parseBody(
       c,
-      z.object({ organizationId: z.string().min(1) }),
+      z.object({ organizationId: z.string().min(1).optional() }),
     );
-    if (body.organizationId.length === 0) {
-      throw validationError("organizationId is required");
-    }
+    const organizationId = requireOrg(c);
     const outcomes: Array<{ grantId: string; action: string }> = [];
-    for (const grant of await ctx.githubGrants.list((g) => g.organizationId === body.organizationId)) {
+    for (const grant of await ctx.githubGrants.list((g) => g.organizationId === organizationId)) {
       if (grant.status !== "invited") continue;
       const permission = await ctx.githubClient.getRepoCollaboratorPermission({
         installationId: grant.installationId,
@@ -171,7 +173,7 @@ export function githubAccessRoutes(): Hono<AppEnv> {
         outcomes.push({ grantId: grant.id, action: "noop" });
       }
     }
-    return data(c, { organizationId: body.organizationId, outcomes });
+    return data(c, { organizationId, outcomes });
   });
 
   return app;

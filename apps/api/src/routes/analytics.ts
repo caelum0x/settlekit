@@ -22,9 +22,9 @@ import {
   type Money,
   type Payment,
 } from "@settlekit/common";
-import { DEFAULT_ORG_ID } from "@settlekit/persistence";
 import type { AppEnv, AppContext } from "../context.js";
 import { data } from "../http/respond.js";
+import { requireOrg } from "../http/tenant.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -58,10 +58,13 @@ function monthlyBaseUnits(amount: string, interval: string | undefined): bigint 
 
 /** Compute the full dashboard summary from live stores. */
 async function computeSummary(ctx: AppContext, organizationId: string, now: Date) {
+  // Tenant-scoped: every figure is for the authenticated org only. Customers and
+  // delivery runs are filtered by org so the summary never counts other tenants'
+  // data (entitlements + subscriptions are then resolved per the org's customers).
   const [customers, confirmedPayments, deliveryRuns] = await Promise.all([
-    ctx.customers.list(),
+    ctx.customers.list((cu) => cu.organizationId === organizationId),
     ctx.payments.findConfirmedByOrganization(organizationId),
-    ctx.deliveryRuns.list(),
+    ctx.deliveryRuns.list((r) => r.organizationId === organizationId),
   ]);
 
   const orgPayments = confirmedPayments;
@@ -112,8 +115,8 @@ export function analyticsRoutes(): Hono<AppEnv> {
 
   app.get("/summary", async (c) => {
     const ctx = c.get("ctx");
-    const organizationId = c.req.query("organizationId") ?? DEFAULT_ORG_ID;
-    const summary = await computeSummary(ctx, organizationId, new Date());
+    // Tenant-scoped: summary for the authenticated organization.
+    const summary = await computeSummary(ctx, requireOrg(c), new Date());
     return data(c, summary);
   });
 

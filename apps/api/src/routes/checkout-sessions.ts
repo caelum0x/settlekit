@@ -20,6 +20,7 @@ import {
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
+import { requireOrg } from "../http/tenant.js";
 
 const NETWORKS = ["arc", "base", "ethereum"] as const;
 
@@ -31,7 +32,8 @@ const lineItemSchema = z.object({
 });
 
 const createSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   merchantId: z.string().min(1),
   customerId: z.string().optional(),
   items: z.array(lineItemSchema).min(1),
@@ -74,7 +76,7 @@ export function checkoutRoutes(): Hono<AppEnv> {
     );
 
     const session = createCheckoutSession({
-      organizationId: body.organizationId,
+      organizationId: requireOrg(c),
       merchantId: body.merchantId,
       ...(body.customerId !== undefined ? { customerId: body.customerId } : {}),
       items: priced,

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { api } from "@/lib/api";
+import { createProduct } from "@/app/products/new/actions";
 import type {
   ChargeModel,
   DeliveryActionType,
@@ -109,7 +109,7 @@ export function ProductBuilder() {
     setMessage(null);
     const decimals = currency.toUpperCase() === "USDC" ? 6 : 2;
     const amount = Math.round((parseFloat(price || "0") || 0) * 10 ** decimals);
-    const { data, error } = await api.products.create({
+    const { data, error } = await createProduct({
       name: name.trim(),
       sellType,
       chargeModel,

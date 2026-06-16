@@ -15,9 +15,11 @@ import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
+import { requireOrg } from "../http/tenant.js";
 
 const createSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   merchantId: z.string().min(1),
   productId: z.string().min(1),
   name: z.string().min(1),
@@ -43,7 +45,7 @@ export function agentServiceRoutes(): Hono<AppEnv> {
     const body = await parseBody(c, createSchema);
     const svc = unwrapResult(
       await c.get("ctx").agentServices.create({
-        organizationId: body.organizationId,
+        organizationId: requireOrg(c),
         merchantId: body.merchantId,
         productId: body.productId,
         name: body.name,
@@ -59,10 +61,8 @@ export function agentServiceRoutes(): Hono<AppEnv> {
   });
 
   app.get("/", async (c) => {
-    const orgId = c.req.query("organizationId");
-    const list = await c.get("ctx").agentServices.discover(
-      orgId ? { organizationId: orgId } : {},
-    );
+    // Tenant-scoped: only the authenticated organization's services.
+    const list = await c.get("ctx").agentServices.discover({ organizationId: requireOrg(c) });
     return data(c, list);
   });
 

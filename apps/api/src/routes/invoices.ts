@@ -18,6 +18,7 @@ import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
+import { requireOrg } from "../http/tenant.js";
 
 const amount = z.string().regex(/^\d+(\.\d+)?$/);
 
@@ -34,7 +35,8 @@ const taxRateSchema = z.object({
 });
 
 const createSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   customerId: z.string().min(1),
   lineItems: z.array(lineItemSchema).optional(),
   discount: amount.optional(),
@@ -54,7 +56,7 @@ export function invoiceRoutes(): Hono<AppEnv> {
     const body = await parseBody(c, createSchema);
     const invoice = unwrapResult(
       await c.get("ctx").invoices.create({
-        organizationId: body.organizationId,
+        organizationId: requireOrg(c),
         customerId: body.customerId,
         ...(body.lineItems !== undefined ? { lineItems: body.lineItems.map(toLineItem) } : {}),
         ...(body.discount !== undefined ? { discount: money(body.discount) } : {}),

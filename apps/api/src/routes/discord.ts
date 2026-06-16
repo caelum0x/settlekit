@@ -23,16 +23,19 @@ import {
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
+import { requireOrg } from "../http/tenant.js";
 
 const connectSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   guildId: z.string().min(1),
   guildName: z.string().min(1),
   botTokenRef: z.string().min(1),
 });
 
 const grantSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   guildId: z.string().min(1),
   roleId: z.string().min(1),
   customerId: z.string().min(1),
@@ -52,7 +55,7 @@ export function discordIntegrationRoutes(): Hono<AppEnv> {
     const body = await parseBody(c, connectSchema);
     const connection: DiscordConnection = {
       id: generateId("discordRoleAccess"),
-      organizationId: body.organizationId,
+      organizationId: requireOrg(c),
       guildId: body.guildId,
       guildName: body.guildName,
       botTokenRef: body.botTokenRef,
@@ -89,7 +92,7 @@ export function discordAccessRoutes(): Hono<AppEnv> {
     const ctx = c.get("ctx");
     const body = await parseBody(c, grantSchema);
     const grant = await grantDiscordRole(ctx.discordApi, {
-      organizationId: body.organizationId,
+      organizationId: requireOrg(c),
       guildId: body.guildId,
       roleId: body.roleId,
       customerId: body.customerId,

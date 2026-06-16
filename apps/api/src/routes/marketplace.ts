@@ -18,9 +18,11 @@ import type { ListingSort } from "@settlekit/marketplace-core";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
+import { requireOrg } from "../http/tenant.js";
 
 const createSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   merchantId: z.string().min(1),
   productId: z.string().min(1),
   title: z.string().min(1),
@@ -41,7 +43,7 @@ export function marketplaceRoutes(): Hono<AppEnv> {
   app.post("/listings", async (c) => {
     const body = await parseBody(c, createSchema);
     const listing = await c.get("ctx").marketplace.createListing({
-      organizationId: body.organizationId,
+      organizationId: requireOrg(c),
       merchantId: body.merchantId,
       productId: body.productId,
       title: body.title,

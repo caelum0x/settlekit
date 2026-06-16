@@ -17,18 +17,21 @@ import { money } from "@settlekit/common";
 import type { AppEnv } from "../context.js";
 import { data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
+import { requireOrg } from "../http/tenant.js";
 
 const amount = z.string().regex(/^\d+(\.\d+)?$/);
 
 const meterRef = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   customerId: z.string().min(1),
   productId: z.string().min(1),
   metric: z.string().min(1),
 });
 
 const balanceRef = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   customerId: z.string().min(1),
   productId: z.string().min(1),
 });
@@ -63,7 +66,7 @@ export function usageRoutes(): Hono<AppEnv> {
   app.post("/record", async (c) => {
     const body = await parseBody(c, recordSchema);
     const meter = await c.get("ctx").usage.record(
-      { organizationId: body.organizationId, customerId: body.customerId, productId: body.productId, metric: body.metric },
+      { organizationId: requireOrg(c), customerId: body.customerId, productId: body.productId, metric: body.metric },
       body.quantity,
       periodStart(body.periodStart),
     );
@@ -73,12 +76,15 @@ export function usageRoutes(): Hono<AppEnv> {
   // Read the current meter for a metric/period.
   app.get("/meter", async (c) => {
     const ref = meterRef.parse({
-      organizationId: c.req.query("organizationId"),
       customerId: c.req.query("customerId"),
       productId: c.req.query("productId"),
       metric: c.req.query("metric"),
     });
-    const meter = await c.get("ctx").usage.getMeter(ref, periodStart(c.req.query("periodStart")));
+    // Tenant-scoped: the meter belongs to the authenticated org.
+    const meter = await c.get("ctx").usage.getMeter(
+      { ...ref, organizationId: requireOrg(c) },
+      periodStart(c.req.query("periodStart")),
+    );
     return data(c, meter);
   });
 
@@ -86,7 +92,7 @@ export function usageRoutes(): Hono<AppEnv> {
   app.post("/charge", async (c) => {
     const body = await parseBody(c, chargeSchema);
     const charge = await c.get("ctx").usage.charge(
-      { organizationId: body.organizationId, customerId: body.customerId, productId: body.productId, metric: body.metric },
+      { organizationId: requireOrg(c), customerId: body.customerId, productId: body.productId, metric: body.metric },
       periodStart(body.periodStart),
       money(body.unitAmount),
     );
@@ -97,7 +103,7 @@ export function usageRoutes(): Hono<AppEnv> {
   app.post("/limit", async (c) => {
     const body = await parseBody(c, limitSchema);
     const check = await c.get("ctx").usage.limit(
-      { organizationId: body.organizationId, customerId: body.customerId, productId: body.productId, metric: body.metric },
+      { organizationId: requireOrg(c), customerId: body.customerId, productId: body.productId, metric: body.metric },
       periodStart(body.periodStart),
       body.limit,
     );
@@ -107,11 +113,11 @@ export function usageRoutes(): Hono<AppEnv> {
   // Read a prepaid credit balance.
   app.get("/credits", async (c) => {
     const ref = balanceRef.parse({
-      organizationId: c.req.query("organizationId"),
       customerId: c.req.query("customerId"),
       productId: c.req.query("productId"),
     });
-    const balance = await c.get("ctx").usage.getBalance(ref);
+    // Tenant-scoped: the balance belongs to the authenticated org.
+    const balance = await c.get("ctx").usage.getBalance({ ...ref, organizationId: requireOrg(c) });
     return data(c, balance);
   });
 
@@ -119,7 +125,7 @@ export function usageRoutes(): Hono<AppEnv> {
   app.post("/credits/grant", async (c) => {
     const body = await parseBody(c, grantSchema);
     const balance = await c.get("ctx").usage.grant(
-      { organizationId: body.organizationId, customerId: body.customerId, productId: body.productId },
+      { organizationId: requireOrg(c), customerId: body.customerId, productId: body.productId },
       body.credits,
     );
     return data(c, balance);
@@ -129,7 +135,7 @@ export function usageRoutes(): Hono<AppEnv> {
   app.post("/credits/consume", async (c) => {
     const body = await parseBody(c, consumeSchema);
     const balance = await c.get("ctx").usage.consume(
-      { organizationId: body.organizationId, customerId: body.customerId, productId: body.productId },
+      { organizationId: requireOrg(c), customerId: body.customerId, productId: body.productId },
       body.credits,
     );
     return data(c, balance);

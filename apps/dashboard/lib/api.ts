@@ -1,7 +1,15 @@
 // Real HTTP client for the SettleKit API.
-// All reads go through fetch against NEXT_PUBLIC_API_URL. Failures and empty
-// payloads degrade to empty arrays / nulls so pages render graceful empty states
-// instead of crashing.
+//
+// SERVER-ONLY. Every request is authenticated with the signed-in merchant's
+// session token (the httpOnly `sk_session` cookie), which the API resolves to
+// the merchant's organization so all data is tenant-scoped. Because it reads
+// the cookie via `next/headers`, this module must run on the server — client
+// components route mutations through server actions (e.g. products/new) instead
+// of importing it. Failures and empty payloads degrade to empty arrays / nulls
+// so pages render graceful empty states instead of crashing.
+import "server-only";
+import { cookies } from "next/headers";
+import { API_URL } from "./config";
 
 import type {
   AgentService,
@@ -46,8 +54,21 @@ import type {
 } from "./types";
 import type { DecimalMoney } from "./types";
 
-export const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8787";
+export { API_URL };
+
+/** Name of the cookie holding the merchant's opaque session token. */
+const SESSION_COOKIE = "sk_session";
+
+/**
+ * Authorization header for the current request, derived from the signed-in
+ * merchant's session cookie. Absent when there is no session — the API then
+ * rejects the call (401), which pages surface as an error/empty state rather
+ * than leaking another tenant's data.
+ */
+function authHeader(): Record<string, string> {
+  const token = cookies().get(SESSION_COOKIE)?.value;
+  return token ? { authorization: `Bearer ${token}` } : {};
+}
 
 /**
  * Discount payload accepted by `POST /v1/coupons`. A fixed-amount discount's
@@ -80,6 +101,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<{ data: T |
       ...init,
       headers: {
         "content-type": "application/json",
+        ...authHeader(),
         ...(init?.headers ?? {}),
       },
       // Server components: always fetch fresh dashboard data.

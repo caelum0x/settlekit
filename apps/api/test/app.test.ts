@@ -685,7 +685,9 @@ describe("SettleKit API", () => {
   it("isolates tenants: each merchant gets its own org + key and sees only its products", async () => {
     const app = await authedApp();
 
-    const register = async (email: string): Promise<string> => {
+    const register = async (
+      email: string,
+    ): Promise<{ apiKey: string; sessionToken: string }> => {
       const res = await app.request("/v1/auth/register", {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -695,7 +697,8 @@ describe("SettleKit API", () => {
       expect(res.status).toBe(201);
       expect(json.data.account.organizationId).toMatch(/^org_/);
       expect(json.data.apiKey).toMatch(/^sk_live_/);
-      return json.data.apiKey as string;
+      expect(typeof json.data.sessionToken).toBe("string");
+      return { apiKey: json.data.apiKey as string, sessionToken: json.data.sessionToken as string };
     };
 
     const callAs = async (key: string, method: string, path: string, body?: unknown) => {
@@ -707,8 +710,10 @@ describe("SettleKit API", () => {
       return (await res.json()) as Json;
     };
 
-    const keyA = await register("merchant-a@example.com");
-    const keyB = await register("merchant-b@example.com");
+    const merchantA = await register("merchant-a@example.com");
+    const merchantB = await register("merchant-b@example.com");
+    const keyA = merchantA.apiKey;
+    const keyB = merchantB.apiKey;
     expect(keyA).not.toEqual(keyB);
 
     const product = { merchantId: "m", name: "X", type: "saas_plan", deliveryMode: "saas_entitlement" };
@@ -730,5 +735,27 @@ describe("SettleKit API", () => {
     expect(evil.data.organizationId).not.toBe("org_victim");
     const bAfter = await callAs(keyB, "GET", "/v1/products");
     expect(bAfter.data.map((p: { name: string }) => p.name)).toEqual(["Beta"]);
+
+    // Customers (a PII boundary) are isolated the same way, and a forged
+    // organizationId on create is ignored in favor of the caller's tenant.
+    await callAs(keyA, "POST", "/v1/customers", {
+      email: "a-buyer@example.com",
+      organizationId: "org_victim",
+    });
+    await callAs(keyB, "POST", "/v1/customers", { email: "b-buyer@example.com" });
+    const aCustomers = await callAs(keyA, "GET", "/v1/customers");
+    const bCustomers = await callAs(keyB, "GET", "/v1/customers");
+    expect(aCustomers.data.map((cu: { email: string }) => cu.email)).toEqual(["a-buyer@example.com"]);
+    expect(bCustomers.data.map((cu: { email: string }) => cu.email)).toEqual(["b-buyer@example.com"]);
+
+    // The merchant's SESSION token (what the first-party dashboard sends) is a
+    // first-class credential: it resolves to the same org as the API key, so the
+    // dashboard sees exactly the same tenant-scoped data.
+    const aViaSession = await callAs(merchantA.sessionToken, "GET", "/v1/products");
+    const aSessionNames = aViaSession.data.map((p: { name: string }) => p.name);
+    expect(aSessionNames).toContain("Alpha");
+    expect(aSessionNames).not.toContain("Beta");
+    const bViaSession = await callAs(merchantB.sessionToken, "GET", "/v1/customers");
+    expect(bViaSession.data.map((cu: { email: string }) => cu.email)).toEqual(["b-buyer@example.com"]);
   });
 });

@@ -10,9 +10,11 @@ import { generateId, notFound, type Customer } from "@settlekit/common";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
+import { requireOrg } from "../http/tenant.js";
 
 const createCustomerSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   email: z.string().email(),
   name: z.string().optional(),
   walletAddress: z.string().optional(),
@@ -28,7 +30,7 @@ export function customerRoutes(): Hono<AppEnv> {
     const body = await parseBody(c, createCustomerSchema);
     const customer: Customer = {
       id: generateId("customer"),
-      organizationId: body.organizationId,
+      organizationId: requireOrg(c),
       email: body.email,
       ...(body.name !== undefined ? { name: body.name } : {}),
       ...(body.walletAddress !== undefined ? { walletAddress: body.walletAddress } : {}),
@@ -40,7 +42,11 @@ export function customerRoutes(): Hono<AppEnv> {
     return created(c, await c.get("ctx").customers.save(customer));
   });
 
-  app.get("/", async (c) => data(c, await c.get("ctx").customers.list()));
+  app.get("/", async (c) => {
+    // Tenant-scoped: only the authenticated organization's customers.
+    const org = requireOrg(c);
+    return data(c, await c.get("ctx").customers.list((cu) => cu.organizationId === org));
+  });
 
   app.get("/:id", async (c) => {
     const customer = await c.get("ctx").customers.findById(c.req.param("id"));

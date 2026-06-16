@@ -18,6 +18,7 @@ import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
+import { requireOrg } from "../http/tenant.js";
 
 const createPlanSchema = z.object({
   productId: z.string().min(1),
@@ -29,7 +30,8 @@ const createPlanSchema = z.object({
 });
 
 const grantSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   customerId: z.string().min(1),
   planId: z.string().min(1),
   grantedById: z.string().min(1),
@@ -39,7 +41,8 @@ const grantSchema = z.object({
 
 const verifySchema = z.object({
   planId: z.string().min(1),
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   customerId: z.string().min(1),
   grantedById: z.string().min(1),
   feature: z.string().min(1),
@@ -110,7 +113,7 @@ export function saasRoutes(): Hono<AppEnv> {
     const body = await parseBody(c, grantSchema);
     const entitlement = unwrapResult(
       await c.get("ctx").saas.grantEntitlement({
-        organizationId: body.organizationId,
+        organizationId: requireOrg(c),
         customerId: body.customerId,
         planId: body.planId,
         grantedBy: { type: body.grantedByType, id: body.grantedById },
@@ -126,7 +129,7 @@ export function saasRoutes(): Hono<AppEnv> {
     const body = await parseBody(c, verifySchema);
     const entitlement = unwrapResult(
       await ctx.saas.grantEntitlement({
-        organizationId: body.organizationId,
+        organizationId: requireOrg(c),
         customerId: body.customerId,
         planId: body.planId,
         grantedBy: { type: "subscription", id: body.grantedById },

@@ -13,6 +13,7 @@ import { buildWebhookEvent, signPayload, serializeEvent } from "@settlekit/webho
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
+import { requireOrg } from "../http/tenant.js";
 
 const EVENT_TYPES = [
   "payment.confirmed",
@@ -28,13 +29,15 @@ const EVENT_TYPES = [
 ] as const;
 
 const createEndpointSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   url: z.string().url(),
   enabledEvents: z.array(z.enum(EVENT_TYPES)).min(1),
 });
 
 const emitSchema = z.object({
-  organizationId: z.string().min(1),
+  // Derived from the authenticated org (tenant scope); ignored if supplied.
+  organizationId: z.string().min(1).optional(),
   type: z.enum(EVENT_TYPES),
   data: z.record(z.unknown()).default({}),
 });
@@ -44,10 +47,9 @@ export function webhookRoutes(): Hono<AppEnv> {
 
   // List endpoints at the resource root (alias of GET /endpoints).
   app.get("/", async (c) => {
-    const orgId = c.req.query("organizationId");
-    const list = await c.get("ctx").webhookEndpoints.list(
-      orgId ? (e) => e.organizationId === orgId : undefined,
-    );
+    // Tenant-scoped: only the authenticated organization's endpoints.
+    const orgId = requireOrg(c);
+    const list = await c.get("ctx").webhookEndpoints.list((e) => e.organizationId === orgId);
     return data(c, list);
   });
 
@@ -56,7 +58,7 @@ export function webhookRoutes(): Hono<AppEnv> {
     const body = await parseBody(c, createEndpointSchema);
     const endpoint: WebhookEndpoint = {
       id: generateId("webhookEndpoint"),
-      organizationId: body.organizationId,
+      organizationId: requireOrg(c),
       url: body.url,
       signingSecret: generateSecret(),
       enabledEvents: body.enabledEvents,
@@ -67,10 +69,9 @@ export function webhookRoutes(): Hono<AppEnv> {
   });
 
   app.get("/endpoints", async (c) => {
-    const orgId = c.req.query("organizationId");
-    const list = await c.get("ctx").webhookEndpoints.list(
-      orgId ? (e) => e.organizationId === orgId : undefined,
-    );
+    // Tenant-scoped: only the authenticated organization's endpoints.
+    const orgId = requireOrg(c);
+    const list = await c.get("ctx").webhookEndpoints.list((e) => e.organizationId === orgId);
     return data(c, list);
   });
 
@@ -78,8 +79,10 @@ export function webhookRoutes(): Hono<AppEnv> {
   app.post("/events", async (c) => {
     const ctx = c.get("ctx");
     const body = await parseBody(c, emitSchema);
+    // Tenant-scoped: the event belongs to the authenticated org.
+    const organizationId = requireOrg(c);
     const event = buildWebhookEvent(body.type, body.data, {
-      organizationId: body.organizationId,
+      organizationId,
     });
     const saved = await ctx.webhookEvents.save(event);
 
@@ -88,7 +91,7 @@ export function webhookRoutes(): Hono<AppEnv> {
     const deliveries = (
       await ctx.webhookEndpoints.list(
         (e) =>
-          e.organizationId === body.organizationId &&
+          e.organizationId === organizationId &&
           e.active &&
           e.enabledEvents.includes(body.type),
       )
@@ -103,10 +106,9 @@ export function webhookRoutes(): Hono<AppEnv> {
   });
 
   app.get("/events", async (c) => {
-    const orgId = c.req.query("organizationId");
-    const list = await c.get("ctx").webhookEvents.list(
-      orgId ? (e) => e.organizationId === orgId : undefined,
-    );
+    // Tenant-scoped: only the authenticated organization's events.
+    const orgId = requireOrg(c);
+    const list = await c.get("ctx").webhookEvents.list((e) => e.organizationId === orgId);
     return data(c, list);
   });
 
