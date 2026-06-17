@@ -9,6 +9,18 @@ Two supported paths: **Render** (full stack incl. API/worker/DB) and **Vercel**
 integration is cred-gated, so the stack runs without them (each feature is a
 clear "not configured" no-op until its key is set).
 
+## TL;DR — the working split
+
+- **Render = the API backend.** The repo root has a `start` script
+  (`node apps/api/dist/server.js`), so a plain Render Web Service pointing at the
+  repo root **just works**: its default `pnpm install && pnpm build && pnpm start`
+  builds the workspace and boots the API on Render's injected `$PORT` (the API
+  binds `0.0.0.0`). For the API **+ worker + Postgres** together, use the
+  `render.yaml` Blueprint instead.
+- **Vercel = the Next.js frontends.** One Vercel project per app, **Root Directory**
+  set to the app folder (each has a `vercel.json`). Point each at the Render API
+  with `NEXT_PUBLIC_API_URL`.
+
 ## Render (full stack) — `render.yaml` blueprint
 
 `render.yaml` at the repo root is a Render Blueprint. **Deploy via Blueprint —
@@ -76,11 +88,18 @@ the same repo and set **Root Directory** to the app:
 | Checkout    | `apps/checkout`     |
 | Docs        | `apps/docs`         |
 
-`apps/web/vercel.json` already sets the pnpm-workspace install + build commands
-(Vercel auto-detects Next.js otherwise). Set the same `NEXT_PUBLIC_*` env vars as
-above in each Vercel project. Point the marketing site's domain at the Vercel
-project; keep the **API + worker on Render** (Vercel is serverless and not suited
-to the long-lived worker / Postgres backend).
+Every app folder above ships a `vercel.json` pinning the pnpm-workspace install +
+filtered build (`pnpm --filter @settlekit/<pkg>... build`), so Vercel builds only
+that app + its deps from the monorepo. With **Root Directory** set to the app,
+Vercel runs the workspace install and the build emits that app's `.next` in place.
+Set `NEXT_PUBLIC_API_URL` (and, for the marketing site, the `NEXT_PUBLIC_*_URL`
+cross-links) in each Vercel project's env. Keep the **API + worker on Render**
+(Vercel is serverless and not suited to the long-lived worker / Postgres backend).
+
+> The package names differ from the folder names for three apps:
+> `apps/marketplace` → `@settlekit/marketplace-app`, `apps/checkout` →
+> `@settlekit/checkout-app`, `apps/docs` → `@settlekit/docs-app`. The `vercel.json`
+> files already use the correct names.
 
 ## Recommended split
 
