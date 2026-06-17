@@ -12,6 +12,8 @@ export interface ServiceCreatePayoutInput {
   network: PayoutNetwork;
   /** Confirmed payments backing the merchant balance. */
   payments: readonly Payment[];
+  /** Platform take-rate already accrued on those payments (defaults to 0). */
+  platformFees?: Money;
 }
 
 /**
@@ -59,8 +61,12 @@ export class PayoutService {
     return this.store.listByOrganization(organizationId);
   }
 
-  async availableBalance(organizationId: string, payments: readonly Payment[]): Promise<Money> {
+  async availableBalance(
+    organizationId: string,
+    payments: readonly Payment[],
+    platformFees?: Money,
+  ): Promise<Money> {
     const priorPayouts = await this.store.listByOrganization(organizationId);
-    return computeAvailableBalance(payments, priorPayouts);
+    return computeAvailableBalance(payments, priorPayouts, "USDC", platformFees);
   }
 }

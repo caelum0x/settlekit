@@ -15,6 +15,7 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { conflict, notFound, validationError } from "@settlekit/common";
+import { computePlatformRevenue, totalPlatformFees } from "@settlekit/platform-billing";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
@@ -51,6 +52,9 @@ export function payoutRoutes(): Hono<AppEnv> {
     // Tenant-scoped: payouts settle the authenticated org's balance.
     const organizationId = requireOrg(c);
     const payments = await ctx.payments.findConfirmedByOrganization(organizationId);
+    // The platform take-rate is reserved before the merchant can withdraw: the
+    // available balance is net of fees, so a payout can't draw down SettleKit's cut.
+    const platformFees = totalPlatformFees(payments, ctx.platformFeeSchedule);
     const payout = unwrapResult(
       await ctx.payouts.create({
         organizationId,
@@ -58,6 +62,7 @@ export function payoutRoutes(): Hono<AppEnv> {
         amount: body.amount,
         network: body.network,
         payments,
+        platformFees,
       }),
     );
     return created(c, payout);
@@ -70,12 +75,21 @@ export function payoutRoutes(): Hono<AppEnv> {
   });
 
   app.get("/balance", async (c) => {
-    // Tenant-scoped: balance for the authenticated organization.
+    // Tenant-scoped: balance for the authenticated organization, with the full
+    // take-rate breakdown so the merchant sees gross, the platform fee, and the
+    // net they can withdraw. `available` is net-of-fees minus prior payouts.
     const organizationId = requireOrg(c);
     const ctx = c.get("ctx");
     const payments = await ctx.payments.findConfirmedByOrganization(organizationId);
-    const balance = await ctx.payouts.availableBalance(organizationId, payments);
-    return data(c, balance);
+    const revenue = computePlatformRevenue(payments, ctx.platformFeeSchedule);
+    const available = await ctx.payouts.availableBalance(organizationId, payments, revenue.platformFees);
+    return data(c, {
+      available,
+      grossVolume: revenue.grossVolume,
+      platformFees: revenue.platformFees,
+      netToMerchant: revenue.netToMerchant,
+      feeSchedule: revenue.schedule,
+    });
   });
 
   // Execute a pending payout for real: move USDC from the SettleKit treasury

@@ -445,3 +445,41 @@ export interface Dispute {
   updatedAt: string;
   resolvedAt?: string;
 }
+
+/** One step in the merchant activation funnel (GET /v1/onboarding). */
+export interface OnboardingStep {
+  key: string;
+  title: string;
+  description: string;
+  href: string;
+  done: boolean;
+}
+
+/** The merchant's progress through the activation funnel. */
+export interface OnboardingStatus {
+  steps: OnboardingStep[];
+  completed: number;
+  total: number;
+  percent: number;
+  nextStep: OnboardingStep | null;
+  complete: boolean;
+}
+
+/** The platform take-rate schedule (GET /v1/payouts/balance). */
+export interface FeeSchedule {
+  bps: number;
+  fixed: string;
+}
+
+/** Payout balance with the full take-rate breakdown. */
+export interface PayoutBalance {
+  /** Withdrawable now: net of platform fees and prior payouts. */
+  available: DecimalMoney;
+  /** Lifetime gross confirmed volume. */
+  grossVolume: DecimalMoney;
+  /** Lifetime platform fees (SettleKit's cut). */
+  platformFees: DecimalMoney;
+  /** Gross minus platform fees. */
+  netToMerchant: DecimalMoney;
+  feeSchedule: FeeSchedule;
+}

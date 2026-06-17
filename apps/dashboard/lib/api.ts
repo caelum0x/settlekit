@@ -39,6 +39,7 @@ import type {
   LicenseKey,
   MarketplaceListing,
   Money,
+  OnboardingStatus,
   OrgSettings,
   UsageMeter,
   Payment,
@@ -50,9 +51,9 @@ import type {
   SaasPlan,
   Seat,
   Subscription,
+  PayoutBalance,
   WebhookEndpoint,
 } from "./types";
-import type { DecimalMoney } from "./types";
 
 export { API_URL };
 
@@ -160,6 +161,14 @@ export const api = {
     },
   },
 
+  // ---- Onboarding / activation funnel ----
+  onboarding: {
+    async status(): Promise<OnboardingStatus | null> {
+      const { data } = await getItem<OnboardingStatus>("/v1/onboarding");
+      return data;
+    },
+  },
+
   // ---- Products ----
   products: {
     list: () => getList<Product>("/v1/products"),
@@ -244,8 +253,11 @@ export const api = {
       getList<Payout>(
         organizationId ? `/v1/payouts?organizationId=${encodeURIComponent(organizationId)}` : "/v1/payouts",
       ),
-    balance: (organizationId: string) =>
-      getItem<DecimalMoney>(`/v1/payouts/balance?organizationId=${encodeURIComponent(organizationId)}`),
+    // Tenant-scoped via the session; returns the full take-rate breakdown.
+    async balance(): Promise<PayoutBalance | null> {
+      const { data } = await getItem<PayoutBalance>("/v1/payouts/balance");
+      return data;
+    },
     create: (input: {
       organizationId: string;
       walletAddress: string;

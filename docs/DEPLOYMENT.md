@@ -11,23 +11,57 @@ clear "not configured" no-op until its key is set).
 
 ## Render (full stack) — `render.yaml` blueprint
 
-`render.yaml` at the repo root is a Render Blueprint. From the Render dashboard:
+`render.yaml` at the repo root is a Render Blueprint. **Deploy via Blueprint —
+NOT as a plain Web Service** (see Troubleshooting below for why). From the Render
+dashboard:
 
 1. **New → Blueprint**, connect the GitHub repo, pick `render.yaml`.
 2. Render provisions: `settlekit-db` (Postgres), `settlekit-api` + `settlekit-worker`
-   (Docker), and `settlekit-web` / `dashboard` / `marketplace` / `docs` (Next.js).
+   (Docker), and `settlekit-web` / `dashboard` / `marketplace` / `checkout` / `docs`
+   (Next.js). Each Next service starts with `next start -p $PORT` so Render detects
+   the open port.
 3. Signing secrets (`*_SECRET`, `API_BOOTSTRAP_KEY`) are **auto-generated**.
    `DATABASE_URL` is wired from the database automatically.
-4. After the first deploy, set the cross-service URLs in each service's Environment:
-   - `settlekit-dashboard` / `marketplace` → `NEXT_PUBLIC_API_URL` = the API's URL.
+4. **Migrations run automatically**: the API service's `preDeployCommand` runs the
+   bundled migrator (`node /app/packages/database/dist/cli.js`) against `DATABASE_URL`
+   before each deploy goes live. It's idempotent — a deploy with no new migrations
+   is a no-op. (To run manually: `DATABASE_URL=… pnpm --filter @settlekit/database migrate:run`.)
+5. After the first deploy, set the cross-service URLs in each service's Environment:
+   - `settlekit-dashboard` / `marketplace` / `checkout` → `NEXT_PUBLIC_API_URL` = the API's URL.
    - `settlekit-web` → `NEXT_PUBLIC_DASHBOARD_URL`, `NEXT_PUBLIC_MARKETPLACE_URL`,
      `NEXT_PUBLIC_DOCS_URL`.
-5. **Run migrations once** against the new DB (the API seeds defaults on boot; for
-   the Postgres schema run `pnpm --filter @settlekit/database db:migrate` with
-   `DATABASE_URL` set, e.g. from a one-off Render job or locally).
 6. **Later (when live):** add the Circle/Arc keys (`CIRCLE_*`, `GAS_STATION_API_KEY`,
    `COMPLIANCE_API_KEY`, `ARC_CHAIN_ID=5042002`) to `settlekit-api` (+ wallet keys to
-   the worker). Each flips its feature live; see `.env.example`.
+   the worker). Each flips its feature live; see `.env.example`. The platform
+   take-rate is configurable via `PLATFORM_FEE_BPS` / `PLATFORM_FEE_FIXED` (default
+   2.5% + 0.30).
+
+> **Commit the lockfile.** Every service installs with `--frozen-lockfile`, so
+> `pnpm-lock.yaml` must be committed and current (run `pnpm install` and commit it
+> after any dependency change), or the build fails before it starts.
+
+## Troubleshooting
+
+**`ERR_PNPM_NO_SCRIPT_OR_SERVER: Missing script start or file server.js` /
+`No open ports detected`** — the service was created as a plain **Web Service**
+pointing at the repo root, so Render runs its default `pnpm start`. The monorepo
+root has no `start` script and binds no port, so it fails. **Fix:** delete that
+service and redeploy via **New → Blueprint** (above), which gives each app its own
+build/start command. If you must configure a service by hand instead, set:
+
+| Service     | Build command                                                                          | Start command                                              |
+| ----------- | -------------------------------------------------------------------------------------- | --------------------------------------------------------- |
+| API         | *(use Docker: `apps/api/Dockerfile`)*                                                   | *(Docker `CMD`)*                                           |
+| Worker      | *(use Docker: `apps/worker/Dockerfile`)*                                                | *(Docker `CMD`)*                                           |
+| Marketing   | `corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/web... build`             | `pnpm --filter @settlekit/web exec next start -p $PORT`             |
+| Dashboard   | `corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/dashboard... build`       | `pnpm --filter @settlekit/dashboard exec next start -p $PORT`       |
+| Marketplace | `corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/marketplace-app... build` | `pnpm --filter @settlekit/marketplace-app exec next start -p $PORT` |
+| Checkout    | `corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/checkout-app... build`    | `pnpm --filter @settlekit/checkout-app exec next start -p $PORT`    |
+| Docs        | `corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/docs-app... build`        | `pnpm --filter @settlekit/docs-app exec next start -p $PORT`        |
+
+The Next.js package names are `@settlekit/web`, `@settlekit/dashboard`,
+`@settlekit/marketplace-app`, `@settlekit/checkout-app`, `@settlekit/docs-app`
+(the `-app` suffix matters for the last three).
 
 ## Vercel (the Next.js sites)
 
@@ -39,6 +73,7 @@ the same repo and set **Root Directory** to the app:
 | Marketing   | `apps/web`          |
 | Dashboard   | `apps/dashboard`    |
 | Marketplace | `apps/marketplace`  |
+| Checkout    | `apps/checkout`     |
 | Docs        | `apps/docs`         |
 
 `apps/web/vercel.json` already sets the pnpm-workspace install + build commands

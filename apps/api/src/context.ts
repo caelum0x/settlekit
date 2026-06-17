@@ -68,6 +68,11 @@ import { RefundService, InMemoryRefundStore, type RefundStore } from "@settlekit
 import { DunningService, InMemoryDunningStore, type DunningStore } from "@settlekit/dunning";
 import { DisputeService, InMemoryDisputeStore, type DisputeStore } from "@settlekit/disputes";
 import { PayoutService, InMemoryPayoutStore, type PayoutStore } from "@settlekit/payouts";
+import {
+  DEFAULT_FEE_SCHEDULE,
+  normalizeSchedule,
+  type PlatformFeeSchedule,
+} from "@settlekit/platform-billing";
 import { generateId } from "@settlekit/common";
 import {
   FileDeliveryService,
@@ -265,6 +270,8 @@ export interface AppContext {
   readonly disputeStore: DisputeStore;
   readonly payouts: PayoutService;
   readonly payoutStore: PayoutStore;
+  /** Platform take-rate applied to merchant settlements (SettleKit revenue). */
+  readonly platformFeeSchedule: PlatformFeeSchedule;
 }
 
 /** Pick the Postgres implementation when `db` is set, else the in-memory one. */
@@ -367,6 +374,14 @@ export async function createContext(): Promise<AppContext> {
   const dunningStore = pick<DunningStore>(db, (d) => new PgDunningStore(d), () => new InMemoryDunningStore());
   const disputeStore = pick<DisputeStore>(db, (d) => new PgDisputeStore(d), () => new InMemoryDisputeStore());
   const payoutStore = pick<PayoutStore>(db, (d) => new PgPayoutStore(d), () => new InMemoryPayoutStore());
+
+  // Platform take-rate (SettleKit revenue): overridable via env, validated at
+  // startup so a misconfigured fee fails fast instead of skimming the wrong cut.
+  const platformFeeSchedule: PlatformFeeSchedule = normalizeSchedule({
+    bps: process.env.PLATFORM_FEE_BPS ? Number(process.env.PLATFORM_FEE_BPS) : DEFAULT_FEE_SCHEDULE.bps,
+    fixed: process.env.PLATFORM_FEE_FIXED ?? DEFAULT_FEE_SCHEDULE.fixed,
+  });
+
   const merchant: Merchant = {
     name: process.env.MERCHANT_NAME ?? "SettleKit Merchant",
     ...(process.env.MERCHANT_EMAIL ? { email: process.env.MERCHANT_EMAIL } : {}),
@@ -490,6 +505,7 @@ export async function createContext(): Promise<AppContext> {
     disputeStore,
     payouts: new PayoutService(payoutStore, () => generateId("payoutWallet")),
     payoutStore,
+    platformFeeSchedule,
   };
 }
 

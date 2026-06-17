@@ -34,6 +34,7 @@
     { "path": "../../packages/dunning" },
     { "path": "../../packages/disputes" },
     { "path": "../../packages/payouts" },
+    { "path": "../../packages/platform-billing" },
     { "path": "../../packages/circle-wallets" },
     { "path": "../../packages/compliance" },
     { "path": "../../packages/cctp" },

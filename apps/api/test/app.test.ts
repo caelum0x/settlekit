@@ -758,4 +758,75 @@ describe("SettleKit API", () => {
     const bViaSession = await callAs(merchantB.sessionToken, "GET", "/v1/customers");
     expect(bViaSession.data.map((cu: { email: string }) => cu.email)).toEqual(["b-buyer@example.com"]);
   });
+
+  it("derives the activation funnel from live data as the merchant progresses", async () => {
+    const app = await authedApp();
+
+    // Fresh org: nothing done yet, first step is to create a product.
+    const start = await call(app, "GET", "/v1/onboarding");
+    expect(start.status).toBe(200);
+    expect(start.json.data.complete).toBe(false);
+    expect(start.json.data.nextStep.key).toBe("create_product");
+    const stepDone = (s: Json, key: string): boolean =>
+      s.data.steps.find((x: { key: string }) => x.key === key).done;
+    expect(stepDone(start.json, "create_product")).toBe(false);
+
+    // Create a product -> first step flips, next step is to add a price.
+    const product = await call(app, "POST", "/v1/products", {
+      merchantId: "m",
+      name: "Funnel Plan",
+      type: "saas_plan",
+      deliveryMode: "saas_entitlement",
+    });
+    const productId = product.json.data.id as string;
+    const afterProduct = await call(app, "GET", "/v1/onboarding");
+    expect(stepDone(afterProduct.json, "create_product")).toBe(true);
+    expect(afterProduct.json.data.nextStep.key).toBe("add_price");
+
+    // Attach a price -> add_price flips.
+    await call(app, "POST", `/v1/products/${productId}/prices`, { amount: "25", interval: "monthly" });
+    const afterPrice = await call(app, "GET", "/v1/onboarding");
+    expect(stepDone(afterPrice.json, "add_price")).toBe(true);
+    expect(afterPrice.json.data.nextStep.key).toBe("publish_product");
+
+    // Publish -> publish_product flips; payment/payout remain the open steps.
+    await call(app, "POST", `/v1/products/${productId}/publish`, {});
+    const afterPublish = await call(app, "GET", "/v1/onboarding");
+    expect(stepDone(afterPublish.json, "publish_product")).toBe(true);
+    expect(afterPublish.json.data.completed).toBe(3);
+    expect(afterPublish.json.data.nextStep.key).toBe("first_payment");
+    expect(afterPublish.json.data.percent).toBe(60);
+  });
+
+  it("applies the platform take-rate to the merchant's withdrawable balance", async () => {
+    // Settle a 40.00 USDC payment. Default take-rate is 2.5% + 0.30:
+    //   fee = 1.00 + 0.30 = 1.30 ; net = 38.70.
+    await makeConfirmedPayment(app);
+
+    const balance = await call(app, "GET", "/v1/payouts/balance");
+    expect(balance.status).toBe(200);
+    expect(balance.json.data.grossVolume.amount).toBe("40");
+    expect(balance.json.data.platformFees.amount).toBe("1.3");
+    expect(balance.json.data.netToMerchant.amount).toBe("38.7");
+    // Withdrawable is net of the platform fee (no prior payouts yet).
+    expect(balance.json.data.available.amount).toBe("38.7");
+    expect(balance.json.data.feeSchedule.bps).toBe(250);
+
+    // A payout for the net amount succeeds; one cent more than net is rejected
+    // because the platform's cut is reserved and cannot be withdrawn.
+    const ok = await call(app, "POST", "/v1/payouts", {
+      walletAddress: "0xMerchantWallet",
+      amount: "38.70",
+      network: "arc",
+    });
+    expect(ok.status).toBe(201);
+
+    const tooMuch = await call(app, "POST", "/v1/payouts", {
+      walletAddress: "0xMerchantWallet",
+      amount: "0.01",
+      network: "arc",
+    });
+    // Balance is now fully drawn down; any further payout exceeds it.
+    expect(tooMuch.status).toBe(400);
+  });
 });

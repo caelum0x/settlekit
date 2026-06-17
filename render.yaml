@@ -12,7 +12,13 @@
 #   settlekit-web        marketing site (Next.js)
 #   settlekit-dashboard  merchant dashboard (Next.js)
 #   settlekit-marketplace public marketplace (Next.js)
+#   settlekit-checkout   customer-facing checkout pages (Next.js)
 #   settlekit-docs       docs site (Next.js)
+#
+# NOTE: do NOT create a plain Web Service pointing at the repo root — Render's
+# default `pnpm start` has no root script and binds no port, so it fails with
+# ERR_PNPM_NO_SCRIPT_OR_SERVER. Always deploy via Blueprint (New → Blueprint)
+# so each service gets the per-app build/start commands below.
 
 databases:
   - name: settlekit-db
@@ -29,6 +35,10 @@ services:
     dockerContext: .
     plan: free
     healthCheckPath: /health
+    # Apply pending Postgres migrations before each deploy goes live. Runs the
+    # programmatic migrator (runtime deps only) bundled in the image; idempotent,
+    # so re-deploys with no new migrations are a no-op.
+    preDeployCommand: node /app/packages/database/dist/cli.js
     envVars:
       - key: NODE_ENV
         value: production
@@ -101,7 +111,8 @@ services:
     runtime: node
     plan: free
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/web... build
-    startCommand: pnpm --filter @settlekit/web exec next start
+    # `next start` must bind Render's injected $PORT, else "No open ports detected".
+    startCommand: pnpm --filter @settlekit/web exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
         value: "20"
@@ -118,7 +129,7 @@ services:
     runtime: node
     plan: free
     buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/dashboard... build
-    startCommand: pnpm --filter @settlekit/dashboard exec next start
+    startCommand: pnpm --filter @settlekit/dashboard exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
         value: "20"
@@ -130,8 +141,21 @@ services:
     name: settlekit-marketplace
     runtime: node
     plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/marketplace... build
-    startCommand: pnpm --filter @settlekit/marketplace exec next start
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/marketplace-app... build
+    startCommand: pnpm --filter @settlekit/marketplace-app exec next start -p $PORT
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+  # ---- Checkout (customer-facing payment pages) -----------------------------
+  - type: web
+    name: settlekit-checkout
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/checkout-app... build
+    startCommand: pnpm --filter @settlekit/checkout-app exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
         value: "20"
@@ -143,8 +167,8 @@ services:
     name: settlekit-docs
     runtime: node
     plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/docs... build
-    startCommand: pnpm --filter @settlekit/docs exec next start
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/docs-app... build
+    startCommand: pnpm --filter @settlekit/docs-app exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
         value: "20"

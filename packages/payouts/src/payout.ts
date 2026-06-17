@@ -27,17 +27,22 @@ export function reservedByPayouts(payouts: readonly Payout[], currency: Money["c
 }
 
 /**
- * Available balance for a merchant: gross confirmed payments minus amounts
- * already committed to prior (pending or paid) payouts. Pure bigint math.
+ * Available balance for a merchant: gross confirmed payments minus the platform
+ * take-rate (application fees) minus amounts already committed to prior (pending
+ * or paid) payouts. Pure bigint math. `platformFees` defaults to zero so a
+ * caller that applies no take-rate keeps the original gross-minus-reserved
+ * behavior. The fee total is computed by `@settlekit/platform-billing` and
+ * passed in, keeping this package decoupled from the fee schedule.
  */
 export function computeAvailableBalance(
   payments: readonly Payment[],
   priorPayouts: readonly Payout[],
   currency: Money["currency"] = "USDC",
+  platformFees: Money = money("0", currency),
 ): Money {
   const gross = grossConfirmed(payments, currency);
   const reserved = reservedByPayouts(priorPayouts, currency);
-  return subtractMoney(gross, reserved);
+  return subtractMoney(subtractMoney(gross, platformFees), reserved);
 }
 
 /** Input required to create a payout. */
@@ -51,6 +56,8 @@ export interface CreatePayoutInput {
   payments: readonly Payment[];
   /** Payouts already created for this merchant. */
   priorPayouts: readonly Payout[];
+  /** Platform take-rate already accrued on the backing payments (defaults to 0). */
+  platformFees?: Money;
 }
 
 /**
@@ -76,7 +83,12 @@ export function createPayout(
     return err(validationError("payout amount must be positive", { amount: amount.amount }));
   }
 
-  const available = computeAvailableBalance(input.payments, input.priorPayouts, amount.currency);
+  const available = computeAvailableBalance(
+    input.payments,
+    input.priorPayouts,
+    amount.currency,
+    input.platformFees ?? money("0", amount.currency),
+  );
   if (compareMoney(amount, available) > 0) {
     return err(
       validationError("payout amount exceeds available balance", {

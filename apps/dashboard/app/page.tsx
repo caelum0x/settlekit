@@ -16,15 +16,17 @@ import {
   EmptyState,
   ErrorBanner,
 } from "@/components/ui";
+import { OnboardingChecklist } from "@/components/OnboardingChecklist";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
-  const [summary, payments, subscriptions, runs] = await Promise.all([
+  const [summary, payments, subscriptions, runs, onboarding] = await Promise.all([
     api.analytics.summary(),
     api.payments.list(),
     api.subscriptions.list(),
     api.delivery.runs(),
+    api.onboarding.status(),
   ]);
 
   const recentPayments = payments.data.slice(0, 6);
@@ -46,6 +48,10 @@ export default async function DashboardPage() {
       />
 
       <ErrorBanner error={payments.error} />
+
+      {onboarding && !onboarding.complete ? (
+        <OnboardingChecklist status={onboarding} />
+      ) : null}
 
       <StatGrid>
         <StatCard

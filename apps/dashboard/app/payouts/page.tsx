@@ -3,6 +3,8 @@ import { formatMoneyDecimal, formatDate, humanize } from "@/lib/format";
 import {
   PageHeader,
   Card,
+  StatGrid,
+  StatCard,
   DataTable,
   StatusBadge,
   EmptyState,
@@ -10,6 +12,11 @@ import {
 } from "@/components/ui";
 import { SimpleCreateForm } from "@/components/forms/SimpleCreateForm";
 import type { Payout } from "@/lib/types";
+
+/** Render a take-rate like "2.5% + 0.30" from a basis-points + fixed schedule. */
+function formatRate(bps: number, fixed: string): string {
+  return `${(bps / 100).toString()}% + ${fixed}`;
+}
 
 export const dynamic = "force-dynamic";
 
@@ -35,14 +42,44 @@ async function createPayout(values: Record<string, string>): Promise<string | nu
 }
 
 export default async function PayoutsPage() {
-  const payouts = await api.payouts.list();
+  const [payouts, balance] = await Promise.all([
+    api.payouts.list(),
+    api.payouts.balance(),
+  ]);
   return (
     <>
       <PageHeader
         title="Payouts"
-        description="On-chain settlements from the platform to a merchant organization's wallet. A payout cannot exceed the organization's available balance."
+        description="On-chain settlements to your wallet. Your available balance is your gross USDC volume minus the platform fee and prior payouts."
       />
       <ErrorBanner error={payouts.error} />
+
+      {balance ? (
+        <StatGrid>
+          <StatCard
+            label="Available to withdraw"
+            value={formatMoneyDecimal(balance.available)}
+            hint="Net of platform fee + prior payouts"
+            tone="good"
+          />
+          <StatCard
+            label="Gross volume"
+            value={formatMoneyDecimal(balance.grossVolume)}
+            hint="Lifetime confirmed payments"
+          />
+          <StatCard
+            label="Platform fee"
+            value={formatMoneyDecimal(balance.platformFees)}
+            hint={`Take-rate ${formatRate(balance.feeSchedule.bps, balance.feeSchedule.fixed)}`}
+            tone="warn"
+          />
+          <StatCard
+            label="Net earnings"
+            value={formatMoneyDecimal(balance.netToMerchant)}
+            hint="Gross minus platform fee"
+          />
+        </StatGrid>
+      ) : null}
       <Card title="Payouts">
         <DataTable<Payout>
           rows={payouts.data}

@@ -642,3 +642,107 @@ code {
 .breadcrumb a:hover {
   color: var(--accent);
 }
+
+/* ---------- Button variants ---------- */
+.btn-ghost {
+  background: transparent;
+  border-color: var(--border-strong);
+  color: var(--text-muted);
+}
+.btn-ghost:hover {
+  color: var(--text);
+  border-color: var(--accent);
+}
+.btn-sm {
+  padding: 5px 11px;
+  font-size: 12px;
+}
+
+/* ---------- Onboarding checklist ---------- */
+.onboarding {
+  border-color: var(--accent);
+  background: linear-gradient(180deg, var(--accent-soft), transparent 120px), var(--bg-panel);
+}
+.onboarding-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.onboarding-pct {
+  font-size: 22px;
+  font-weight: 700;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+.onboarding-progress {
+  height: 6px;
+  border-radius: 999px;
+  background: var(--bg-elevated);
+  overflow: hidden;
+  margin: 14px 0 18px;
+}
+.onboarding-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+.onboarding-steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.onboarding-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elevated);
+}
+.onboarding-step.next {
+  border-color: var(--accent);
+}
+.onboarding-step.done {
+  opacity: 0.7;
+}
+.onboarding-check {
+  flex: 0 0 22px;
+  width: 22px;
+  height: 22px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  font-size: 13px;
+  background: var(--bg-panel);
+  color: var(--text-dim);
+}
+.onboarding-step.done .onboarding-check {
+  background: var(--good-soft);
+  color: var(--good);
+}
+.onboarding-step-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.onboarding-step-title {
+  font-weight: 600;
+  font-size: 14px;
+}
+.onboarding-step.done .onboarding-step-title {
+  text-decoration: line-through;
+  text-decoration-color: var(--text-dim);
+}
+.onboarding-step-status {
+  font-size: 12px;
+  flex: 0 0 auto;
+}

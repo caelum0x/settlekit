@@ -10,14 +10,18 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": ["dist", "drizzle"],
+  "bin": {
+    "settlekit-migrate": "./dist/cli.js"
+  },
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "migrate:run": "node dist/cli.js"
   },
   "dependencies": {
     "@settlekit/common": "workspace:*",

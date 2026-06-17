@@ -37,6 +37,7 @@ import { agentServiceRoutes } from "./routes/agent-services.js";
 import { marketplaceRoutes } from "./routes/marketplace.js";
 import { usageRoutes } from "./routes/usage.js";
 import { analyticsRoutes } from "./routes/analytics.js";
+import { onboardingRoutes } from "./routes/onboarding.js";
 import { settingsRoutes } from "./routes/settings.js";
 import { x402Routes } from "./routes/x402.js";
 import { escrowRoutes } from "./routes/escrow.js";
@@ -159,6 +160,9 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
 
   // ---- Analytics (merchant dashboard summary) ----------------------------
   v1.route("/analytics", analyticsRoutes());
+
+  // ---- Onboarding (merchant activation funnel) ---------------------------
+  v1.route("/onboarding", onboardingRoutes());
 
   // ---- Organization settings ---------------------------------------------
   v1.route("/settings", settingsRoutes());

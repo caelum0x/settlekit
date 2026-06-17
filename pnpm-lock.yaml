@@ -156,6 +156,9 @@ importers:
       '@settlekit/persistence':
         specifier: workspace:*
         version: link:../../packages/persistence
+      '@settlekit/platform-billing':
+        specifier: workspace:*
+        version: link:../../packages/platform-billing
       '@settlekit/product-catalog':
         specifier: workspace:*
         version: link:../../packages/product-catalog
@@ -1502,6 +1505,19 @@ importers:
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
+  packages/platform-billing:
+    dependencies:
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+    devDependencies:
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
