@@ -1,0 +1,12 @@
+**/node_modules
+**/dist
+**/.next
+**/.turbo
+**/*.tsbuildinfo
+**/coverage
+**/target
+.git
+contracts/out
+contracts/cache
+contracts/lib
+design/brand-source
