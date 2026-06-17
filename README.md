@@ -17,6 +17,25 @@ Create product → Set price → Buyer pays → Access delivered
 
 ---
 
+## Live deployment
+
+SettleKit is live — API on Render, frontends on Vercel:
+
+| Surface | URL |
+| --- | --- |
+| Marketing site | https://settlekit-web.vercel.app |
+| Merchant dashboard | https://dashboard-neon-beta-80.vercel.app |
+| Marketplace | https://settlekit-marketplace.vercel.app |
+| Checkout | https://settlekit-checkout.vercel.app |
+| Docs | https://settlekit-docs.vercel.app |
+| API | https://settlekit-zym1.onrender.com |
+
+> The API runs on Render's free tier and sleeps when idle, so the first request
+> after a pause can take ~60s to wake. Frontends read the API URL from
+> `NEXT_PUBLIC_API_URL`. Full setup in [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
+
+---
+
 ## Why SettleKit
 
 Everything becomes an **entitlement**:

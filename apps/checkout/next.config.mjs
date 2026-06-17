@@ -1,7 +1,9 @@
 import { fileURLToPath } from "node:url";
-import { dirname } from "node:path";
+import { dirname, join } from "node:path";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+// Monorepo root (two levels up from apps/checkout).
+const monorepoRoot = join(__dirname, "..", "..");
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -19,10 +21,12 @@ const nextConfig = {
     "@settlekit/discord",
   ],
   experimental: {
-    // Pin output-file-tracing root to this app so build-trace collection
-    // resolves correctly inside the pnpm monorepo (Next 14 nests this key
-    // under `experimental`).
-    outputFileTracingRoot: __dirname,
+    // Trace from the MONOREPO ROOT, not this app dir — otherwise Next omits the
+    // workspace @settlekit/* package files from the serverless function bundle,
+    // which 500s at runtime on Vercel ("Cannot find module"). Local `next start`
+    // hides this because it uses the full node_modules. (Next 14 nests this key
+    // under `experimental`.)
+    outputFileTracingRoot: monorepoRoot,
   },
 };
 
