@@ -2217,6 +2217,43 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)
 
+  services/sidecars/owncast-stream:
+    dependencies:
+      '@hono/node-server':
+        specifier: ^1.13.7
+        version: 1.19.14(hono@4.12.25)
+      '@settlekit/citation-toll':
+        specifier: workspace:*
+        version: link:../../../packages/citation-toll
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../../../packages/common
+      '@settlekit/payee-registry':
+        specifier: workspace:*
+        version: link:../../../packages/payee-registry
+      '@settlekit/settlement-core':
+        specifier: workspace:*
+        version: link:../../../packages/settlement-core
+      '@settlekit/streaming':
+        specifier: workspace:*
+        version: link:../../../packages/streaming
+      hono:
+        specifier: ^4.6.14
+        version: 4.12.25
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      tsx:
+        specifier: ^4.19.2
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
   services/sidecars/rsshub-citation-toll:
     dependencies:
       '@hono/node-server':

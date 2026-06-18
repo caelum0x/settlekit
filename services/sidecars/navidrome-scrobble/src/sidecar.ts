@@ -26,10 +26,18 @@ export interface NavidromeSidecar {
   processor: ScrobbleProcessor;
 }
 
-export function createSidecar(config: NavidromeConfig = loadConfig()): NavidromeSidecar {
+export interface NavidromeOptions {
+  /** Inject a settlement provider (Gateway/Circle in prod; defaults to local). */
+  settlementProvider?: SettlementProvider;
+}
+
+export function createSidecar(
+  config: NavidromeConfig = loadConfig(),
+  options: NavidromeOptions = {},
+): NavidromeSidecar {
   const payees = new InMemoryPayeeRegistry();
   const royaltyLegStore = new InMemoryRoyaltyLegStore();
-  const settlementProvider = new LocalSettlementProvider();
+  const settlementProvider = options.settlementProvider ?? new LocalSettlementProvider();
   const caps = new SpendingCapEnforcer();
   const processor = createScrobbleProcessor({ payees, royaltyLegStore, caps, config });
 

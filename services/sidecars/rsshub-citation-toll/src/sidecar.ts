@@ -41,20 +41,32 @@ export interface Sidecar {
   demoSettler: Settler;
 }
 
-export function createSidecar(config: SidecarConfig = loadConfig()): Sidecar {
+export interface SidecarOptions {
+  /** Inject a settlement provider (Gateway/Circle in prod; defaults to local). */
+  settlementProvider?: SettlementProvider;
+  /** Override the x402 verifier (defaults to on-chain when an indexer URL is
+   * configured, else a local pair for demos/tests). */
+  verify?: PaymentVerifier;
+}
+
+export function createSidecar(
+  config: SidecarConfig = loadConfig(),
+  options: SidecarOptions = {},
+): Sidecar {
   const registry = new InMemorySourceRegistry();
   const payees = new InMemoryPayeeRegistry();
   const royaltyLegStore = new InMemoryRoyaltyLegStore();
-  const settlementProvider = new LocalSettlementProvider();
+  const settlementProvider = options.settlementProvider ?? new LocalSettlementProvider();
   const ingestor = createRssIngestor({ registry, payees, config });
 
   // x402 verification: on-chain via the Arc indexer when configured, else a
   // local settlement pair for demos/tests.
   const localSettlement = createLocalSettlement();
   const verify: PaymentVerifier =
-    config.indexerUrl !== undefined
+    options.verify ??
+    (config.indexerUrl !== undefined
       ? createOnchainVerifier({ indexer: createFetchIndexerClient({ baseUrl: config.indexerUrl }) })
-      : localSettlement.verify;
+      : localSettlement.verify);
 
   const distributor = createTollDistributor({ royaltyLegStore });
   const tollRouter = createCitationTollRouter(registry, { verify, distributor });

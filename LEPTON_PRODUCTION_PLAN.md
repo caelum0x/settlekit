@@ -26,7 +26,11 @@ Done and green: **`@settlekit/payee-registry`** (identity→wallet mapping, in-m
 
 Also done (Phase 3 start): **`services/sidecars/navidrome-scrobble`** — per-listen royalties for self-hosted music servers (RFB 6.05). Play-gated (a skip in the first seconds is free), per-listener daily spending caps (wallet-fleet), artist→wallet via the payee registry, accrued per-listen and settled to artists via the shared sweep. Booted live: skip → not charged, full play → accrued, sweep → settled.
 
-Next: point the ingestors at live RSSHub / Navidrome instances (real feeds + plays → real authors/artists), wire the sidecars' settlement providers to Gateway/Circle on Arc testnet with the Arc-indexer verifier, and add the Owncast per-second streaming sidecar.
+Also done: **`services/sidecars/owncast-stream`** — per-second streaming settlement (RFB 4) on `@settlekit/streaming`: viewer join/leave meters watched time, accrues to the streamer, refunds the unused reserve, settles via the shared sweep. **Live-wiring seams** added: all three sidecars accept an injectable `settlementProvider` (flip to Gateway/Circle by config, no code change), the RSS sidecar accepts a `verify` override + on-chain verification via `ARC_INDEXER_URL`, and `fetchRssHubFeed`/`mapJsonFeed` map a live RSSHub JSON feed to ingestable items.
+
+Three creator-monetization patterns now share one settlement spine: **per-citation** (RSSHub), **per-listen** (Navidrome), **per-second** (Owncast).
+
+Remaining for true production: run against live RSSHub/Navidrome/Owncast instances with a Gateway/Circle provider + Arc-indexer verifier on Arc testnet (needs creds + running instances); add the on-chain contracts (Phase 4).
 
 ## Directory map (new work, by top-level folder)
 
