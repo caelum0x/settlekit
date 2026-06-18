@@ -1,0 +1,19 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "composite": true,
+    "types": ["node"]
+  },
+  "references": [
+    { "path": "../../../packages/common" },
+    { "path": "../../../packages/x402" },
+    { "path": "../../../packages/x402-client" },
+    { "path": "../../../packages/citation-toll" },
+    { "path": "../../../packages/payee-registry" },
+    { "path": "../../../packages/settlement-core" }
+  ],
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules", "test", "**/*.test.ts"]
+}

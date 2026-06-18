@@ -8,6 +8,11 @@
   "references": [
     { "path": "../common" },
     { "path": "../database" },
+    { "path": "../settlement-core" },
+    { "path": "../citation-toll" },
+    { "path": "../payee-registry" },
+    { "path": "../streaming" },
+    { "path": "../wallet-fleet" },
     { "path": "../agent-services" },
     { "path": "../api-keys" },
     { "path": "../auth" },

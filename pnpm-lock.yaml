@@ -66,6 +66,12 @@ importers:
       '@hono/node-server':
         specifier: ^1.13.7
         version: 1.19.14(hono@4.12.25)
+      '@settlekit/agent':
+        specifier: workspace:*
+        version: link:../../packages/agent
+      '@settlekit/agent-economy':
+        specifier: workspace:*
+        version: link:../../packages/agent-economy
       '@settlekit/agent-services':
         specifier: workspace:*
         version: link:../../packages/agent-services
@@ -90,6 +96,9 @@ importers:
       '@settlekit/circle-wallets':
         specifier: workspace:*
         version: link:../../packages/circle-wallets
+      '@settlekit/citation-toll':
+        specifier: workspace:*
+        version: link:../../packages/citation-toll
       '@settlekit/common':
         specifier: workspace:*
         version: link:../../packages/common
@@ -174,6 +183,9 @@ importers:
       '@settlekit/stablefx':
         specifier: workspace:*
         version: link:../../packages/stablefx
+      '@settlekit/streaming':
+        specifier: workspace:*
+        version: link:../../packages/streaming
       '@settlekit/usage':
         specifier: workspace:*
         version: link:../../packages/usage
@@ -183,6 +195,9 @@ importers:
       '@settlekit/x402':
         specifier: workspace:*
         version: link:../../packages/x402
+      '@settlekit/x402-client':
+        specifier: workspace:*
+        version: link:../../packages/x402-client
       hono:
         specifier: ^4.6.14
         version: 4.12.25
@@ -498,6 +513,9 @@ importers:
       '@settlekit/circle-wallets':
         specifier: workspace:*
         version: link:../../packages/circle-wallets
+      '@settlekit/citation-toll':
+        specifier: workspace:*
+        version: link:../../packages/citation-toll
       '@settlekit/common':
         specifier: workspace:*
         version: link:../../packages/common
@@ -537,6 +555,12 @@ importers:
       '@settlekit/saas':
         specifier: workspace:*
         version: link:../../packages/saas
+      '@settlekit/settlement-core':
+        specifier: workspace:*
+        version: link:../../packages/settlement-core
+      '@settlekit/streaming':
+        specifier: workspace:*
+        version: link:../../packages/streaming
       '@settlekit/webhooks':
         specifier: workspace:*
         version: link:../../packages/webhooks
@@ -557,6 +581,68 @@ importers:
         specifier: workspace:*
         version: link:../common
     devDependencies:
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
+  packages/agent:
+    dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.65.0
+        version: 0.65.0(zod@3.25.76)
+      '@settlekit/agent-services':
+        specifier: workspace:*
+        version: link:../agent-services
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      '@settlekit/x402':
+        specifier: workspace:*
+        version: link:../x402
+      '@settlekit/x402-client':
+        specifier: workspace:*
+        version: link:../x402-client
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
+    devDependencies:
+      '@settlekit/citation-toll':
+        specifier: workspace:*
+        version: link:../citation-toll
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
+  packages/agent-economy:
+    dependencies:
+      '@settlekit/agent':
+        specifier: workspace:*
+        version: link:../agent
+      '@settlekit/agent-services':
+        specifier: workspace:*
+        version: link:../agent-services
+      '@settlekit/citation-toll':
+        specifier: workspace:*
+        version: link:../citation-toll
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      '@settlekit/x402-client':
+        specifier: workspace:*
+        version: link:../x402-client
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -801,6 +887,34 @@ importers:
         specifier: ^2.21.0
         version: 2.52.2(typescript@5.9.3)(zod@3.25.76)
     devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
+  packages/citation-toll:
+    dependencies:
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      '@settlekit/platform-billing':
+        specifier: workspace:*
+        version: link:../platform-billing
+      '@settlekit/settlement-core':
+        specifier: workspace:*
+        version: link:../settlement-core
+      '@settlekit/x402':
+        specifier: workspace:*
+        version: link:../x402
+    devDependencies:
+      '@settlekit/x402-client':
+        specifier: workspace:*
+        version: link:../x402-client
       '@types/node':
         specifier: ^20.14.0
         version: 20.19.43
@@ -1385,6 +1499,22 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)
 
+  packages/payee-registry:
+    dependencies:
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
   packages/paymaster:
     dependencies:
       '@settlekit/arc':
@@ -1453,6 +1583,9 @@ importers:
       '@settlekit/bundles':
         specifier: workspace:*
         version: link:../bundles
+      '@settlekit/citation-toll':
+        specifier: workspace:*
+        version: link:../citation-toll
       '@settlekit/common':
         specifier: workspace:*
         version: link:../common
@@ -1486,6 +1619,9 @@ importers:
       '@settlekit/marketplace-core':
         specifier: workspace:*
         version: link:../marketplace-core
+      '@settlekit/payee-registry':
+        specifier: workspace:*
+        version: link:../payee-registry
       '@settlekit/payments':
         specifier: workspace:*
         version: link:../payments
@@ -1498,9 +1634,18 @@ importers:
       '@settlekit/saas':
         specifier: workspace:*
         version: link:../saas
+      '@settlekit/settlement-core':
+        specifier: workspace:*
+        version: link:../settlement-core
+      '@settlekit/streaming':
+        specifier: workspace:*
+        version: link:../streaming
       '@settlekit/usage':
         specifier: workspace:*
         version: link:../usage
+      '@settlekit/wallet-fleet':
+        specifier: workspace:*
+        version: link:../wallet-fleet
     devDependencies:
       '@types/node':
         specifier: ^20.14.0
@@ -1741,6 +1886,28 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)
 
+  packages/settlement-core:
+    dependencies:
+      '@settlekit/circle-wallets':
+        specifier: workspace:*
+        version: link:../circle-wallets
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      '@settlekit/gateway':
+        specifier: workspace:*
+        version: link:../gateway
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
   packages/sla:
     dependencies:
       '@settlekit/common':
@@ -1782,6 +1949,22 @@ importers:
         specifier: workspace:*
         version: link:../common
     devDependencies:
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
+  packages/streaming:
+    dependencies:
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
@@ -1908,6 +2091,25 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)
 
+  packages/wallet-fleet:
+    dependencies:
+      '@settlekit/circle-wallets':
+        specifier: workspace:*
+        version: link:../circle-wallets
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
   packages/webhook-replay:
     dependencies:
       '@settlekit/common':
@@ -1953,10 +2155,88 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)
 
+  packages/x402-client:
+    dependencies:
+      '@settlekit/circle-wallets':
+        specifier: workspace:*
+        version: link:../circle-wallets
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      '@settlekit/settlement-core':
+        specifier: workspace:*
+        version: link:../settlement-core
+      '@settlekit/x402':
+        specifier: workspace:*
+        version: link:../x402
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
+  services/sidecars/rsshub-citation-toll:
+    dependencies:
+      '@hono/node-server':
+        specifier: ^1.13.7
+        version: 1.19.14(hono@4.12.25)
+      '@settlekit/citation-toll':
+        specifier: workspace:*
+        version: link:../../../packages/citation-toll
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../../../packages/common
+      '@settlekit/payee-registry':
+        specifier: workspace:*
+        version: link:../../../packages/payee-registry
+      '@settlekit/settlement-core':
+        specifier: workspace:*
+        version: link:../../../packages/settlement-core
+      '@settlekit/x402':
+        specifier: workspace:*
+        version: link:../../../packages/x402
+      '@settlekit/x402-client':
+        specifier: workspace:*
+        version: link:../../../packages/x402-client
+      hono:
+        specifier: ^4.6.14
+        version: 4.12.25
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      tsx:
+        specifier: ^4.19.2
+        version: 4.22.4
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
 packages:
 
   '@adraffy/ens-normalize@1.11.1':
     resolution: {integrity: sha512-nhCBV3quEgesuf7c7KYfperqSS14T8bYuvJ8PcLJp6znkZpFc0AuW4qBtr8eKVyPPe/8RSr7sglCWPU5eaxwKQ==}
+
+  '@anthropic-ai/sdk@0.65.0':
+    resolution: {integrity: sha512-zIdPOcrCVEI8t3Di40nH4z9EoeyGZfXbYSvWdDLsB/KkaSYMnEgC7gmcgWu83g2NTn1ZTpbMvpdttWDGGIk6zw==}
+    hasBin: true
+    peerDependencies:
+      zod: ^3.25.0 || ^4.0.0
+    peerDependenciesMeta:
+      zod:
+        optional: true
+
+  '@babel/runtime@7.29.7':
+    resolution: {integrity: sha512-Nq8OhGWiZIZGV6hLHoyAKLLcJihP/xFeBMGJoUrxTX2psI8dCifzLhZISFb+VWS3wFMRDmCGw5R+dOySCqPLhw==}
+    engines: {node: '>=6.9.0'}
 
   '@drizzle-team/brocli@0.10.2':
     resolution: {integrity: sha512-z33Il7l5dKjUgGULTqBsQBQwckHh5AbIuxhdsIxDDiZAzBOrZO6q9ogcWC65kU382AfynTfgNumVcNIjuIua6w==}
@@ -3133,6 +3413,10 @@ packages:
   js-tokens@4.0.0:
     resolution: {integrity: sha512-RdJUflcE3cUzKiMqQgsCu06FPu9UdIJO0beYbPhHN4k6apgJtifcoCtT9bcxOpYBtpD2kCM6Sbzg4CausW/PKQ==}
 
+  json-schema-to-ts@3.1.1:
+    resolution: {integrity: sha512-+DWg8jCJG2TEnpy7kOm/7/AxaYoaRbjVB4LFZLySZlWn8exGs3A4OLJR966cVvU26N7X9TWxl+Jsw7dzAqKT6g==}
+    engines: {node: '>=16'}
+
   json-with-bigint@3.5.8:
     resolution: {integrity: sha512-eq/4KP6K34kwa7TcFdtvnftvHCD9KvHOGGICWwMFc4dOOKF5t4iYqnfLK8otCRCRv06FXOzGGyqE8h8ElMvvdw==}
 
@@ -3293,6 +3577,9 @@ packages:
     resolution: {integrity: sha512-5DXWzE4Vz7xNHsv+xQ+MGfJYyC78Aok3tEr0MNwHoRf7vZnga1mQXZ4/Nsodld4VR6Wd+VhfmqnNrsRJyYPfrQ==}
     engines: {node: '>=20'}
 
+  ts-algebra@2.0.0:
+    resolution: {integrity: sha512-FPAhNPFMrkwz76P7cdjdmiShwMynZYN6SgOujD1urY4oNm80Ou9oMdmbR45LotcKOXoy7wSmHkRFE6Mxbrhefw==}
+
   tslib@2.8.1:
     resolution: {integrity: sha512-oJFu94HQb+KVduSUQL7wnpmqnfmLsOA/nAh6b6EH0wCEoK0/mPeXU6c3wKDV83MkOuHPRHtSXKKU99IBazS/2w==}
 
@@ -3412,6 +3699,14 @@ packages:
 snapshots:
 
   '@adraffy/ens-normalize@1.11.1': {}
+
+  '@anthropic-ai/sdk@0.65.0(zod@3.25.76)':
+    dependencies:
+      json-schema-to-ts: 3.1.1
+    optionalDependencies:
+      zod: 3.25.76
+
+  '@babel/runtime@7.29.7': {}
 
   '@drizzle-team/brocli@0.10.2': {}
 
@@ -4225,6 +4520,11 @@ snapshots:
 
   js-tokens@4.0.0: {}
 
+  json-schema-to-ts@3.1.1:
+    dependencies:
+      '@babel/runtime': 7.29.7
+      ts-algebra: 2.0.0
+
   json-with-bigint@3.5.8: {}
 
   loose-envify@1.4.0:
@@ -4387,6 +4687,8 @@ snapshots:
   tinyspy@3.0.2: {}
 
   toad-cache@3.7.1: {}
+
+  ts-algebra@2.0.0: {}
 
   tslib@2.8.1: {}
 

@@ -18,8 +18,23 @@ import type { WorkerConfig } from "./config.js";
 import { createDb } from "@settlekit/database";
 import { InMemoryWorkerStore, type WorkerStore } from "./stores.js";
 import { PgWorkerStore } from "./db/pg-worker-store.js";
-import { PgLicenseStore, PgApiKeyStore, PgGrantStore, PgPayoutStore } from "@settlekit/persistence";
+import {
+  PgLicenseStore,
+  PgApiKeyStore,
+  PgGrantStore,
+  PgPayoutStore,
+  PgIdempotencyStore,
+  PgRoyaltyLegStore,
+  PgStreamStore,
+} from "@settlekit/persistence";
 import { InMemoryPayoutStore, type PayoutStore } from "@settlekit/payouts";
+import type {
+  ConfirmationSource,
+  SettlementProvider,
+  SettlementReceiptStore,
+} from "@settlekit/settlement-core";
+import type { RoyaltyLegStore } from "@settlekit/citation-toll";
+import type { StreamStore } from "@settlekit/streaming";
 import { createWalletsClient, type WalletsClient } from "@settlekit/circle-wallets";
 import { createLogger, type Logger } from "./logger.js";
 import { createDeliveryClients } from "./wiring/delivery-clients.js";
@@ -35,6 +50,9 @@ import {
   dunningEmailJob,
   accessGrantedEmailJob,
   payoutReconcileJob,
+  leptonSettlementReconcileJob,
+  leptonPayoutSweepJob,
+  leptonStreamRefundJob,
   type JobContext,
 } from "./jobs/index.js";
 
@@ -57,6 +75,16 @@ export interface RuntimeDeps {
   payoutStore?: PayoutStore;
   /** Override the Circle wallets client (tests inject an in-memory double). */
   walletsClient?: WalletsClient | null;
+  /** Override the settlement receipt store (defaults to Pg when a DB is set). */
+  settlementStore?: SettlementReceiptStore;
+  /** On-chain confirmation source for settlement reconciliation (Arc indexer). */
+  confirmationSource?: ConfirmationSource;
+  /** Settlement provider for royalty payouts / stream refunds (Gateway/Circle). */
+  settlementProvider?: SettlementProvider;
+  /** Override the royalty-leg store (defaults to Pg when a DB is set). */
+  royaltyLegStore?: RoyaltyLegStore;
+  /** Override the stream store (defaults to Pg when a DB is set). */
+  streamStore?: StreamStore;
   /** Override the clock (deterministic tests). */
   now?: () => Date;
 }
@@ -144,6 +172,16 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
           })
         : null;
 
+  // Settlement spine: Pg-backed stores when a DB is configured; the confirmation
+  // source and settlement provider are injected by the deployment (they need an
+  // Arc indexer URL and signer/wallet config), so the Lepton jobs no-op until set.
+  const settlementStore: SettlementReceiptStore | undefined =
+    deps.settlementStore ?? (db ? new PgIdempotencyStore(db) : undefined);
+  const royaltyLegStore: RoyaltyLegStore | undefined =
+    deps.royaltyLegStore ?? (db ? new PgRoyaltyLegStore(db) : undefined);
+  const streamStore: StreamStore | undefined =
+    deps.streamStore ?? (db ? new PgStreamStore(db) : undefined);
+
   const ctx: JobContext = {
     config: deps.config,
     stores,
@@ -156,6 +194,11 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     discordApi: deps.discordApi,
     payoutStore,
     walletsClient,
+    ...(settlementStore !== undefined ? { settlementStore } : {}),
+    ...(deps.confirmationSource !== undefined ? { confirmationSource: deps.confirmationSource } : {}),
+    ...(deps.settlementProvider !== undefined ? { settlementProvider: deps.settlementProvider } : {}),
+    ...(royaltyLegStore !== undefined ? { royaltyLegStore } : {}),
+    ...(streamStore !== undefined ? { streamStore } : {}),
     now,
   };
 
@@ -177,6 +220,10 @@ export function buildRuntime(deps: RuntimeDeps): WorkerRuntime {
     { job: dunningEmailJob, intervalMs: intervals.dunningEmailMs },
     { job: accessGrantedEmailJob, intervalMs: intervals.accessEmailMs },
     { job: payoutReconcileJob, intervalMs: intervals.payoutReconcileMs },
+    // Reuse the payout-reconcile cadence; all no-op until the settlement spine is wired.
+    { job: leptonSettlementReconcileJob, intervalMs: intervals.payoutReconcileMs },
+    { job: leptonPayoutSweepJob, intervalMs: intervals.payoutReconcileMs },
+    { job: leptonStreamRefundJob, intervalMs: intervals.payoutReconcileMs },
   ];
 
   const scheduler = new Scheduler(scheduled, ctx, logger);

@@ -130,6 +130,18 @@ const EXPECTED_TABLE_NAMES = [
   "worker_webhook_jobs",
   "worker_email_ledger",
   "worker_dunning_attempts",
+  "lepton_sources",
+  "lepton_citations",
+  "lepton_royalty_legs",
+  "lepton_streams",
+  "lepton_stream_settlements",
+  "lepton_agent_runs",
+  "lepton_agent_purchases",
+  "lepton_wallets",
+  "lepton_payees",
+  "lepton_payee_splits",
+  "lepton_settlements",
+  "lepton_nonces",
 ] as const;
 
 describe("schema table coverage", () => {
