@@ -24,7 +24,9 @@ Also done: **`@settlekit/streaming`** `StreamStore` (+ `PgStreamStore`), royalty
 
 Done and green: **`@settlekit/payee-registry`** (identity→wallet mapping, in-memory + `PgPayeeRegistry`), the shared **`sweepPendingRoyalties`** (one money-path implementation, used by the worker job and the sidecar), and the first real-traction sidecar **`services/sidecars/rsshub-citation-toll`** — ingests RSS items as priced citeable sources (author→wallet via the payee registry), gates them behind x402, records per-citation royalty legs, and settles them to authors through `settlement-core`. The demo modules are flipped onto the settlement spine. `services/sidecars/*` is now a TS workspace area (pnpm + vitest wired). Booted live: ingest → 402 challenge → sweep all verified over HTTP.
 
-Next in Phase 2: point the ingestor at a live RSSHub instance (real feeds → real authors), wire the sidecar's settlement provider to Gateway/Circle on Arc testnet with the Arc-indexer verifier, and add the Navidrome per-listen sidecar (Phase 3).
+Also done (Phase 3 start): **`services/sidecars/navidrome-scrobble`** — per-listen royalties for self-hosted music servers (RFB 6.05). Play-gated (a skip in the first seconds is free), per-listener daily spending caps (wallet-fleet), artist→wallet via the payee registry, accrued per-listen and settled to artists via the shared sweep. Booted live: skip → not charged, full play → accrued, sweep → settled.
+
+Next: point the ingestors at live RSSHub / Navidrome instances (real feeds + plays → real authors/artists), wire the sidecars' settlement providers to Gateway/Circle on Arc testnet with the Arc-indexer verifier, and add the Owncast per-second streaming sidecar.
 
 ## Directory map (new work, by top-level folder)
 
