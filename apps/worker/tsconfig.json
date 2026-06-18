@@ -9,6 +9,9 @@
   "references": [
     { "path": "../../packages/common" },
     { "path": "../../packages/database" },
+    { "path": "../../packages/settlement-core" },
+    { "path": "../../packages/citation-toll" },
+    { "path": "../../packages/streaming" },
     { "path": "../../packages/persistence" },
     { "path": "../../packages/payments" },
     { "path": "../../packages/payouts" },

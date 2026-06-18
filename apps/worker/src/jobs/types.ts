@@ -14,6 +14,13 @@ import type { DiscordApi } from "@settlekit/discord";
 import type { EmailClient } from "@settlekit/notifications";
 import type { PayoutStore } from "@settlekit/payouts";
 import type { WalletsClient } from "@settlekit/circle-wallets";
+import type {
+  ConfirmationSource,
+  SettlementProvider,
+  SettlementReceiptStore,
+} from "@settlekit/settlement-core";
+import type { RoyaltyLegStore } from "@settlekit/citation-toll";
+import type { StreamStore } from "@settlekit/streaming";
 import type { WorkerConfig } from "../config.js";
 import type { WorkerStore } from "../stores.js";
 import type { Logger } from "../logger.js";
@@ -40,6 +47,18 @@ export interface JobContext {
   payoutStore: PayoutStore;
   /** Circle wallets client for payout reconciliation; null when unconfigured. */
   walletsClient: WalletsClient | null;
+  /** Settlement receipt store for the settlement-reconcile job; absent when the
+   * Lepton settlement spine is not wired (the job then no-ops). */
+  settlementStore?: SettlementReceiptStore;
+  /** On-chain confirmation source (Arc indexer); absent → reconcile no-ops. */
+  confirmationSource?: ConfirmationSource;
+  /** Settlement provider for paying out royalties / stream refunds; absent →
+   * the payout-sweep and stream-refund jobs no-op. */
+  settlementProvider?: SettlementProvider;
+  /** Pending royalty legs to sweep into author payouts. */
+  royaltyLegStore?: RoyaltyLegStore;
+  /** Stream records to refund reserved-but-unused balances from. */
+  streamStore?: StreamStore;
   /** Injectable clock for deterministic tests. */
   now: () => Date;
 }

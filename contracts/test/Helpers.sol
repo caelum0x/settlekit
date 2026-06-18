@@ -9,6 +9,7 @@ interface Vm {
     function expectRevert() external;
     function expectRevert(bytes4 selector) external;
     function expectEmit(bool, bool, bool, bool) external;
+    function warp(uint256) external;
 }
 
 /** Tiny self-contained test base (avoids a forge-std dependency). */

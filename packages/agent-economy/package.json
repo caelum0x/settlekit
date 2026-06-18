@@ -1,0 +1,34 @@
+{
+  "name": "@settlekit/agent-economy",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "bin": {
+    "lepton-economy": "./dist/cli.js"
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "demo": "node dist/cli.js"
+  },
+  "dependencies": {
+    "@settlekit/common": "workspace:*",
+    "@settlekit/agent": "workspace:*",
+    "@settlekit/agent-services": "workspace:*",
+    "@settlekit/citation-toll": "workspace:*",
+    "@settlekit/x402-client": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

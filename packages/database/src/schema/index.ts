@@ -19,7 +19,22 @@ export * from "./file_delivery.js";
 export * from "./commerce.js";
 export * from "./auth.js";
 export * from "./worker.js";
+export * from "./lepton.js";
 
+import {
+  leptonSources,
+  leptonCitations,
+  leptonRoyaltyLegs,
+  leptonStreams,
+  leptonStreamSettlements,
+  leptonAgentRuns,
+  leptonAgentPurchases,
+  leptonWallets,
+  leptonPayees,
+  leptonPayeeSplits,
+  leptonSettlements,
+  leptonNonces,
+} from "./lepton.js";
 import {
   organizations,
   users,
@@ -179,6 +194,18 @@ export const schema = {
   workerWebhookJobs,
   workerEmailLedger,
   workerDunningAttempts,
+  leptonSources,
+  leptonCitations,
+  leptonRoyaltyLegs,
+  leptonStreams,
+  leptonStreamSettlements,
+  leptonAgentRuns,
+  leptonAgentPurchases,
+  leptonWallets,
+  leptonPayees,
+  leptonPayeeSplits,
+  leptonSettlements,
+  leptonNonces,
 } as const;
 
 /** The static type of the SettleKit schema object. */

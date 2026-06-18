@@ -24,8 +24,11 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
+    "@settlekit/agent": "workspace:*",
+    "@settlekit/agent-economy": "workspace:*",
     "@settlekit/agent-services": "workspace:*",
     "@settlekit/api-keys": "workspace:*",
+    "@settlekit/citation-toll": "workspace:*",
     "@settlekit/arc": "workspace:*",
     "@settlekit/auth": "workspace:*",
     "@settlekit/bundles": "workspace:*",
@@ -63,6 +66,8 @@
     "@settlekit/usage": "workspace:*",
     "@settlekit/webhooks": "workspace:*",
     "@settlekit/x402": "workspace:*",
+    "@settlekit/x402-client": "workspace:*",
+    "@settlekit/streaming": "workspace:*",
     "hono": "^4.6.14",
     "zod": "^3.24.1"
   },

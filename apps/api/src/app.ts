@@ -57,6 +57,7 @@ import { circleWebhookRoutes } from "./routes/circle-webhooks.js";
 import { userWalletRoutes } from "./routes/user-wallets.js";
 import { onchainEscrowRoutes } from "./routes/onchain-escrow.js";
 import { authRoutes } from "./routes/auth.js";
+import { leptonRoutes } from "./routes/lepton.js";
 
 /** Build the full SettleKit API app. Pass a context to share/isolate state. */
 export function createApp(ctx: AppContext): Hono<AppEnv> {
@@ -109,6 +110,10 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
   // x402 paid APIs are PUBLIC: the USDC payment IS the authorization, so these
   // are mounted outside the API-key guard (humans + AI agents pay per call).
   app.route("/v1/paid", x402Routes());
+
+  // Lepton hackathon demo is PUBLIC: self-contained, in-memory nanopayment
+  // modules (agent economy, citation tolls, streaming). No API key, no DB.
+  app.route("/v1/lepton", leptonRoutes());
 
   // Inbound Circle webhooks are PUBLIC: authenticated by Circle's ECDSA
   // signature (verified in the handler), not an API key. Mounted outside the

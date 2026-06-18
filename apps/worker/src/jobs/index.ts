@@ -14,6 +14,9 @@ export { renewalReminderJob } from "./renewal-reminder-job.js";
 export { dunningEmailJob } from "./dunning-email-job.js";
 export { accessGrantedEmailJob } from "./access-granted-email-job.js";
 export { payoutReconcileJob } from "./payout-reconcile-job.js";
+export { leptonSettlementReconcileJob } from "./lepton-settlement-reconcile-job.js";
+export { leptonPayoutSweepJob } from "./lepton-payout-sweep-job.js";
+export { leptonStreamRefundJob } from "./lepton-stream-refund-job.js";
 
 import type { Job } from "./types.js";
 import { deliveryRunnerJob } from "./delivery-runner-job.js";
@@ -26,6 +29,9 @@ import { renewalReminderJob } from "./renewal-reminder-job.js";
 import { dunningEmailJob } from "./dunning-email-job.js";
 import { accessGrantedEmailJob } from "./access-granted-email-job.js";
 import { payoutReconcileJob } from "./payout-reconcile-job.js";
+import { leptonSettlementReconcileJob } from "./lepton-settlement-reconcile-job.js";
+import { leptonPayoutSweepJob } from "./lepton-payout-sweep-job.js";
+import { leptonStreamRefundJob } from "./lepton-stream-refund-job.js";
 
 /** Stable list of the worker's primary scheduled jobs (plan §17). */
 export const workerJobs = [
@@ -39,6 +45,9 @@ export const workerJobs = [
   "dunning-email",
   "access-granted-email",
   "payout-reconcile",
+  "lepton-settlement-reconcile",
+  "lepton-payout-sweep",
+  "lepton-stream-refund",
 ] as const;
 
 export type WorkerJobName = (typeof workerJobs)[number];
@@ -56,5 +65,8 @@ export function allJobs(): Job[] {
     dunningEmailJob,
     accessGrantedEmailJob,
     payoutReconcileJob,
+    leptonSettlementReconcileJob,
+    leptonPayoutSweepJob,
+    leptonStreamRefundJob,
   ];
 }

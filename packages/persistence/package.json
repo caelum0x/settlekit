@@ -18,6 +18,11 @@
   "dependencies": {
     "@settlekit/common": "workspace:*",
     "@settlekit/database": "workspace:*",
+    "@settlekit/settlement-core": "workspace:*",
+    "@settlekit/citation-toll": "workspace:*",
+    "@settlekit/payee-registry": "workspace:*",
+    "@settlekit/streaming": "workspace:*",
+    "@settlekit/wallet-fleet": "workspace:*",
     "@settlekit/agent-services": "workspace:*",
     "@settlekit/api-keys": "workspace:*",
     "@settlekit/auth": "workspace:*",
