@@ -11,6 +11,7 @@ import {
 import { BatchAccumulator } from "../src/batch.js";
 import { reconcileReceipts } from "../src/reconcile.js";
 import { InMemoryNonceStore } from "../src/idempotency.js";
+import { settlementProviderFromEnv } from "../src/env.js";
 import type { SettlementReceipt, SettlementRequest } from "../src/types.js";
 
 const req = (over: Partial<SettlementRequest> = {}): SettlementRequest => ({
@@ -135,6 +136,23 @@ describe("reconcileReceipts", () => {
     const source = { confirmations: async () => 1 };
     const [result] = await reconcileReceipts([base], source, { minConfirmations: 3 });
     expect(result?.changed).toBe(false);
+  });
+});
+
+describe("settlementProviderFromEnv", () => {
+  it("defaults to the local provider", () => {
+    expect(settlementProviderFromEnv({}).name).toBe("local");
+    expect(settlementProviderFromEnv({ SETTLEMENT_PROVIDER: "circle" }).name).toBe("local"); // creds missing
+  });
+
+  it("builds a Circle provider when configured", () => {
+    const provider = settlementProviderFromEnv({
+      SETTLEMENT_PROVIDER: "circle",
+      CIRCLE_WALLETS_API_KEY: "key",
+      CIRCLE_WALLET_ID: "w1",
+      CIRCLE_USDC_TOKEN_ID: "usdc",
+    });
+    expect(provider.name).toBe("circle");
   });
 });
 

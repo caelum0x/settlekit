@@ -12,7 +12,11 @@ import {
   sweepPendingRoyalties,
 } from "@settlekit/citation-toll";
 import { InMemoryPayeeRegistry, type PayeeRegistry } from "@settlekit/payee-registry";
-import { LocalSettlementProvider, type SettlementProvider } from "@settlekit/settlement-core";
+import {
+  LocalSettlementProvider,
+  type SettlementProvider,
+  settlementProviderFromEnv,
+} from "@settlekit/settlement-core";
 import { SpendingCapEnforcer } from "@settlekit/wallet-fleet";
 import { type NavidromeConfig, loadConfig } from "./config.js";
 import { type ScrobbleEvent, type ScrobbleProcessor, createScrobbleProcessor } from "./scrobble.js";
@@ -99,7 +103,9 @@ export function createSidecar(
 
 export function startSidecar(): void {
   const config = loadConfig();
-  const sidecar = createSidecar(config);
+  const sidecar = createSidecar(config, {
+    settlementProvider: settlementProviderFromEnv(process.env),
+  });
   serve({ fetch: sidecar.app.fetch, port: config.port });
   process.stdout.write(`navidrome-scrobble listening on :${config.port}\n`);
 }

@@ -30,7 +30,16 @@ Also done: **`services/sidecars/owncast-stream`** — per-second streaming settl
 
 Three creator-monetization patterns now share one settlement spine: **per-citation** (RSSHub), **per-listen** (Navidrome), **per-second** (Owncast).
 
-Remaining for true production: run against live RSSHub/Navidrome/Owncast instances with a Gateway/Circle provider + Arc-indexer verifier on Arc testnet (needs creds + running instances); add the on-chain contracts (Phase 4).
+**Live-wiring seams done:** `settlementProviderFromEnv` (flip to Circle by `SETTLEMENT_PROVIDER=circle` + creds, no code change) is wired into every sidecar's `startSidecar`; the RSS sidecar has a `createFeedPoller` that fetches a live RSSHub JSON feed and ingests on an interval. Gateway settlement is wired via `configureSettlement` with a `GatewayTransferPort` (host supplies the signer).
+
+## Phase 4 status (on-chain contracts — done, Foundry-tested)
+
+`contracts/src` (Solc 0.8.30, `forge test` green — 25 tests):
+- **`RecursiveSplitDistributor.sol`** — settle a precomputed citation/remix lineage in one tx (pull total, fan out to every ancestor). RFB 6.
+- **`LeptonStreamSettlement.sol`** — per-second on-chain stream: deposit reserve, accrue by `block.timestamp`, proof-of-flow `pause`/`resume`, `settle`, `close` (settle tail + refund unused reserve). RFB 4.
+- **`AgentReputationBond.sol`** — ERC-8004-style: broker posts a USDC bond; `release` (good outcome) or `slash` to the client (bad outcome), arbiter-resolvable. RFB 3.
+
+Remaining for a live testnet run (needs creds + running instances): point the sidecars at real RSSHub/Navidrome/Owncast with `SETTLEMENT_PROVIDER=circle` (or a Gateway port) and the Arc-indexer verifier, and deploy the contracts via `contracts/script`.
 
 ## Directory map (new work, by top-level folder)
 
