@@ -103,6 +103,43 @@ describe("BatchAccumulator", () => {
     const author1 = receipts.find((r) => r.to === "0xauthor1");
     expect(author1 && compareMoney(author1.amount, money("0.0003"))).toBe(0);
   });
+
+  it("does not collide the batch reference when member references contain the delimiter", async () => {
+    // Two distinct batches to the same recipient whose member references would
+    // join to the identical string under a naive "," join: ["a","b,c"] and
+    // ["a,b","c"] both → "a,b,c". The flush reference must differ so the second
+    // batch is not deduped away as a replay of the first (which would leave the
+    // recipient unpaid).
+    const seen = new Set<string>();
+    const provider = {
+      async settle(request: SettlementRequest): Promise<SettlementReceipt> {
+        seen.add(request.reference);
+        return {
+          id: "stl_x",
+          reference: request.reference,
+          to: request.to,
+          amount: money(request.amountUsdc),
+          network: request.network,
+          status: "submitted",
+          provider: "gateway",
+          createdAt: "2026-06-18T00:00:00.000Z",
+        };
+      },
+    };
+
+    const batchA = new BatchAccumulator(provider);
+    batchA.add(req({ reference: "a", to: "0xauthor", amountUsdc: "0.0001" }));
+    batchA.add(req({ reference: "b,c", to: "0xauthor", amountUsdc: "0.0001" }));
+    const [refA] = (await batchA.flush()).map((r) => r.reference);
+
+    const batchB = new BatchAccumulator(provider);
+    batchB.add(req({ reference: "a,b", to: "0xauthor", amountUsdc: "0.0001" }));
+    batchB.add(req({ reference: "c", to: "0xauthor", amountUsdc: "0.0001" }));
+    const [refB] = (await batchB.flush()).map((r) => r.reference);
+
+    expect(refA).not.toBe(refB);
+    expect(seen.size).toBe(2);
+  });
 });
 
 describe("reconcileReceipts", () => {

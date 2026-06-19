@@ -5,6 +5,7 @@
  * Combined with the Gateway provider's native batching, fees stay negligible.
  */
 
+import { createHash } from "node:crypto";
 import { type Money, fromBaseUnits, money, toBaseUnits } from "@settlekit/common";
 import type { SettlementProvider, SettlementReceipt, SettlementRequest } from "./types.js";
 
@@ -64,7 +65,17 @@ export class BatchAccumulator {
     const receipts: SettlementReceipt[] = [];
     for (const group of this.groups.values()) {
       const sortedRefs = [...group.references].sort();
-      const reference = `${referencePrefix}:${group.network}:${group.to.toLowerCase()}:${sortedRefs.join(",")}`;
+      // Digest the member references rather than joining them with a delimiter:
+      // a raw join (",") collides for distinct sets when a reference itself
+      // contains the delimiter (["a","b,c"] and ["a,b","c"] both → "a,b,c"),
+      // and that combined string is the provider idempotency key — a collision
+      // would dedupe a genuine batch and leave a recipient unpaid. JSON-encoding
+      // before hashing is unambiguous, so distinct sets never collide.
+      const digest = createHash("sha256")
+        .update(JSON.stringify(sortedRefs))
+        .digest("hex")
+        .slice(0, 32);
+      const reference = `${referencePrefix}:${group.network}:${group.to.toLowerCase()}:${sortedRefs.length}:${digest}`;
       const receipt = await this.provider.settle({
         reference,
         to: group.to,
