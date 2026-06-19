@@ -27,9 +27,25 @@ export interface SettleOptions {
   network?: PaymentRequirements["network"];
   /** Product id used for attribution on the x402 challenge. */
   productId?: string;
+  /**
+   * Idempotency key identifying this plan settlement. When supplied, every leg's
+   * x402 nonce is derived deterministically from it, so re-settling the same plan
+   * (e.g. after a partial failure) reuses the same nonces — a nonce-tracking
+   * verifier/settler then dedupes the already-paid legs instead of double-paying.
+   * When omitted, each leg gets a fresh random nonce (suitable for one-shot demos).
+   */
+  idempotencyKey?: string;
 }
 
-/** Settle every leg of a plan and reconcile the total against the budget. */
+/**
+ * Settle every leg of a plan and reconcile it against the budget.
+ *
+ * Reconciliation is exact and per-leg: the receipt is `reconciled` only when
+ * every leg settled for precisely its planned amount AND the total distributed
+ * equals the budget. Checking only the aggregate total would let a settler that
+ * paid the wrong wallets the wrong amounts (but summed correctly) pass — the
+ * "no money created, none lost" guarantee has to hold leg by leg.
+ */
 export async function settleFundingPlan(
   plan: FundingPlan,
   options: SettleOptions,
@@ -39,7 +55,9 @@ export async function settleFundingPlan(
 
   const settlements: LegSettlement[] = [];
   let distributedBase = 0n;
+  let everyLegConserved = true;
 
+  let index = 0;
   for (const leg of plan.legs) {
     const requirements: PaymentRequirements = {
       scheme: X402_SCHEME,
@@ -49,23 +67,38 @@ export async function settleFundingPlan(
       payTo: leg.wallet,
       productId,
       resource: `oss-fund:${leg.packages.join(",")}`,
-      nonce: uuid(),
+      nonce: legNonce(options.idempotencyKey, index, leg.wallet),
     };
     const proof = await options.settler.settle({ requirements, from: options.from });
+    const settledBase = toBaseUnits(proof.amount);
     settlements.push({
       wallet: leg.wallet,
       amount: money(proof.amount),
       txHash: proof.txHash,
       packages: leg.packages,
     });
-    distributedBase += toBaseUnits(proof.amount);
+    distributedBase += settledBase;
+    if (settledBase !== toBaseUnits(leg.amount.amount)) everyLegConserved = false;
+    index += 1;
   }
 
   const distributed: Money = money(fromBaseUnits(distributedBase));
   const reconciled =
-    settlements.length === plan.legs.length && distributed.amount === plan.budget.amount;
+    everyLegConserved &&
+    settlements.length === plan.legs.length &&
+    distributedBase === toBaseUnits(plan.budget.amount);
 
   return { plan, settlements, distributed, reconciled };
+}
+
+/**
+ * Per-leg x402 nonce. Deterministic when an idempotency key is provided (so a
+ * retried plan reuses the same nonces and is dedupable), random otherwise.
+ */
+function legNonce(idempotencyKey: string | undefined, index: number, wallet: string): string {
+  return idempotencyKey === undefined
+    ? uuid()
+    : `${idempotencyKey}:${index}:${wallet.toLowerCase()}`;
 }
 
 /** The on-chain settlement shape: recipients + integer base-unit amounts. */

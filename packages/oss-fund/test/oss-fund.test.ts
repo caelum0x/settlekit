@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { toBaseUnits } from "@settlekit/common";
 import { InMemoryPayeeRegistry } from "@settlekit/payee-registry";
-import { createLocalSettlement } from "@settlekit/x402-client";
+import { createLocalSettlement, type Settler } from "@settlekit/x402-client";
 import { conservedAllocation } from "../src/conservation.js";
 import { buildGraph, computeReach } from "../src/graph.js";
 import { parsePackageJson, parsePackageLock, parseRequirementsTxt } from "../src/manifest.js";
@@ -139,6 +139,59 @@ describe("settlement", () => {
     const sum = call.amounts.reduce((s, a) => s + BigInt(a), 0n);
     expect(call.totalBase).toBe(toBaseUnits("5").toString());
     expect(sum).toBe(toBaseUnits("5"));
+  });
+
+  it("rejects a settlement whose total conserves but legs are misrouted", async () => {
+    const plan = await seededPlan("5");
+    const amounts = plan.legs.map((l) => l.amount.amount);
+    // Only meaningful when leg amounts differ — the seeded plan is weighted.
+    expect(new Set(amounts).size).toBeGreaterThan(1);
+    // A settler that rotates each leg's amount onto the next leg: the total still
+    // sums to the budget, but no leg is paid its own planned amount.
+    let i = 0;
+    const misrouting: Settler = {
+      async settle({ requirements, from }) {
+        const amount = amounts[(i + 1) % amounts.length] as string;
+        i += 1;
+        return { txHash: `0xrot${i}`, from, amount, network: requirements.network, nonce: requirements.nonce };
+      },
+    };
+    const receipt = await settleFundingPlan(plan, { settler: misrouting, from: "0xfunder" });
+    // Total is conserved...
+    expect(receipt.distributed.amount).toBe("5");
+    // ...but per-leg conservation fails, so the receipt is NOT reconciled.
+    expect(receipt.reconciled).toBe(false);
+  });
+
+  it("derives stable per-leg nonces from an idempotency key (replay-safe retries)", async () => {
+    const plan = await seededPlan("5");
+    const capture = (sink: string[]): Settler => ({
+      async settle({ requirements, from }) {
+        sink.push(requirements.nonce);
+        return {
+          txHash: `0x${sink.length}`,
+          from,
+          amount: requirements.amount,
+          network: requirements.network,
+          nonce: requirements.nonce,
+        };
+      },
+    });
+
+    const a: string[] = [];
+    const b: string[] = [];
+    await settleFundingPlan(plan, { settler: capture(a), from: "0xfunder", idempotencyKey: "plan-123" });
+    await settleFundingPlan(plan, { settler: capture(b), from: "0xfunder", idempotencyKey: "plan-123" });
+    // Same plan + same key → identical nonces, so a retry is dedupable, not double-paid.
+    expect(a).toEqual(b);
+    expect(new Set(a).size).toBe(a.length); // still unique per leg within the plan
+
+    // Without a key, nonces are random and differ run-to-run.
+    const c: string[] = [];
+    const d: string[] = [];
+    await settleFundingPlan(plan, { settler: capture(c), from: "0xfunder" });
+    await settleFundingPlan(plan, { settler: capture(d), from: "0xfunder" });
+    expect(c).not.toEqual(d);
   });
 });
 
