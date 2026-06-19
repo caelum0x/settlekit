@@ -72,4 +72,24 @@ describe("navidrome-scrobble sidecar", () => {
     const { data } = (await res.json()) as { data: { charged: boolean } };
     expect(data.charged).toBe(true);
   });
+
+  it("rejects a non-finite or negative playedSeconds instead of charging", async () => {
+    const sidecar = createSidecar(config());
+    const post = (playedSeconds: unknown) =>
+      sidecar.app.request("/scrobble", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        // JSON has no NaN/Infinity literal, so a hostile client sends them as the
+        // string "NaN"/"Infinity" or omits the field — all must be rejected, not
+        // silently charged by slipping past the skip-gate.
+        body: JSON.stringify({ ...play(), playedSeconds }),
+      });
+
+    for (const bad of [Number.NaN, Number.POSITIVE_INFINITY, -1]) {
+      // NaN/Infinity serialize to null in JSON; -1 stays -1. All are invalid.
+      const res = await post(bad);
+      expect(res.status).toBe(400);
+    }
+    expect(await sidecar.royaltyLegStore.listPending()).toHaveLength(0);
+  });
 });

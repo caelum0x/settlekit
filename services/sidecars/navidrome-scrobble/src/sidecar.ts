@@ -88,7 +88,12 @@ export function createSidecar(
       body === null ||
       typeof body.userId !== "string" ||
       typeof body.trackId !== "string" ||
+      // typeof NaN/Infinity is "number"; a non-finite playedSeconds slips past a
+      // bare typeof check and (NaN < minPlaySeconds === false) skips the play-gate,
+      // charging for a non-play. Require a finite, non-negative duration.
       typeof body.playedSeconds !== "number" ||
+      !Number.isFinite(body.playedSeconds) ||
+      body.playedSeconds < 0 ||
       typeof body.artist?.externalId !== "string"
     ) {
       return c.json({ error: "invalid scrobble event" }, 400);
