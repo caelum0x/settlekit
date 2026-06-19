@@ -153,6 +153,9 @@ importers:
       '@settlekit/onchain':
         specifier: workspace:*
         version: link:../../packages/onchain
+      '@settlekit/oss-fund':
+        specifier: workspace:*
+        version: link:../../packages/oss-fund
       '@settlekit/paymaster':
         specifier: workspace:*
         version: link:../../packages/paymaster
@@ -1475,6 +1478,40 @@ importers:
       viem:
         specifier: ^2.21.0
         version: 2.52.2(typescript@5.9.3)(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
+  packages/oss-fund:
+    dependencies:
+      '@anthropic-ai/sdk':
+        specifier: ^0.65.0
+        version: 0.65.0(zod@3.25.76)
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      '@settlekit/payee-registry':
+        specifier: workspace:*
+        version: link:../payee-registry
+      '@settlekit/platform-billing':
+        specifier: workspace:*
+        version: link:../platform-billing
+      '@settlekit/x402':
+        specifier: workspace:*
+        version: link:../x402
+      '@settlekit/x402-client':
+        specifier: workspace:*
+        version: link:../x402-client
+      zod:
+        specifier: ^3.23.8
+        version: 3.25.76
     devDependencies:
       '@types/node':
         specifier: ^20.14.0

@@ -25,6 +25,7 @@
     { "path": "../../packages/delivery" },
     { "path": "../../packages/agent" },
     { "path": "../../packages/agent-economy" },
+    { "path": "../../packages/oss-fund" },
     { "path": "../../packages/citation-toll" },
     { "path": "../../packages/x402-client" },
     { "path": "../../packages/streaming" },

@@ -1,0 +1,36 @@
+{
+  "name": "@settlekit/oss-fund",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "oss-fund": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b",
+    "demo": "node dist/cli.js",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@settlekit/common": "workspace:*",
+    "@settlekit/platform-billing": "workspace:*",
+    "@settlekit/payee-registry": "workspace:*",
+    "@settlekit/x402": "workspace:*",
+    "@settlekit/x402-client": "workspace:*",
+    "@anthropic-ai/sdk": "^0.65.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

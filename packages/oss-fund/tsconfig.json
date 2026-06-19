@@ -1,0 +1,17 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "composite": true
+  },
+  "references": [
+    { "path": "../common" },
+    { "path": "../platform-billing" },
+    { "path": "../payee-registry" },
+    { "path": "../x402" },
+    { "path": "../x402-client" }
+  ],
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules", "**/*.test.ts"]
+}

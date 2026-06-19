@@ -58,6 +58,7 @@ import { userWalletRoutes } from "./routes/user-wallets.js";
 import { onchainEscrowRoutes } from "./routes/onchain-escrow.js";
 import { authRoutes } from "./routes/auth.js";
 import { leptonRoutes } from "./routes/lepton.js";
+import { fundRoutes } from "./routes/fund.js";
 
 /** Build the full SettleKit API app. Pass a context to share/isolate state. */
 export function createApp(ctx: AppContext): Hono<AppEnv> {
@@ -114,6 +115,11 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
   // Lepton hackathon demo is PUBLIC: self-contained, in-memory nanopayment
   // modules (agent economy, citation tolls, streaming). No API key, no DB.
   app.route("/v1/lepton", leptonRoutes());
+
+  // OSS maintainer funding is PUBLIC: turn a dependency manifest into a
+  // conserved, signal-weighted distribution across maintainer wallets, settled
+  // in-memory. No API key, no DB.
+  app.route("/v1/fund", fundRoutes());
 
   // Inbound Circle webhooks are PUBLIC: authenticated by Circle's ECDSA
   // signature (verified in the handler), not an API key. Mounted outside the
