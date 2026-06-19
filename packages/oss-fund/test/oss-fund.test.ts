@@ -1,9 +1,14 @@
-import { describe, expect, it } from "vitest";
+import { mkdtemp, mkdir, rm, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { toBaseUnits } from "@settlekit/common";
+import { InMemoryPayeeRegistry } from "@settlekit/payee-registry";
 import { createLocalSettlement } from "@settlekit/x402-client";
 import { conservedAllocation } from "../src/conservation.js";
 import { buildGraph, computeReach } from "../src/graph.js";
 import { parsePackageJson, parsePackageLock, parseRequirementsTxt } from "../src/manifest.js";
+import { NpmRegistryResolver } from "../src/npm-resolver.js";
 import { planFunding } from "../src/plan.js";
 import { RegistryMaintainerResolver } from "../src/resolver.js";
 import {
@@ -14,6 +19,7 @@ import {
   seedRegistry,
 } from "../src/seed.js";
 import { settleFundingPlan, toDistributorCall } from "../src/settle.js";
+import { scanUsageCounts } from "../src/usage-scan.js";
 
 async function seededPlan(budget = "5") {
   const graph = buildGraph(parsePackageJson(seedManifestJson()), parsePackageLock(seedLockJson()));
@@ -133,5 +139,98 @@ describe("settlement", () => {
     const sum = call.amounts.reduce((s, a) => s + BigInt(a), 0n);
     expect(call.totalBase).toBe(toBaseUnits("5").toString());
     expect(sum).toBe(toBaseUnits("5"));
+  });
+});
+
+describe("usage scan", () => {
+  let dir: string;
+  beforeAll(async () => {
+    dir = await mkdtemp(join(tmpdir(), "oss-fund-scan-"));
+    await mkdir(join(dir, "src"), { recursive: true });
+    await writeFile(join(dir, "src", "a.ts"), 'import React from "react";\nimport _ from "lodash/merge";\n');
+    await writeFile(join(dir, "src", "b.tsx"), 'import { useState } from "react";\nconst u = require("@scope/util");\n');
+    // A vendored file that must be ignored.
+    await mkdir(join(dir, "node_modules", "foo"), { recursive: true });
+    await writeFile(join(dir, "node_modules", "foo", "index.js"), 'import "react";\n');
+  });
+  afterAll(async () => {
+    await rm(dir, { recursive: true, force: true });
+  });
+
+  it("counts files importing each package and ignores vendor dirs + subpaths/scopes", async () => {
+    const counts = await scanUsageCounts(dir, ["react", "lodash", "@scope/util", "express"], {
+      ecosystem: "npm",
+    });
+    expect(counts.get("react")).toBe(2); // a.ts + b.tsx, NOT node_modules
+    expect(counts.get("lodash")).toBe(1); // "lodash/merge" → lodash
+    expect(counts.get("@scope/util")).toBe(1); // scoped + require()
+    expect(counts.has("express")).toBe(false); // not imported → falls back to proxy
+  });
+});
+
+describe("NpmRegistryResolver", () => {
+  function fakeFetch(routes: Record<string, { json?: unknown; text?: string }>, counter?: { n: number }) {
+    return (async (input: unknown) => {
+      if (counter !== undefined) counter.n += 1;
+      const url = String(input);
+      const hit = Object.entries(routes).find(([k]) => url.includes(k))?.[1];
+      if (hit === undefined) return new Response("", { status: 404 });
+      if (hit.text !== undefined) return new Response(hit.text, { status: 200 });
+      return new Response(JSON.stringify(hit.json ?? {}), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    }) as unknown as typeof fetch;
+  }
+
+  it("resolves package → GitHub owner → registered wallet, with FUNDING.yml override", async () => {
+    const registry = new InMemoryPayeeRegistry();
+    await registry.register({ kind: "handle", externalId: "octocat", wallet: "0xowner" });
+    const resolver = new NpmRegistryResolver({
+      registry,
+      escrowWallet: SEED_ESCROW_WALLET,
+      fetchImpl: fakeFetch({
+        "registry.npmjs.org/cool-lib": {
+          json: { repository: { url: "git+https://github.com/OctoCat/cool-lib.git" } },
+        },
+        "FUNDING.yml": { text: "github: octocat\n" },
+      }),
+    });
+    const r = await resolver.resolve("cool-lib");
+    expect(r.handle).toBe("octocat");
+    expect(r.wallet).toBe("0xowner");
+    expect(r.claimed).toBe(true);
+    expect(r.fundingUrl).toBe("https://github.com/sponsors/octocat");
+  });
+
+  it("earmarks an unregistered maintainer to escrow but keeps the handle", async () => {
+    const resolver = new NpmRegistryResolver({
+      registry: new InMemoryPayeeRegistry(),
+      escrowWallet: SEED_ESCROW_WALLET,
+      readFunding: false,
+      fetchImpl: fakeFetch({
+        "registry.npmjs.org/lonely": { json: { repository: "github:someone/lonely" } },
+      }),
+    });
+    const r = await resolver.resolve("lonely");
+    expect(r.handle).toBe("someone");
+    expect(r.wallet).toBe(SEED_ESCROW_WALLET);
+    expect(r.claimed).toBe(false);
+  });
+
+  it("degrades to escrow (no handle) on network failure, and caches", async () => {
+    const counter = { n: 0 };
+    const resolver = new NpmRegistryResolver({
+      registry: new InMemoryPayeeRegistry(),
+      escrowWallet: SEED_ESCROW_WALLET,
+      fetchImpl: fakeFetch({}, counter), // every route 404s
+    });
+    const first = await resolver.resolve("ghost");
+    const second = await resolver.resolve("ghost");
+    expect(first.handle).toBeUndefined();
+    expect(first.wallet).toBe(SEED_ESCROW_WALLET);
+    expect(first.claimed).toBe(false);
+    expect(second).toEqual(first);
+    expect(counter.n).toBe(1); // second call served from cache
   });
 });

@@ -78,6 +78,7 @@ async function settleAndShape(plan: FundingPlan, note?: string): Promise<Record<
         amount: a.amount.amount,
         claimed: a.claimed,
         ...(a.handle !== undefined ? { handle: a.handle } : {}),
+        ...(a.fundingUrl !== undefined ? { fundingUrl: a.fundingUrl } : {}),
         weight: Number(a.weight.toFixed(6)),
         signals: a.signals,
       })),

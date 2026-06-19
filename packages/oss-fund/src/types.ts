@@ -96,6 +96,8 @@ export interface ResolvedMaintainer {
   claimed: boolean;
   /** Known existing monthly funding, decimal USD ("0" if unknown/none). */
   existingMonthlyUsd: string;
+  /** Where to fund / claim (GitHub Sponsors, Open Collective, custom URL), if discovered. */
+  fundingUrl?: string;
 }
 
 /** A funding candidate: a package, its wallet, and the signals behind its share. */
@@ -104,6 +106,7 @@ export interface AllocationCandidate {
   wallet: string;
   claimed: boolean;
   handle?: string;
+  fundingUrl?: string;
   signals: DependencySignals;
 }
 
@@ -112,6 +115,7 @@ export interface PackageAllocation {
   name: string;
   wallet: string;
   handle?: string;
+  fundingUrl?: string;
   claimed: boolean;
   /** The conserved amount allocated to this package. */
   amount: Money;

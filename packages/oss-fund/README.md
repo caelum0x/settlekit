@@ -32,6 +32,16 @@ BUDGET=20 node packages/oss-fund/dist/cli.js ./requirements.txt
 Set `ANTHROPIC_API_KEY` to use Claude (`claude-opus-4-8`) as the allocation brain
 instead of the deterministic heuristic engine.
 
+When you point it at a real manifest, the CLI:
+
+- **Resolves maintainers live** — npm registry metadata → the package's GitHub
+  owner, refined by `.github/FUNDING.yml` (sponsor handle + a funding/claim URL).
+  Maintainers who have registered a wallet are paid directly; everyone else is
+  earmarked to escrow. Set `OSS_FUND_OFFLINE=1` to skip the network entirely.
+- **Scans your source for real usage** — counts how many of your files import
+  each dependency and feeds that into the `usage` signal (a package you import in
+  forty modules outweighs one pulled in once). Pure filesystem, no network.
+
 Over HTTP (public, no API key):
 
 ```bash

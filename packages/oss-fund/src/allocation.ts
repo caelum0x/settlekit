@@ -97,6 +97,7 @@ export function createAllocationCapabilities(options: CapabilityOptions): Alloca
           name: candidate.name,
           wallet: candidate.wallet,
           ...(candidate.handle !== undefined ? { handle: candidate.handle } : {}),
+          ...(candidate.fundingUrl !== undefined ? { fundingUrl: candidate.fundingUrl } : {}),
           claimed: candidate.claimed,
           amount: money(fromBaseUnits(base)),
           weight: budgetBase > 0n ? Number(base) / Number(budgetBase) : 0,

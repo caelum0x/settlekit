@@ -9,21 +9,32 @@
  * Uses Claude (claude-opus-4-8) as the allocation brain when ANTHROPIC_API_KEY is
  * set, otherwise the deterministic heuristic engine. Env: BUDGET, FROM.
  *
- * It parses the manifest, builds the dependency graph, scores every package,
- * resolves maintainer wallets, allocates the budget, and settles the split over a
- * local ledger — printing a reconciled report (every base unit accounted for).
+ * For a real manifest it resolves maintainers live (npm registry + GitHub
+ * FUNDING.yml) and scans your source tree for real per-package usage counts. Set
+ * OSS_FUND_OFFLINE=1 to skip the network and route every maintainer to escrow.
+ * It then builds the graph, scores every package, allocates the budget, and
+ * settles the split over a local ledger — a reconciled report, every unit traced.
  */
 
+import { dirname } from "node:path";
 import { readFile } from "node:fs/promises";
 import { createLocalSettlement } from "@settlekit/x402-client";
 import { defaultAllocationEngine } from "./claude-allocator.js";
 import { buildGraph } from "./graph.js";
 import { parsePackageJson, parsePackageLock, parseRequirementsTxt, type ParsedLockfile } from "./manifest.js";
+import { NpmRegistryResolver } from "./npm-resolver.js";
 import { planFunding } from "./plan.js";
 import { RegistryMaintainerResolver, type MaintainerResolver } from "./resolver.js";
 import { seedLockJson, seedManifestJson, seedMaintainers, seedRegistry, SEED_ESCROW_WALLET } from "./seed.js";
 import { settleFundingPlan } from "./settle.js";
+import { scanUsageCounts } from "./usage-scan.js";
 import type { DependencyGraph, FundingPlan, FundingReceipt } from "./types.js";
+
+interface LoadedProject {
+  graph: DependencyGraph;
+  resolver: MaintainerResolver;
+  usageCounts?: Map<string, number>;
+}
 
 function env(name: string, fallback: string): string {
   const value = process.env[name];
@@ -34,12 +45,12 @@ function out(line = ""): void {
   process.stdout.write(`${line}\n`);
 }
 
-async function loadProject(): Promise<{ graph: DependencyGraph; resolver: MaintainerResolver }> {
+async function loadProject(): Promise<LoadedProject> {
   const manifestPath = process.argv[2];
   const lockPath = process.argv[3];
 
   if (manifestPath === undefined) {
-    // The seeded acme-web tree — runs anywhere, no files needed.
+    // The seeded acme-web tree — runs anywhere, offline, deterministic.
     const manifest = parsePackageJson(seedManifestJson());
     const lockfile = parsePackageLock(seedLockJson());
     const registry = await seedRegistry();
@@ -58,15 +69,30 @@ async function loadProject(): Promise<{ graph: DependencyGraph; resolver: Mainta
   if (lockPath !== undefined) {
     lockfile = parsePackageLock(await readFile(lockPath, "utf8"));
   }
+  const graph = buildGraph(manifest, lockfile);
 
-  // Real manifests have no wallet bindings yet — every maintainer resolves to
-  // escrow, so the plan shows exactly what would be set aside for each.
+  // Real per-package usage from your source tree (alongside the manifest).
+  const projectDir = dirname(manifestPath) || ".";
+  const usageCounts = await scanUsageCounts(
+    projectDir,
+    graph.nodes.map((n) => n.name),
+    { ecosystem: manifest.ecosystem },
+  );
+
+  // The registry holds maintainers who have registered a wallet; everyone else
+  // is earmarked to escrow. npm packages resolve live (registry + FUNDING.yml)
+  // unless OSS_FUND_OFFLINE is set; pypi has no live resolver yet.
   const registry = await seedRegistry();
-  const resolver = new RegistryMaintainerResolver(registry, {
-    escrowWallet: SEED_ESCROW_WALLET,
-    maintainers: new Map(),
-  });
-  return { graph: buildGraph(manifest, lockfile), resolver };
+  const offline = process.env["OSS_FUND_OFFLINE"] === "1";
+  const resolver: MaintainerResolver =
+    manifest.ecosystem === "npm" && !offline
+      ? new NpmRegistryResolver({ registry, escrowWallet: SEED_ESCROW_WALLET })
+      : new RegistryMaintainerResolver(registry, {
+          escrowWallet: SEED_ESCROW_WALLET,
+          maintainers: new Map(),
+        });
+
+  return { graph, resolver, usageCounts };
 }
 
 function render(plan: FundingPlan, receipt: FundingReceipt, engine: string): void {
@@ -104,11 +130,17 @@ function render(plan: FundingPlan, receipt: FundingReceipt, engine: string): voi
 }
 
 async function main(): Promise<void> {
-  const { graph, resolver } = await loadProject();
+  const { graph, resolver, usageCounts } = await loadProject();
   const engine = defaultAllocationEngine();
   const budget = env("BUDGET", "5");
 
-  const plan = await planFunding({ graph, budgetUsdc: budget, resolver, engine });
+  const plan = await planFunding({
+    graph,
+    budgetUsdc: budget,
+    resolver,
+    engine,
+    ...(usageCounts !== undefined ? { usageCounts } : {}),
+  });
 
   const { settler } = createLocalSettlement();
   const receipt = await settleFundingPlan(plan, { settler, from: env("FROM", "0xfunder") });

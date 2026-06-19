@@ -49,6 +49,7 @@ export async function buildCandidates(
       wallet: maintainer.wallet,
       claimed: maintainer.claimed,
       ...(maintainer.handle !== undefined ? { handle: maintainer.handle } : {}),
+      ...(maintainer.fundingUrl !== undefined ? { fundingUrl: maintainer.fundingUrl } : {}),
       signals: { ...s, underfunding: underfundingScore(maintainer.existingMonthlyUsd) },
     });
   }

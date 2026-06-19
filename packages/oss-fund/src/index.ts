@@ -13,6 +13,8 @@ export * from "./manifest.js";
 export * from "./graph.js";
 export * from "./signals.js";
 export * from "./resolver.js";
+export * from "./npm-resolver.js";
+export * from "./usage-scan.js";
 export * from "./conservation.js";
 export * from "./allocation.js";
 export * from "./heuristic-allocator.js";
