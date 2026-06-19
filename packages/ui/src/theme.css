@@ -1,52 +1,50 @@
 /**
- * @settlekit/ui — unified design-system stylesheet.
+ * @settlekit/ui — "STATEMENT" design system.
  *
- * Merges the SettleKit dashboard (data-dense app surfaces: cards, tables,
- * badges, stats, forms) and the web/marketing surface (gradient accent, nav,
- * larger radii, glow) into one importable theme.
+ * SettleKit settles money: exact, conserved, reconciled. The whole product is
+ * styled like a precision settlement ledger — greenbar paper, tabular figures,
+ * credit-green / debit-red semantics, an ink-blue seal. No gradients, no glow.
  *
- * Apps include this once at the root, e.g.:
- *   import "@settlekit/ui/theme.css";
- *
- * Everything is namespaced under .sk-* / --sk-* to avoid clobbering existing
- * app styles during incremental adoption.
+ * Apps import this once at the root:  import "@settlekit/ui/theme.css";
+ * Load the fonts (Archivo + IBM Plex Mono) in each app's globals/layout.
+ * Everything is namespaced under .sk-* / --sk-* for incremental adoption.
  */
 
 :root {
-  /* ---- Surfaces ---- */
-  --sk-bg: #07090f;
-  --sk-bg-soft: #0b0e16;
-  --sk-bg-panel: #11151f;
-  --sk-bg-elevated: #161b27;
+  /* ---- Paper (greenbar ledger stock) ---- */
+  --sk-bg: #ebede4;
+  --sk-bg-soft: #e3e6da;
+  --sk-bg-panel: #f3f4ec;
+  --sk-bg-elevated: #dde3d1; /* greenbar stripe / hover */
 
-  /* ---- Borders ---- */
-  --sk-border: #232a39;
-  --sk-border-strong: #303a4d;
+  /* ---- Rules ---- */
+  --sk-border: #cdd3c5;
+  --sk-border-strong: #b4bca9;
 
-  /* ---- Text ---- */
-  --sk-text: #eef1f7;
-  --sk-text-muted: #a4adbf;
-  --sk-text-dim: #6c7689;
+  /* ---- Ink ---- */
+  --sk-text: #18211c;
+  --sk-text-muted: #45524b;
+  --sk-text-dim: #79847c;
 
-  /* ---- Accent / brand gradient ---- */
-  --sk-accent: #6b8cff;
-  --sk-accent-2: #9d6bff;
-  --sk-accent-hover: #4a7bf0;
-  --sk-accent-soft: rgba(107, 140, 255, 0.14);
-  --sk-grad: linear-gradient(135deg, #6b8cff 0%, #9d6bff 100%);
+  /* ---- Seal (ink-blue brand/links) ---- */
+  --sk-accent: #1e40a2;
+  --sk-accent-2: #2c6e49;
+  --sk-accent-hover: #16306f;
+  --sk-accent-soft: rgba(30, 64, 162, 0.1);
+  --sk-grad: #18211c; /* legacy alias → flat ink, never a gradient */
 
-  /* ---- Status tones ---- */
-  --sk-good: #3fcf8e;
-  --sk-good-soft: rgba(63, 207, 142, 0.14);
-  --sk-warn: #f5b740;
-  --sk-warn-soft: rgba(245, 183, 64, 0.14);
-  --sk-bad: #f06363;
-  --sk-bad-soft: rgba(240, 99, 99, 0.14);
+  /* ---- Ledger status tones ---- */
+  --sk-good: #2c6e49; /* credit */
+  --sk-good-soft: rgba(44, 110, 73, 0.12);
+  --sk-warn: #9a6a18; /* hold / pending — amber ink */
+  --sk-warn-soft: rgba(154, 106, 24, 0.12);
+  --sk-bad: #a33a2b; /* debit / failed */
+  --sk-bad-soft: rgba(163, 58, 43, 0.1);
 
-  /* ---- Radius ---- */
-  --sk-radius: 14px;
-  --sk-radius-md: 10px;
-  --sk-radius-sm: 8px;
+  /* ---- Radius (printed card, not pill) ---- */
+  --sk-radius: 4px;
+  --sk-radius-md: 3px;
+  --sk-radius-sm: 3px;
 
   /* ---- Spacing scale ---- */
   --sk-space-1: 4px;
@@ -57,15 +55,16 @@
   --sk-space-6: 24px;
   --sk-space-8: 32px;
 
-  /* ---- Shadows ---- */
-  --sk-shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.25);
-  --sk-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
-  --sk-shadow-accent: 0 6px 24px rgba(107, 140, 255, 0.28);
+  /* ---- Shadows (hard offset, like ink on paper) ---- */
+  --sk-shadow-sm: 2px 2px 0 var(--sk-border);
+  --sk-shadow: 6px 6px 0 var(--sk-border);
+  --sk-shadow-accent: 4px 4px 0 var(--sk-border-strong);
 
   /* ---- Fonts ---- */
-  --sk-font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    Helvetica, Arial, sans-serif;
-  --sk-font-mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  --sk-font-sans: var(--font-archivo), "Archivo", system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --sk-font-mono: var(--font-mono), "IBM Plex Mono", ui-monospace, "SF Mono",
+    Menlo, Consolas, monospace;
 
   /* ---- Layout ---- */
   --sk-maxw: 1180px;
@@ -74,25 +73,25 @@
 /* ---------- Card ---------- */
 .sk-card {
   background: var(--sk-bg-panel);
-  border: 1px solid var(--sk-border);
+  border: 1px solid var(--sk-border-strong);
   border-radius: var(--sk-radius);
   padding: var(--sk-space-5);
-  transition: border-color 0.15s, transform 0.15s, box-shadow 0.15s;
+  transition: border-color 0.15s, transform 0.1s, box-shadow 0.15s;
 }
 
 .sk-card-hover:hover {
-  border-color: var(--sk-border-strong);
-  transform: translateY(-3px);
+  border-color: var(--sk-text);
+  transform: translate(-2px, -2px);
   box-shadow: var(--sk-shadow);
 }
 
 .sk-card-title {
   font-size: 14px;
-  font-weight: 600;
+  font-weight: 700;
   margin: 0 0 var(--sk-space-3);
 }
 
-/* ---------- Buttons ---------- */
+/* ---------- Buttons (printed ink blocks) ---------- */
 .sk-btn {
   display: inline-flex;
   align-items: center;
@@ -100,20 +99,22 @@
   gap: 6px;
   padding: 8px 14px;
   border-radius: var(--sk-radius-sm);
-  font-size: 13px;
+  font-family: var(--sk-font-mono);
+  font-size: 12px;
   font-weight: 600;
-  font-family: inherit;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
   cursor: pointer;
-  border: 1px solid var(--sk-border-strong);
-  background: var(--sk-bg-elevated);
+  border: 1.5px solid var(--sk-text);
+  background: transparent;
   color: var(--sk-text);
-  transition: background 0.15s, border-color 0.15s, transform 0.05s,
-    box-shadow 0.15s;
+  transition: background 0.14s, color 0.14s, transform 0.04s, border-color 0.14s;
   white-space: nowrap;
 }
 
 .sk-btn:hover {
-  border-color: var(--sk-accent);
+  background: var(--sk-text);
+  color: var(--sk-bg-panel);
 }
 
 .sk-btn:active {
@@ -121,37 +122,39 @@
 }
 
 .sk-btn:disabled {
-  opacity: 0.55;
+  opacity: 0.5;
   cursor: not-allowed;
   transform: none;
 }
 
 .sk-btn-lg {
   padding: 12px 20px;
-  font-size: 15px;
+  font-size: 13px;
 }
 
 .sk-btn-sm {
   padding: 5px 10px;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .sk-btn-primary {
-  background: var(--sk-grad);
-  border-color: transparent;
-  color: #fff;
-  box-shadow: var(--sk-shadow-accent);
+  background: var(--sk-text);
+  border-color: var(--sk-text);
+  color: var(--sk-bg-panel);
 }
 
 .sk-btn-primary:hover {
-  border-color: transparent;
-  box-shadow: 0 8px 30px rgba(107, 140, 255, 0.42);
+  background: var(--sk-accent);
+  border-color: var(--sk-accent);
+  color: #fff;
 }
 
 .sk-btn-ghost {
   background: transparent;
   border-color: transparent;
   color: var(--sk-text-muted);
+  text-transform: none;
+  letter-spacing: 0;
 }
 
 .sk-btn-ghost:hover {
@@ -162,28 +165,29 @@
 
 .sk-btn-outline {
   background: transparent;
-  border-color: var(--sk-border-strong);
+  border-color: var(--sk-text);
 }
 
 .sk-btn-outline:hover {
-  border-color: var(--sk-accent);
-  color: var(--sk-accent);
+  background: var(--sk-text);
+  color: var(--sk-bg-panel);
 }
 
 .sk-btn-danger {
-  background: var(--sk-bad-soft);
-  border-color: rgba(240, 99, 99, 0.4);
+  background: transparent;
+  border-color: var(--sk-bad);
   color: var(--sk-bad);
 }
 
 .sk-btn-danger:hover {
-  border-color: var(--sk-bad);
+  background: var(--sk-bad);
+  color: #fff;
 }
 
-/* ---------- Table ---------- */
+/* ---------- Table (the native ledger) ---------- */
 .sk-table-wrap {
   overflow-x: auto;
-  border: 1px solid var(--sk-border);
+  border: 1.5px solid var(--sk-text);
   border-radius: var(--sk-radius-md);
 }
 
@@ -191,15 +195,20 @@
   width: 100%;
   border-collapse: collapse;
   font-size: 13px;
+  font-variant-numeric: tabular-nums;
 }
 
 .sk-table th {
   text-align: left;
+  font-family: var(--sk-font-mono);
   font-weight: 600;
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--sk-text-muted);
   padding: 10px 14px;
-  background: var(--sk-bg-elevated);
-  border-bottom: 1px solid var(--sk-border);
+  background: var(--sk-bg-soft);
+  border-bottom: 1.5px solid var(--sk-text);
   white-space: nowrap;
 }
 
@@ -213,8 +222,12 @@
   border-bottom: none;
 }
 
-.sk-table tbody tr:hover {
+.sk-table tbody tr:nth-child(even) {
   background: var(--sk-bg-elevated);
+}
+
+.sk-table tbody tr:hover {
+  background: var(--sk-accent-soft);
 }
 
 .sk-table-align-right {
@@ -231,18 +244,20 @@
   color: var(--sk-text-dim);
 }
 
-/* ---------- Badge ---------- */
+/* ---------- Badge (stamped tag) ---------- */
 .sk-badge {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  padding: 2px 9px;
-  border-radius: 999px;
-  font-size: 11px;
+  padding: 2px 8px;
+  border-radius: var(--sk-radius-sm);
+  font-family: var(--sk-font-mono);
+  font-size: 10px;
   font-weight: 600;
-  text-transform: capitalize;
-  border: 1px solid transparent;
-  line-height: 1.6;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  border: 1px solid currentColor;
+  line-height: 1.7;
 }
 
 .sk-badge-good {
@@ -268,7 +283,7 @@
 .sk-badge-neutral {
   background: var(--sk-bg-elevated);
   color: var(--sk-text-muted);
-  border-color: var(--sk-border);
+  border-color: var(--sk-border-strong);
 }
 
 .sk-badge-dot {
@@ -283,8 +298,8 @@
 .sk-select,
 .sk-textarea {
   width: 100%;
-  background: var(--sk-bg);
-  border: 1px solid var(--sk-border-strong);
+  background: var(--sk-bg-panel);
+  border: 1.5px solid var(--sk-border-strong);
   border-radius: var(--sk-radius-sm);
   color: var(--sk-text);
   padding: 9px 11px;
@@ -330,8 +345,10 @@
 }
 
 .sk-field-label {
-  font-size: 13px;
+  font-family: var(--sk-font-mono);
+  font-size: 12px;
   font-weight: 600;
+  letter-spacing: 0.02em;
 }
 
 .sk-field-required {
@@ -387,10 +404,10 @@
   }
 }
 
-/* ---------- Stat card ---------- */
+/* ---------- Stat card (a posted balance) ---------- */
 .sk-stat {
   background: var(--sk-bg-panel);
-  border: 1px solid var(--sk-border);
+  border: 1.5px solid var(--sk-border-strong);
   border-left: 3px solid var(--sk-accent);
   border-radius: var(--sk-radius-md);
   padding: 16px 18px;
@@ -409,14 +426,19 @@
 }
 
 .sk-stat-label {
-  font-size: 12px;
+  font-family: var(--sk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--sk-text-muted);
   margin-bottom: 6px;
 }
 
 .sk-stat-value {
+  font-family: var(--sk-font-mono);
   font-size: 24px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
 }
 
@@ -441,13 +463,16 @@
   justify-content: space-between;
   gap: var(--sk-space-4);
   margin-bottom: var(--sk-space-6);
+  padding-bottom: var(--sk-space-4);
+  border-bottom: 1.5px solid var(--sk-text);
 }
 
 .sk-page-title {
+  font-family: var(--sk-font-sans);
   font-size: 22px;
-  font-weight: 700;
+  font-weight: 800;
   margin: 0;
-  letter-spacing: -0.01em;
+  letter-spacing: -0.02em;
 }
 
 .sk-page-desc {
@@ -463,7 +488,10 @@
 }
 
 .sk-breadcrumb {
-  font-size: 12px;
+  font-family: var(--sk-font-mono);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
   color: var(--sk-text-dim);
   margin-bottom: 6px;
 }
@@ -477,24 +505,27 @@
 }
 
 .sk-nav-link {
-  padding: 8px 12px;
+  padding: 7px 12px;
   border-radius: var(--sk-radius-sm);
-  font-size: 14px;
+  font-family: var(--sk-font-mono);
+  font-size: 12px;
   font-weight: 500;
+  letter-spacing: 0.03em;
   color: var(--sk-text-muted);
   text-decoration: none;
-  transition: color 0.15s, background 0.15s;
+  border-bottom: 2px solid transparent;
+  transition: color 0.15s, border-color 0.15s;
   cursor: pointer;
 }
 
 .sk-nav-link:hover {
   color: var(--sk-text);
-  background: var(--sk-bg-elevated);
+  border-bottom-color: var(--sk-text);
 }
 
 .sk-nav-link-active {
-  background: var(--sk-accent-soft);
   color: var(--sk-accent);
+  border-bottom-color: var(--sk-accent);
   font-weight: 600;
 }
 
@@ -502,19 +533,20 @@
 .sk-empty {
   text-align: center;
   padding: 48px 24px;
-  border: 1px dashed var(--sk-border-strong);
+  border: 1.5px dashed var(--sk-border-strong);
   border-radius: var(--sk-radius);
   background: var(--sk-bg-panel);
 }
 
 .sk-empty-icon {
+  font-family: var(--sk-font-mono);
   font-size: 28px;
   color: var(--sk-text-dim);
   margin-bottom: 8px;
 }
 
 .sk-empty-title {
-  font-weight: 600;
+  font-weight: 700;
   font-size: 15px;
 }
 
@@ -536,8 +568,8 @@
   gap: 6px;
   font-family: var(--sk-font-mono);
   font-size: 12px;
-  background: var(--sk-bg-elevated);
-  border: 1px solid var(--sk-border);
+  background: var(--sk-bg-soft);
+  border: 1px solid var(--sk-border-strong);
   border-radius: var(--sk-radius-sm);
   color: var(--sk-text-muted);
   padding: 4px 9px;

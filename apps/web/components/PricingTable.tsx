@@ -23,19 +23,19 @@ export function PricingTable() {
             </div>
             <p className="price-tagline">{tier.tagline}</p>
 
+            <div className="price-fee">{tier.transactionFee}</div>
+
             <a
               href={links.dashboard}
-              className={`btn btn-lg price-cta${tier.highlighted ? " btn-primary" : " btn-outline"}`}
+              className={`btn price-cta${tier.highlighted ? " btn-primary" : " btn-outline"}`}
             >
               {tier.ctaLabel}
             </a>
 
-            <div className="price-fee">{tier.transactionFee}</div>
-
             <ul className="price-features">
               {tier.features.map((feature) => (
                 <li key={feature}>
-                  <span className="price-check" aria-hidden="true">
+                  <span className="check" aria-hidden="true">
                     ✓
                   </span>
                   {feature}

@@ -1,16 +1,21 @@
 :root {
-  --bg: #0b0d12;
-  --surface: #141821;
-  --surface-2: #1c2230;
-  --border: #283042;
-  --text: #e7ecf3;
-  --text-dim: #9aa6b8;
-  --accent: #5b8cff;
-  --accent-strong: #3f6fe0;
-  --success: #36c08a;
-  --star: #f5c451;
-  --radius: 12px;
+  /* STATEMENT — greenbar ledger palette (see @settlekit/ui) */
+  --bg: #ebede4;
+  --surface: #f3f4ec;
+  --surface-2: #dde3d1;
+  --border: #c4cbb8;
+  --text: #18211c;
+  --text-dim: #45524b;
+  --accent: #1e40a2;
+  --accent-strong: #16306f;
+  --success: #2c6e49;
+  --star: #9a6a18;
+  --radius: 4px;
   --maxw: 1080px;
+  --font-sans: var(--font-archivo), "Archivo", system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-mono-plex), "IBM Plex Mono", ui-monospace, "SF Mono",
+    Menlo, Consolas, monospace;
 }
 
 * {
@@ -23,8 +28,7 @@ body {
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
@@ -42,7 +46,7 @@ a {
 
 .site-header {
   border-bottom: 1px solid var(--border);
-  background: rgba(11, 13, 18, 0.85);
+  background: rgba(235, 237, 228, 0.85);
   backdrop-filter: blur(8px);
   position: sticky;
   top: 0;
@@ -293,14 +297,14 @@ h1 {
 }
 
 .codeblock {
-  background: #0a0c11;
-  border: 1px solid var(--border);
-  border-radius: 10px;
+  background: #e3e6da;
+  border: 1px solid var(--text);
+  border-radius: var(--radius);
   padding: 14px;
   overflow: auto;
   font-size: 12.5px;
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  color: #cdd7e6;
+  font-family: var(--font-mono);
+  color: var(--text);
 }
 
 .breadcrumb {

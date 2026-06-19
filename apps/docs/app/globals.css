@@ -1,14 +1,19 @@
 :root {
-  --bg: #0b0d10;
-  --bg-elev: #14171c;
-  --bg-code: #0f1217;
-  --border: #232830;
-  --text: #e6e9ef;
-  --text-dim: #9aa3b2;
-  --accent: #5eead4;
-  --accent-strong: #2dd4bf;
-  --radius: 10px;
+  /* STATEMENT — greenbar ledger palette (see @settlekit/ui) */
+  --bg: #ebede4;
+  --bg-elev: #dde3d1;
+  --bg-code: #e3e6da;
+  --border: #c4cbb8;
+  --text: #18211c;
+  --text-dim: #45524b;
+  --accent: #1e40a2;
+  --accent-strong: #16306f;
+  --radius: 4px;
   --maxw: 820px;
+  --font-sans: var(--font-archivo), "Archivo", system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-mono-plex), "IBM Plex Mono", ui-monospace, "SF Mono",
+    Menlo, Consolas, monospace;
 }
 
 * {
@@ -21,8 +26,7 @@ body {
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
-    Arial, sans-serif;
+  font-family: var(--font-sans);
   font-size: 16px;
   line-height: 1.65;
   -webkit-font-smoothing: antialiased;
@@ -105,7 +109,7 @@ a:hover {
 
 .nav__link:hover {
   color: var(--text);
-  background: rgba(255, 255, 255, 0.03);
+  background: rgba(24, 33, 28, 0.05);
   text-decoration: none;
 }
 
@@ -165,7 +169,7 @@ a:hover {
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 1px 5px;
-  font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
 }
 
@@ -190,7 +194,7 @@ a:hover {
 }
 
 .code-block__title {
-  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
 }
 
 .code-block__lang {
@@ -209,7 +213,7 @@ a:hover {
   background: none;
   border: none;
   padding: 0;
-  font-family: "SFMono-Regular", ui-monospace, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 13px;
   line-height: 1.55;
   color: var(--text);
@@ -281,28 +285,28 @@ a:hover {
 }
 
 .method--get {
-  color: #7dd3fc;
-  background: rgba(125, 211, 252, 0.12);
+  color: #1e40a2;
+  background: rgba(30, 64, 162, 0.1);
 }
 
 .method--post {
-  color: #86efac;
-  background: rgba(134, 239, 172, 0.12);
+  color: #2c6e49;
+  background: rgba(44, 110, 73, 0.12);
 }
 
 .method--patch {
-  color: #fcd34d;
-  background: rgba(252, 211, 77, 0.12);
+  color: #9a6a18;
+  background: rgba(154, 106, 24, 0.12);
 }
 
 .method--put {
-  color: #fdba74;
-  background: rgba(253, 186, 116, 0.12);
+  color: #a3552b;
+  background: rgba(163, 85, 43, 0.12);
 }
 
 .method--delete {
-  color: #fca5a5;
-  background: rgba(252, 165, 165, 0.12);
+  color: #a33a2b;
+  background: rgba(163, 58, 43, 0.1);
 }
 
 .path {

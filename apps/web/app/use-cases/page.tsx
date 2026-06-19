@@ -13,17 +13,25 @@ export default function UseCasesPage() {
   return (
     <>
       <section className="section page-hero">
-        <div className="container section-head">
-          <span className="eyebrow">Use cases</span>
-          <h1 className="section-title">Five ways developers sell with SettleKit</h1>
-          <p className="section-desc">
-            From a private repo to autonomous agent payments — each flow is built
-            in, settled in USDC, and delivers access automatically.
-          </p>
+        <div className="container">
+          <div className="ref">
+            <span className="ref-no">§ 00</span>
+            <span>Use cases</span>
+            <span className="ref-fill" aria-hidden="true" />
+          </div>
+          <div className="section-head">
+            <h1 className="section-title">
+              Five ways developers sell with SettleKit
+            </h1>
+            <p className="section-desc">
+              From a private repo to autonomous agent payments — each flow is
+              built in, settled in USDC, and delivers access automatically.
+            </p>
+          </div>
         </div>
       </section>
 
-      <section className="section section-tight">
+      <section className="section" style={{ paddingTop: 0 }}>
         <div className="container">
           <div className="usecase-list">
             {useCases.map((useCase, index) => (

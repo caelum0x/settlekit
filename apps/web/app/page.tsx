@@ -12,8 +12,9 @@ export default function HomePage() {
       <Hero />
 
       <FeatureGrid
+        refNo="01"
         eyebrow="What you can sell"
-        title="One platform for every kind of software sale"
+        title="One ledger for every kind of software sale"
         description="Repos, subscriptions, APIs, downloads, license keys, and community access — all sold in USDC with access delivered automatically."
         items={sellableItems}
       />
@@ -21,6 +22,7 @@ export default function HomePage() {
       <Steps />
 
       <FeatureGrid
+        refNo="03"
         eyebrow="Developer tools"
         title="Built for developers, not just checkout"
         description="SettleKit ships the primitives you'd otherwise build yourself: SDKs, webhooks, entitlement checks, and pay-per-call API middleware."
