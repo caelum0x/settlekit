@@ -39,7 +39,26 @@ Three creator-monetization patterns now share one settlement spine: **per-citati
 - **`LeptonStreamSettlement.sol`** — per-second on-chain stream: deposit reserve, accrue by `block.timestamp`, proof-of-flow `pause`/`resume`, `settle`, `close` (settle tail + refund unused reserve). RFB 4.
 - **`AgentReputationBond.sol`** — ERC-8004-style: broker posts a USDC bond; `release` (good outcome) or `slash` to the client (bad outcome), arbiter-resolvable. RFB 3.
 
-Remaining for a live testnet run (needs creds + running instances): point the sidecars at real RSSHub/Navidrome/Owncast with `SETTLEMENT_PROVIDER=circle` (or a Gateway port) and the Arc-indexer verifier, and deploy the contracts via `contracts/script`.
+### Live testnet runbook (needs creds + running instances)
+
+1. **Auth.** Install the ARC + Circle CLIs and authenticate (interactive):
+   ```sh
+   uv tool install git+https://github.com/the-canteen-dev/ARC-cli && arc-canteen login
+   npm install -g @circle-fin/cli
+   ```
+2. **Deploy the Lepton contracts to Arc.** A faucet-funded deployer key (USDC is
+   the gas token) drives the bundled Foundry script:
+   ```sh
+   cd contracts && forge script script/DeployLepton.s.sol \
+     --rpc-url https://rpc.testnet.arc.network --private-key $DEPLOYER_KEY --broadcast
+   ```
+   Dry-run first with no flags (`forge script script/DeployLepton.s.sol`) — it
+   simulates all three deploys and prints their addresses. `script/Deploy.s.sol`
+   deploys the Escrow + CCTP hook the same way.
+3. **Flip the sidecars to real settlement.** Point them at running
+   RSSHub/Navidrome/Owncast and set `SETTLEMENT_PROVIDER=circle` (or a Gateway
+   port) plus the Arc-indexer verifier (`ARC_INDEXER_URL`). No code change — the
+   provider and verifier are injected by config.
 
 ## Directory map (new work, by top-level folder)
 
