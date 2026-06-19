@@ -392,12 +392,30 @@ importers:
       '@settlekit/license-keys':
         specifier: workspace:*
         version: link:../../packages/license-keys
+      '@settlekit/navidrome-scrobble':
+        specifier: workspace:*
+        version: link:../../services/sidecars/navidrome-scrobble
+      '@settlekit/oss-fund':
+        specifier: workspace:*
+        version: link:../../packages/oss-fund
+      '@settlekit/owncast-stream':
+        specifier: workspace:*
+        version: link:../../services/sidecars/owncast-stream
+      '@settlekit/rsshub-citation-toll':
+        specifier: workspace:*
+        version: link:../../services/sidecars/rsshub-citation-toll
       '@settlekit/saas':
         specifier: workspace:*
         version: link:../../packages/saas
+      '@settlekit/settlement-core':
+        specifier: workspace:*
+        version: link:../../packages/settlement-core
       '@settlekit/x402':
         specifier: workspace:*
         version: link:../../packages/x402
+      '@settlekit/x402-client':
+        specifier: workspace:*
+        version: link:../../packages/x402-client
     devDependencies:
       '@types/node':
         specifier: ^20.14.0

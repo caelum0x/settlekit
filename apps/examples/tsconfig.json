@@ -13,9 +13,15 @@
     { "path": "../../packages/saas" },
     { "path": "../../packages/entitlements" },
     { "path": "../../packages/x402" },
+    { "path": "../../packages/x402-client" },
     { "path": "../../packages/license-keys" },
     { "path": "../../packages/delivery" },
-    { "path": "../../packages/bundles" }
+    { "path": "../../packages/bundles" },
+    { "path": "../../packages/oss-fund" },
+    { "path": "../../packages/settlement-core" },
+    { "path": "../../services/sidecars/rsshub-citation-toll" },
+    { "path": "../../services/sidecars/navidrome-scrobble" },
+    { "path": "../../services/sidecars/owncast-stream" }
   ],
   "include": ["src/**/*"],
   "exclude": ["dist", "node_modules", "test", "**/*.test.ts"]

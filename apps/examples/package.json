@@ -11,6 +11,7 @@
     "license": "node --import tsx src/license-verify.ts",
     "github": "node --import tsx src/github-repo-sale.ts",
     "bundle": "node --import tsx src/bundle-checkout.ts",
+    "lepton": "node --import tsx src/lepton-nanopayments.ts",
     "build": "tsc -b",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run"
@@ -21,8 +22,14 @@
     "@settlekit/delivery": "workspace:*",
     "@settlekit/entitlements": "workspace:*",
     "@settlekit/license-keys": "workspace:*",
+    "@settlekit/navidrome-scrobble": "workspace:*",
+    "@settlekit/oss-fund": "workspace:*",
+    "@settlekit/owncast-stream": "workspace:*",
+    "@settlekit/rsshub-citation-toll": "workspace:*",
     "@settlekit/saas": "workspace:*",
-    "@settlekit/x402": "workspace:*"
+    "@settlekit/settlement-core": "workspace:*",
+    "@settlekit/x402": "workspace:*",
+    "@settlekit/x402-client": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
