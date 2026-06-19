@@ -18,6 +18,7 @@ import {
   settlementProviderFromEnv,
 } from "@settlekit/settlement-core";
 import { SpendingCapEnforcer } from "@settlekit/wallet-fleet";
+import { requireBearer } from "./auth.js";
 import { type NavidromeConfig, loadConfig } from "./config.js";
 import { type ScrobbleEvent, type ScrobbleProcessor, createScrobbleProcessor } from "./scrobble.js";
 
@@ -59,8 +60,12 @@ export function createSidecar(
   );
   app.get("/health", (c) => c.json({ data: { status: "ok" } }));
 
+  // Wallet binding + scrobble settlement move money — guard them when a token is
+  // configured (no-op for local demos/tests).
+  const guard = requireBearer(config.authToken);
+
   // Register an artist's payout wallet.
-  app.post("/admin/artists", async (c) => {
+  app.post("/admin/artists", guard, async (c) => {
     const body = (await c.req.json().catch(() => null)) as
       | { externalId?: string; wallet?: string; displayName?: string }
       | null;
@@ -77,7 +82,7 @@ export function createSidecar(
   });
 
   // Ingest a play event (a Subsonic/Navidrome scrobble).
-  app.post("/scrobble", async (c) => {
+  app.post("/scrobble", guard, async (c) => {
     const body = (await c.req.json().catch(() => null)) as ScrobbleEvent | null;
     if (
       body === null ||
@@ -93,7 +98,7 @@ export function createSidecar(
   });
 
   // Settle accrued per-listen royalties to artists.
-  app.post("/admin/sweep", async (c) => {
+  app.post("/admin/sweep", guard, async (c) => {
     const result = await sweepPendingRoyalties(royaltyLegStore, settlementProvider);
     return c.json({ data: result });
   });

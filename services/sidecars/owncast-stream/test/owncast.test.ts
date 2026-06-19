@@ -77,4 +77,41 @@ describe("owncast-stream sidecar", () => {
     const { data } = (await leave.json()) as { data: { accruedUsdc: string } };
     expect(data.accruedUsdc).toBe("0.0003");
   });
+
+  it("enforces the bearer token on money-moving routes when one is configured", async () => {
+    const cfg = loadConfig({
+      ORG_ID: "org_test",
+      ESCROW_WALLET: "0xEscrow",
+      SIDECAR_AUTH_TOKEN: "s3cret",
+    } as unknown as NodeJS.ProcessEnv);
+    const sidecar = createSidecar(cfg, { now: () => 0 });
+    const joinBody = JSON.stringify({ sessionId: "s1", streamer: { externalId: "owncast:dj", wallet: "0xDJ" } });
+
+    // No token → rejected (an attacker can't bind a payout wallet).
+    const noAuth = await sidecar.app.request("/sessions/join", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: joinBody,
+    });
+    expect(noAuth.status).toBe(401);
+
+    // Wrong token → rejected.
+    const badAuth = await sidecar.app.request("/sessions/join", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer nope" },
+      body: joinBody,
+    });
+    expect(badAuth.status).toBe(401);
+
+    // Correct token → allowed.
+    const ok = await sidecar.app.request("/sessions/join", {
+      method: "POST",
+      headers: { "content-type": "application/json", authorization: "Bearer s3cret" },
+      body: joinBody,
+    });
+    expect(ok.status).toBe(200);
+
+    // Read-only routes stay open regardless.
+    expect((await sidecar.app.request("/health")).status).toBe(200);
+  });
 });

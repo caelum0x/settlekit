@@ -16,6 +16,7 @@ import {
   type SettlementProvider,
   settlementProviderFromEnv,
 } from "@settlekit/settlement-core";
+import { requireBearer } from "./auth.js";
 import { type OwncastConfig, loadConfig } from "./config.js";
 import { type JoinEvent, type OwncastSessions, createOwncastSessions } from "./sessions.js";
 
@@ -63,8 +64,12 @@ export function createSidecar(
   );
   app.get("/health", (c) => c.json({ data: { status: "ok" } }));
 
+  // Money-moving endpoints bind wallets and settle royalties — guard them when a
+  // token is configured (no-op for local demos/tests).
+  const guard = requireBearer(config.authToken);
+
   // A viewer started watching.
-  app.post("/sessions/join", async (c) => {
+  app.post("/sessions/join", guard, async (c) => {
     const body = (await c.req.json().catch(() => null)) as JoinEvent | null;
     if (body === null || typeof body.sessionId !== "string" || typeof body.streamer?.externalId !== "string") {
       return c.json({ error: "sessionId and streamer.externalId required" }, 400);
@@ -74,7 +79,7 @@ export function createSidecar(
   });
 
   // A viewer stopped watching — settle the time they were present.
-  app.post("/sessions/leave", async (c) => {
+  app.post("/sessions/leave", guard, async (c) => {
     const body = (await c.req.json().catch(() => null)) as { sessionId?: string } | null;
     if (body === null || typeof body.sessionId !== "string") {
       return c.json({ error: "sessionId required" }, 400);
@@ -87,7 +92,7 @@ export function createSidecar(
   });
 
   // Settle accrued streamer royalties.
-  app.post("/admin/sweep", async (c) => {
+  app.post("/admin/sweep", guard, async (c) => {
     const result = await sweepPendingRoyalties(royaltyLegStore, settlementProvider);
     return c.json({ data: result });
   });

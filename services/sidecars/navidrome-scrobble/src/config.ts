@@ -16,6 +16,8 @@ export interface NavidromeConfig {
   perUserDailyCapUsdc?: string;
   /** Wallet that holds earnings for not-yet-registered artists. */
   escrowWallet: string;
+  /** When set, guarded endpoints require `Authorization: Bearer <token>`. */
+  authToken?: string;
 }
 
 function env(vars: NodeJS.ProcessEnv, name: string, fallback: string): string {
@@ -25,6 +27,7 @@ function env(vars: NodeJS.ProcessEnv, name: string, fallback: string): string {
 
 export function loadConfig(vars: NodeJS.ProcessEnv = process.env): NavidromeConfig {
   const cap = vars["PER_USER_DAILY_CAP_USDC"];
+  const authToken = vars["SIDECAR_AUTH_TOKEN"];
   return {
     port: Number(env(vars, "PORT", "8791")),
     organizationId: env(vars, "ORG_ID", "org_navidrome"),
@@ -33,5 +36,6 @@ export function loadConfig(vars: NodeJS.ProcessEnv = process.env): NavidromeConf
     minPlaySeconds: Number(env(vars, "MIN_PLAY_SECONDS", "30")),
     ...(cap !== undefined && cap.length > 0 ? { perUserDailyCapUsdc: cap } : {}),
     escrowWallet: env(vars, "ESCROW_WALLET", "0x0000000000000000000000000000000000e5c70w"),
+    ...(authToken !== undefined && authToken.length > 0 ? { authToken } : {}),
   };
 }

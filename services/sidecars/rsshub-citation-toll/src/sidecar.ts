@@ -29,6 +29,7 @@ import {
   createOnchainVerifier,
 } from "@settlekit/x402-client";
 import type { PaymentVerifier } from "@settlekit/x402";
+import { requireBearer } from "./auth.js";
 import { type SidecarConfig, loadConfig } from "./config.js";
 import { type RssCitationIngestor, type RssItem, createRssIngestor } from "./ingestor.js";
 import { createTollDistributor } from "./settlement.js";
@@ -88,8 +89,13 @@ export function createSidecar(
   );
   app.get("/health", (c) => c.json({ data: { status: "ok" } }));
 
+  // Guard the admin endpoints (ingest binds author wallets; sweep settles) when a
+  // token is configured. The x402-paid /articles/:id route stays open — payment
+  // is its gate. No-op for local demos/tests.
+  const guard = requireBearer(config.authToken);
+
   // Admin: ingest RSS items as priced, citeable sources.
-  app.post("/admin/feeds", async (c) => {
+  app.post("/admin/feeds", guard, async (c) => {
     const body = (await c.req.json().catch(() => null)) as { items?: RssItem[] } | null;
     if (body === null || !Array.isArray(body.items)) {
       return c.json({ error: "items[] required" }, 400);
@@ -104,7 +110,7 @@ export function createSidecar(
   // Admin: sweep pending royalties into author payouts (the settlement worker
   // does this on a schedule in production; exposed here so the full flow is
   // demonstrable end to end).
-  app.post("/admin/sweep", async (c) => {
+  app.post("/admin/sweep", guard, async (c) => {
     const result = await sweepPendingRoyalties(royaltyLegStore, settlementProvider);
     return c.json({ data: result });
   });

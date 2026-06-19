@@ -14,6 +14,8 @@ export interface SidecarConfig {
   escrowWallet: string;
   /** Optional Arc indexer base URL; when set, tolls are verified on-chain. */
   indexerUrl?: string;
+  /** When set, admin endpoints require `Authorization: Bearer <token>`. */
+  authToken?: string;
 }
 
 function env(vars: NodeJS.ProcessEnv, name: string, fallback: string): string {
@@ -23,6 +25,7 @@ function env(vars: NodeJS.ProcessEnv, name: string, fallback: string): string {
 
 export function loadConfig(vars: NodeJS.ProcessEnv = process.env): SidecarConfig {
   const indexerUrl = vars["ARC_INDEXER_URL"];
+  const authToken = vars["SIDECAR_AUTH_TOKEN"];
   return {
     port: Number(env(vars, "PORT", "8790")),
     organizationId: env(vars, "ORG_ID", "org_rss_citations"),
@@ -30,5 +33,6 @@ export function loadConfig(vars: NodeJS.ProcessEnv = process.env): SidecarConfig
     network: env(vars, "NETWORK", "arc") as PaymentNetwork,
     escrowWallet: env(vars, "ESCROW_WALLET", "0x0000000000000000000000000000000000e5c70w"),
     ...(indexerUrl !== undefined && indexerUrl.length > 0 ? { indexerUrl } : {}),
+    ...(authToken !== undefined && authToken.length > 0 ? { authToken } : {}),
   };
 }
