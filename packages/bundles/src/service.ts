@@ -61,7 +61,7 @@ export class BundleService {
       now: request.now,
     });
 
-    const validation = validateBundle({ bundle, productExists: this.productExists });
+    const validation = await validateBundle({ bundle, productExists: this.productExists });
     if (isErr(validation)) {
       return err(validation.error);
     }

@@ -295,6 +295,46 @@ importers:
         specifier: ^5.5.4
         version: 5.9.3
 
+  apps/creator-dashboard:
+    dependencies:
+      '@settlekit/attribution':
+        specifier: workspace:*
+        version: link:../../packages/attribution
+      '@settlekit/citation-toll':
+        specifier: workspace:*
+        version: link:../../packages/citation-toll
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../../packages/common
+      '@settlekit/payee-registry':
+        specifier: workspace:*
+        version: link:../../packages/payee-registry
+      '@settlekit/platform-billing':
+        specifier: workspace:*
+        version: link:../../packages/platform-billing
+      next:
+        specifier: ^14.2.5
+        version: 14.2.35(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      react:
+        specifier: ^18.3.1
+        version: 18.3.1
+      react-dom:
+        specifier: ^18.3.1
+        version: 18.3.1(react@18.3.1)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      '@types/react':
+        specifier: ^18.3.3
+        version: 18.3.31
+      '@types/react-dom':
+        specifier: ^18.3.0
+        version: 18.3.7(@types/react@18.3.31)
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+
   apps/dashboard:
     dependencies:
       next:
@@ -745,6 +785,22 @@ importers:
       viem:
         specifier: ^2.21.0
         version: 2.52.2(typescript@5.9.3)(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
+  packages/attribution:
+    dependencies:
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
     devDependencies:
       '@types/node':
         specifier: ^20.14.0
@@ -1614,6 +1670,9 @@ importers:
       '@settlekit/api-keys':
         specifier: workspace:*
         version: link:../api-keys
+      '@settlekit/attribution':
+        specifier: workspace:*
+        version: link:../attribution
       '@settlekit/auth':
         specifier: workspace:*
         version: link:../auth
@@ -2296,6 +2355,9 @@ importers:
       '@hono/node-server':
         specifier: ^1.13.7
         version: 1.19.14(hono@4.12.25)
+      '@settlekit/attribution':
+        specifier: workspace:*
+        version: link:../../../packages/attribution
       '@settlekit/citation-toll':
         specifier: workspace:*
         version: link:../../../packages/citation-toll

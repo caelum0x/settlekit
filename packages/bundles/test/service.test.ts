@@ -11,7 +11,7 @@ const knownProducts = new Set(["prod_a", "prod_b"]);
 const productExists = (id: string): boolean => knownProducts.has(id);
 
 describe("validateBundle", () => {
-  it("rejects empty bundles", () => {
+  it("rejects empty bundles", async () => {
     const bundle = createBundle({
       merchantId: "m",
       organizationId: "o",
@@ -19,28 +19,28 @@ describe("validateBundle", () => {
       productIds: [],
       price: money("0"),
     });
-    const result = validateBundle({ bundle, productExists });
+    const result = await validateBundle({ bundle, productExists });
     expect(isErr(result)).toBe(true);
   });
 
-  it("rejects self-references (cycles)", () => {
-    const result = validateBundle({
+  it("rejects self-references (cycles)", async () => {
+    const result = await validateBundle({
       bundle: { id: "bndl_x", productIds: ["bndl_x"] },
       productExists: () => true,
     });
     expect(isErr(result)).toBe(true);
   });
 
-  it("rejects duplicate products", () => {
-    const result = validateBundle({
+  it("rejects duplicate products", async () => {
+    const result = await validateBundle({
       bundle: { id: "bndl_x", productIds: ["prod_a", "prod_a"] },
       productExists,
     });
     expect(isErr(result)).toBe(true);
   });
 
-  it("rejects unknown products", () => {
-    const result = validateBundle({
+  it("rejects unknown products", async () => {
+    const result = await validateBundle({
       bundle: { id: "bndl_x", productIds: ["prod_a", "prod_missing"] },
       productExists,
     });
@@ -50,8 +50,8 @@ describe("validateBundle", () => {
     }
   });
 
-  it("accepts a valid bundle", () => {
-    const result = validateBundle({
+  it("accepts a valid bundle", async () => {
+    const result = await validateBundle({
       bundle: { id: "bndl_x", productIds: ["prod_a", "prod_b"] },
       productExists,
     });

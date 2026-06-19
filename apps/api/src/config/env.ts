@@ -386,6 +386,54 @@ function loadFileDelivery(env: Env): FileDeliveryConfig {
  * Build {@link ApiConfig} from a process environment. Defaults to `process.env`
  * but accepts an explicit env map for tests.
  */
+/**
+ * Dev-only fallback secrets. They keep `pnpm dev` zero-config, but are public
+ * (they live in this source file) so using them in production would let anyone
+ * forge sessions, webhook signatures, and license tokens. {@link assertProductionReady}
+ * rejects them when NODE_ENV=production.
+ */
+const DEV_DEFAULT_SECRETS = {
+  LICENSE_TOKEN_SECRET: "settlekit-dev-license-secret",
+  WEBHOOK_SIGNING_SECRET: "settlekit-dev-webhook-secret",
+  AUTH_COOKIE_SECRET: "settlekit-dev-auth-cookie-secret",
+} as const;
+
+/**
+ * Fail closed in production: a misconfigured deploy must crash on boot with a
+ * clear message rather than silently running on in-memory data (lost on every
+ * restart) or with publicly-known signing secrets. Dev/test keep the
+ * convenient fallbacks.
+ */
+function assertProductionReady(
+  env: Env,
+  cfg: {
+    database: DatabaseConfig | null;
+    licenseTokenSecret: string;
+    webhookSigningSecret: string;
+    authCookieSecret: string;
+  },
+): void {
+  if (env.NODE_ENV !== "production") return;
+  const problems: string[] = [];
+  if (cfg.database === null) {
+    problems.push("DATABASE_URL must be set (in-memory stores lose all data on restart)");
+  }
+  if (cfg.licenseTokenSecret === DEV_DEFAULT_SECRETS.LICENSE_TOKEN_SECRET) {
+    problems.push("LICENSE_TOKEN_SECRET must be set (the dev default is public and forgeable)");
+  }
+  if (cfg.webhookSigningSecret === DEV_DEFAULT_SECRETS.WEBHOOK_SIGNING_SECRET) {
+    problems.push("WEBHOOK_SIGNING_SECRET must be set (the dev default is public and forgeable)");
+  }
+  if (cfg.authCookieSecret === DEV_DEFAULT_SECRETS.AUTH_COOKIE_SECRET) {
+    problems.push("AUTH_COOKIE_SECRET must be set (the dev default is public and forgeable)");
+  }
+  if (problems.length > 0) {
+    throw new Error(
+      `Refusing to boot in production with insecure configuration:\n  - ${problems.join("\n  - ")}`,
+    );
+  }
+}
+
 export function loadConfig(env: Env = process.env): ApiConfig {
   const database = loadDatabase(env);
   const arc = loadArc(env);
@@ -399,11 +447,17 @@ export function loadConfig(env: Env = process.env): ApiConfig {
   const email = loadEmail(env);
   const s3 = loadS3(env);
 
+  const licenseTokenSecret = optionalString(env, "LICENSE_TOKEN_SECRET", DEV_DEFAULT_SECRETS.LICENSE_TOKEN_SECRET);
+  const webhookSigningSecret = optionalString(env, "WEBHOOK_SIGNING_SECRET", DEV_DEFAULT_SECRETS.WEBHOOK_SIGNING_SECRET);
+  const authCookieSecret = optionalString(env, "AUTH_COOKIE_SECRET", DEV_DEFAULT_SECRETS.AUTH_COOKIE_SECRET);
+
+  assertProductionReady(env, { database, licenseTokenSecret, webhookSigningSecret, authCookieSecret });
+
   return {
     port: intInRange(env, "PORT", 8787, 1, 65_535),
-    licenseTokenSecret: optionalString(env, "LICENSE_TOKEN_SECRET", "settlekit-dev-license-secret"),
-    webhookSigningSecret: optionalString(env, "WEBHOOK_SIGNING_SECRET", "settlekit-dev-webhook-secret"),
-    authCookieSecret: optionalString(env, "AUTH_COOKIE_SECRET", "settlekit-dev-auth-cookie-secret"),
+    licenseTokenSecret,
+    webhookSigningSecret,
+    authCookieSecret,
     fileDelivery: loadFileDelivery(env),
     ...(optionalRaw(env, "CCTP_IRIS_BASE_URL")
       ? { cctpIrisBaseUrl: optionalRaw(env, "CCTP_IRIS_BASE_URL") as string }

@@ -34,6 +34,8 @@ import {
   leptonPayeeSplits,
   leptonSettlements,
   leptonNonces,
+  leptonLineageEdges,
+  leptonCitationProofs,
 } from "./lepton.js";
 import {
   organizations,
@@ -206,6 +208,8 @@ export const schema = {
   leptonPayeeSplits,
   leptonSettlements,
   leptonNonces,
+  leptonLineageEdges,
+  leptonCitationProofs,
 } as const;
 
 /** The static type of the SettleKit schema object. */

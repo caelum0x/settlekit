@@ -14,6 +14,8 @@ export interface SidecarConfig {
   escrowWallet: string;
   /** Optional Arc indexer base URL; when set, tolls are verified on-chain. */
   indexerUrl?: string;
+  /** HMAC secret for signing proofs-of-citation an agent presents downstream. */
+  proofSecret: string;
 }
 
 function env(vars: NodeJS.ProcessEnv, name: string, fallback: string): string {
@@ -29,6 +31,7 @@ export function loadConfig(vars: NodeJS.ProcessEnv = process.env): SidecarConfig
     defaultPriceUsdc: env(vars, "DEFAULT_TOLL_USDC", "0.0005"),
     network: env(vars, "NETWORK", "arc") as PaymentNetwork,
     escrowWallet: env(vars, "ESCROW_WALLET", "0x0000000000000000000000000000000000e5c70w"),
+    proofSecret: env(vars, "CITATION_PROOF_SECRET", "dev-citation-proof-secret"),
     ...(indexerUrl !== undefined && indexerUrl.length > 0 ? { indexerUrl } : {}),
   };
 }

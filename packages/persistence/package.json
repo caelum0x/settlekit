@@ -19,6 +19,7 @@
     "@settlekit/common": "workspace:*",
     "@settlekit/database": "workspace:*",
     "@settlekit/settlement-core": "workspace:*",
+    "@settlekit/attribution": "workspace:*",
     "@settlekit/citation-toll": "workspace:*",
     "@settlekit/payee-registry": "workspace:*",
     "@settlekit/streaming": "workspace:*",

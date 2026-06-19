@@ -9,6 +9,7 @@
     { "path": "../common" },
     { "path": "../database" },
     { "path": "../settlement-core" },
+    { "path": "../attribution" },
     { "path": "../citation-toll" },
     { "path": "../payee-registry" },
     { "path": "../streaming" },

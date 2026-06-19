@@ -292,17 +292,12 @@ export async function createContext(): Promise<AppContext> {
 
   const products = pick<EntityStore<Product>>(db, (d) => new PgProductStore(d), () => new InMemoryEntityStore<Product>());
 
-  // Bundle validation needs a synchronous product-existence check, but Postgres
-  // lookups are async — so track known product ids in a set (primed at boot,
-  // updated on save) and gate bundle creation against it.
-  const knownProductIds = new Set<string>();
-  for (const p of await products.list()) knownProductIds.add(p.id);
-  const trackedProducts: EntityStore<Product> = {
-    async save(p) { const r = await products.save(p); knownProductIds.add(p.id); return r; },
-    findById: (id) => products.findById(id),
-    list: (predicate) => products.list(predicate),
-    async delete(id) { const ok = await products.delete(id); if (ok) knownProductIds.delete(id); return ok; },
-  };
+  // Bundle validation checks product existence against the store directly (async).
+  // A previous process-local id cache went stale across instances under
+  // horizontal scaling, spuriously rejecting bundles whose products were created
+  // on another instance; querying the store is always consistent.
+  const productExists = async (productId: string): Promise<boolean> =>
+    (await products.findById(productId)) != null;
 
   const entitlementRepo = pick<EntitlementRepository>(db, (d) => new PgEntitlementRepository(d), () => new InMemoryEntitlementRepository());
   const apiKeyStore = pick<ApiKeyStore>(db, (d) => new PgApiKeyStore(d), () => new InMemoryApiKeyStore());
@@ -398,7 +393,7 @@ export async function createContext(): Promise<AppContext> {
     entitlementRepo,
     entitlements: new EntitlementService(entitlementRepo),
 
-    products: trackedProducts,
+    products,
     prices,
     customers: pick<EntityStore<Customer>>(db, (d) => new PgCustomerStore(d), () => new InMemoryEntityStore<Customer>()),
     deliveryRuns: pick<EntityStore<DeliveryRun>>(db, (d) => new PgDeliveryRunStore(d), () => new InMemoryEntityStore<DeliveryRun>()),
@@ -472,7 +467,7 @@ export async function createContext(): Promise<AppContext> {
     discordGrants,
 
     saas: new SaasService({ plans: planStore, seats: seatStore }),
-    bundles: new BundleService(bundleStore, (productId: string) => knownProductIds.has(productId)),
+    bundles: new BundleService(bundleStore, productExists),
     bundleStore,
     agentServices: new AgentServiceService({
       services: agentServiceStore,

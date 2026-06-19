@@ -72,7 +72,7 @@ export class CircleSettlementProvider implements SettlementProvider {
   }
 
   async settle(request: SettlementRequest): Promise<SettlementReceipt> {
-    return withIdempotency(this.idempotency, request, async () => {
+    return withIdempotency(this.idempotency, request, "circle", async () => {
       const createdAt = toIso(new Date());
       const created = await this.config.wallets.createTransfer({
         walletId: this.config.walletId,

@@ -12,7 +12,7 @@
     "github": "node --import tsx src/github-repo-sale.ts",
     "bundle": "node --import tsx src/bundle-checkout.ts",
     "build": "tsc -b",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc -b",
     "test": "vitest run"
   },
   "dependencies": {

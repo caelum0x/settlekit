@@ -42,6 +42,7 @@ contract LeptonStreamSettlement {
     error NotParty();
     error ZeroRate();
     error ZeroReserve();
+    error InvalidPayee();
     error TransferFailed();
 
     constructor(IERC20 _token) {
@@ -51,6 +52,10 @@ contract LeptonStreamSettlement {
     /** Open a stream, depositing `reserve` from the caller (the payer). */
     function open(bytes32 id, address payee, uint256 ratePerSecond, uint256 reserve) external {
         if (_streams[id].open) revert AlreadyExists();
+        // A zero payee would lock funds: once any value accrues, settle()/close()
+        // revert on the transfer to address(0), and close() pays the payee before
+        // refunding the payer — so the reserve can never be recovered.
+        if (payee == address(0) || payee == msg.sender) revert InvalidPayee();
         if (ratePerSecond == 0) revert ZeroRate();
         if (reserve == 0) revert ZeroReserve();
         if (!token.transferFrom(msg.sender, address(this), reserve)) revert TransferFailed();
