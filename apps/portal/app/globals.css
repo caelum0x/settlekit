@@ -1,28 +1,33 @@
 /* SettleKit customer portal theme. Hand-rolled utility classes, no Tailwind. */
 
 :root {
-  --bg: #0b0f14;
-  --panel: #11161d;
-  --panel-2: #161d27;
-  --border: #232c38;
-  --border-strong: #2f3b4b;
-  --text: #e6edf3;
-  --text-dim: #9aa7b4;
-  --text-faint: #6b7785;
-  --accent: #4f9cf9;
-  --accent-strong: #2d7ef0;
-  --ok: #2ecc71;
-  --ok-bg: rgba(46, 204, 113, 0.12);
-  --warn: #f0b429;
-  --warn-bg: rgba(240, 180, 41, 0.12);
-  --bad: #f0506e;
-  --bad-bg: rgba(240, 80, 110, 0.12);
-  --info: #4f9cf9;
-  --info-bg: rgba(79, 156, 249, 0.12);
-  --muted-bg: rgba(154, 167, 180, 0.12);
-  --radius: 10px;
-  --radius-sm: 6px;
+  /* STATEMENT — greenbar ledger palette (see @settlekit/ui) */
+  --bg: #ebede4;
+  --panel: #f3f4ec;
+  --panel-2: #dde3d1;
+  --border: #cdd3c5;
+  --border-strong: #b4bca9;
+  --text: #18211c;
+  --text-dim: #45524b;
+  --text-faint: #79847c;
+  --accent: #1e40a2;
+  --accent-strong: #16306f;
+  --ok: #2c6e49;
+  --ok-bg: rgba(44, 110, 73, 0.12);
+  --warn: #9a6a18;
+  --warn-bg: rgba(154, 106, 24, 0.12);
+  --bad: #a33a2b;
+  --bad-bg: rgba(163, 58, 43, 0.1);
+  --info: #1e40a2;
+  --info-bg: rgba(30, 64, 162, 0.1);
+  --muted-bg: rgba(24, 33, 28, 0.06);
+  --radius: 4px;
+  --radius-sm: 3px;
   --maxw: 1080px;
+  --font-sans: var(--font-archivo), "Archivo", system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-mono-plex), "IBM Plex Mono", ui-monospace, "SF Mono",
+    Menlo, Consolas, monospace;
 }
 
 * {
@@ -38,8 +43,7 @@ body {
 body {
   background: var(--bg);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
   font-size: 15px;
   line-height: 1.55;
   -webkit-font-smoothing: antialiased;
@@ -55,7 +59,7 @@ a:hover {
 
 code,
 .mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.92em;
 }
 
@@ -420,7 +424,7 @@ code,
   gap: 8px;
 }
 .key-text {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   background: var(--bg);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-sm);

@@ -2,15 +2,20 @@ import { howItWorks } from "@/lib/content";
 
 export function Steps() {
   return (
-    <section className="section section-muted">
+    <section className="section section-ruled section-bar">
       <div className="container">
+        <div className="ref">
+          <span className="ref-no">§ 02</span>
+          <span>How a sale settles</span>
+          <span className="ref-fill" aria-hidden="true" />
+        </div>
+
         <div className="section-head">
-          <span className="eyebrow">How it works</span>
           <h2 className="section-title">
-            Create product → Set price → Buyer pays → Access delivered
+            Create product, set price, get paid, deliver access
           </h2>
           <p className="section-desc">
-            From an idea to delivered access in four steps. SettleKit verifies the
+            Four line items from idea to delivered access. SettleKit verifies the
             USDC payment and grants every deliverable automatically.
           </p>
         </div>
@@ -18,9 +23,13 @@ export function Steps() {
         <ol className="steps">
           {howItWorks.map((step) => (
             <li key={step.step} className="step">
-              <span className="step-num">{step.step}</span>
-              <h3 className="step-title">{step.title}</h3>
-              <p className="step-desc">{step.description}</p>
+              <span className="step-num">
+                STEP {String(step.step).padStart(2, "0")}
+              </span>
+              <div>
+                <h3 className="step-title">{step.title}</h3>
+                <p className="step-desc">{step.description}</p>
+              </div>
             </li>
           ))}
         </ol>

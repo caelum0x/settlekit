@@ -14,8 +14,8 @@ export function Nav() {
       <div className="nav-inner container">
         <Link href={internalLinks.home} className="brand">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo-mark.png" alt="SettleKit" className="brand-logo" width={28} height={28} />
-          <span className="brand-name">SettleKit</span>
+          <img src="/logo-mark.png" alt="" className="brand-logo" width={24} height={24} />
+          <span>SettleKit</span>
         </Link>
 
         <nav className="nav-links" aria-label="Primary">

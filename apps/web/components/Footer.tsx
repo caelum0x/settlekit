@@ -37,8 +37,8 @@ export function Footer() {
       <div className="container footer-inner">
         <div className="footer-brand">
           <div className="brand">
-            <span className="brand-mark">◆</span>
-            <span className="brand-name">SettleKit</span>
+            <span className="brand-mark">SK</span>
+            <span>SettleKit</span>
           </div>
           <p className="footer-tagline">
             Sell private repos, SaaS, APIs, templates, and AI tools in USDC — and
@@ -70,8 +70,8 @@ export function Footer() {
       </div>
 
       <div className="container footer-bottom">
-        <span>© {new Date().getFullYear()} SettleKit. All rights reserved.</span>
-        <span>Settled in USDC.</span>
+        <span>© {new Date().getFullYear()} SettleKit</span>
+        <span>Net settled in USDC · conserved to the cent</span>
       </div>
     </footer>
   );

@@ -1,22 +1,28 @@
 :root {
-  --bg: #0b0d12;
-  --bg-panel: #12151c;
-  --bg-elevated: #171b24;
-  --border: #232936;
-  --border-strong: #2e3645;
-  --text: #e7ebf2;
-  --text-muted: #9aa4b5;
-  --text-dim: #6b7585;
-  --accent: #5b8cff;
-  --accent-soft: rgba(91, 140, 255, 0.15);
-  --good: #3fcf8e;
-  --good-soft: rgba(63, 207, 142, 0.14);
-  --warn: #f5b740;
-  --warn-soft: rgba(245, 183, 64, 0.14);
-  --bad: #f06363;
-  --bad-soft: rgba(240, 99, 99, 0.14);
-  --radius: 10px;
-  --radius-sm: 6px;
+  /* STATEMENT — greenbar ledger palette (see @settlekit/ui) */
+  --bg: #ebede4;
+  --bg-panel: #f3f4ec;
+  --bg-elevated: #dde3d1;
+  --border: #cdd3c5;
+  --border-strong: #b4bca9;
+  --text: #18211c;
+  --text-muted: #45524b;
+  --text-dim: #79847c;
+  --accent: #1e40a2;
+  --accent-hover: #16306f;
+  --accent-soft: rgba(30, 64, 162, 0.1);
+  --good: #2c6e49;
+  --good-soft: rgba(44, 110, 73, 0.12);
+  --warn: #9a6a18;
+  --warn-soft: rgba(154, 106, 24, 0.12);
+  --bad: #a33a2b;
+  --bad-soft: rgba(163, 58, 43, 0.1);
+  --radius: 4px;
+  --radius-sm: 3px;
+  --font-sans: var(--font-archivo), "Archivo", system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-mono-plex), "IBM Plex Mono", ui-monospace, "SF Mono",
+    Menlo, Consolas, monospace;
 }
 
 * {
@@ -29,8 +35,7 @@ body {
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto,
-    Helvetica, Arial, sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -42,7 +47,7 @@ a {
 }
 
 code {
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  font-family: var(--font-mono);
   font-size: 0.85em;
   background: var(--bg-elevated);
   padding: 1px 5px;
@@ -397,7 +402,7 @@ code {
 }
 
 .btn-primary:hover {
-  background: #4a7bf0;
+  background: var(--accent-hover);
 }
 
 .btn:disabled {
@@ -439,7 +444,7 @@ code {
 .error-banner {
   background: var(--bad-soft);
   border: 1px solid rgba(240, 99, 99, 0.4);
-  color: #ffcaca;
+  color: var(--bad);
   padding: 10px 14px;
   border-radius: var(--radius-sm);
   font-size: 12px;
@@ -539,7 +544,7 @@ code {
 
 .form-message.err {
   background: var(--bad-soft);
-  color: #ffcaca;
+  color: var(--bad);
 }
 
 /* ---------- Choice grid (product builder) ---------- */
@@ -661,7 +666,8 @@ code {
 /* ---------- Onboarding checklist ---------- */
 .onboarding {
   border-color: var(--accent);
-  background: linear-gradient(180deg, var(--accent-soft), transparent 120px), var(--bg-panel);
+  background: var(--bg-panel);
+  border-left: 3px solid var(--accent);
 }
 .onboarding-head {
   display: flex;

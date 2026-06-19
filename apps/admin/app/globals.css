@@ -1,17 +1,22 @@
 :root {
-  --bg: #0b0e14;
-  --panel: #141a24;
-  --panel-2: #1b2230;
-  --border: #26303f;
-  --text: #e6edf3;
-  --muted: #8b97a8;
-  --accent: #4f8cff;
-  --ok: #2ea043;
-  --ok-bg: rgba(46, 160, 67, 0.14);
-  --warn: #d9a106;
-  --warn-bg: rgba(217, 161, 6, 0.14);
-  --danger: #e5534b;
-  --danger-bg: rgba(229, 83, 75, 0.14);
+  /* STATEMENT — greenbar ledger palette (see @settlekit/ui) */
+  --bg: #ebede4;
+  --panel: #f3f4ec;
+  --panel-2: #dde3d1;
+  --border: #c4cbb8;
+  --text: #18211c;
+  --muted: #45524b;
+  --accent: #1e40a2;
+  --ok: #2c6e49;
+  --ok-bg: rgba(44, 110, 73, 0.14);
+  --warn: #9a6a18;
+  --warn-bg: rgba(154, 106, 24, 0.14);
+  --danger: #a33a2b;
+  --danger-bg: rgba(163, 58, 43, 0.12);
+  --font-sans: var(--font-archivo), "Archivo", system-ui, -apple-system,
+    "Segoe UI", Roboto, sans-serif;
+  --font-mono: var(--font-mono-plex), "IBM Plex Mono", ui-monospace, "SF Mono",
+    Menlo, Consolas, monospace;
 }
 
 * {
@@ -24,7 +29,7 @@ body {
   padding: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-family: var(--font-sans);
   font-size: 14px;
   line-height: 1.5;
 }
@@ -148,7 +153,7 @@ tr:last-child td {
 }
 td.mono,
 .mono {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-family: var(--font-mono);
   font-size: 12px;
 }
 
