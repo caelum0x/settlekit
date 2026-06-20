@@ -507,6 +507,34 @@ export class AuthService {
   }
 
   /**
+   * Update mutable profile fields on the authenticated account. Currently
+   * `displayName`. Returns the updated account.
+   */
+  async updateAccount(
+    sessionToken: string,
+    input: { displayName?: string },
+    now: Date = new Date(),
+  ): Promise<Result<{ account: Account }, SettleKitError>> {
+    const auth = await this.authenticateSession(sessionToken, now);
+    if (!auth.ok) return err(auth.error);
+    const { account } = auth.value;
+
+    const next: Account = { ...account };
+    if (input.displayName !== undefined) {
+      const displayName = input.displayName.trim();
+      if (displayName.length === 0) {
+        return err(validation("Display name cannot be empty"));
+      }
+      if (displayName.length > 120) {
+        return err(validation("Display name must be 120 characters or fewer"));
+      }
+      next.displayName = displayName;
+    }
+    await this.store.saveAccount(next);
+    return ok({ account: next });
+  }
+
+  /**
    * Resolve the account for a session token. Returns `unauthorized` if the
    * token is unknown, expired, or its account no longer exists.
    */

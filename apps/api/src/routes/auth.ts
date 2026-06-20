@@ -78,6 +78,10 @@ const walletLinkSchema = z.object({
   signature: z.string().regex(/^0x[0-9a-fA-F]{130}$/, "signature must be a 65-byte 0x-hex ECDSA signature"),
 });
 
+const updateAccountSchema = z.object({
+  displayName: z.string().min(1).max(120).optional(),
+});
+
 function unauthorized(message: string): SettleKitError {
   return new SettleKitError({ code: "unauthorized", message });
 }
@@ -227,6 +231,18 @@ export function authRoutes(): Hono<AppEnv> {
       await c.get("ctx").auth.linkWallet(token, {
         message: body.message,
         signature: body.signature as `0x${string}`,
+      }),
+    );
+    return data(c, { account: result.account });
+  });
+
+  // PATCH /account -> update mutable profile fields on the authenticated account.
+  app.patch("/account", async (c) => {
+    const token = requireBearer(c.req.header("authorization"));
+    const body = await parseBody(c, updateAccountSchema);
+    const result = unwrapResult(
+      await c.get("ctx").auth.updateAccount(token, {
+        ...(body.displayName !== undefined ? { displayName: body.displayName } : {}),
       }),
     );
     return data(c, { account: result.account });
