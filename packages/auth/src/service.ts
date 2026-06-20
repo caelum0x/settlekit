@@ -472,6 +472,41 @@ export class AuthService {
   }
 
   /**
+   * Unlink the wallet from the authenticated account. Refuses if the wallet is
+   * the account's ONLY sign-in method (a wallet-only account with no password),
+   * so a user can never lock themselves out. Idempotent when no wallet is linked.
+   */
+  async unlinkWallet(
+    sessionToken: string,
+    now: Date = new Date(),
+  ): Promise<Result<{ account: Account }, SettleKitError>> {
+    const auth = await this.authenticateSession(sessionToken, now);
+    if (!auth.ok) return err(auth.error);
+    const { account } = auth.value;
+
+    if (account.walletAddress === undefined) {
+      return ok({ account }); // nothing linked — idempotent success
+    }
+
+    const hasPassword = (await this.store.getPassword(account.id)) !== undefined;
+    const walletOnly = account.email.endsWith(`@${WALLET_EMAIL_DOMAIN}`) && !hasPassword;
+    if (walletOnly) {
+      return err(
+        validation(
+          "Cannot unlink your only sign-in method — set a password or email before removing the wallet",
+        ),
+      );
+    }
+
+    // Drop the wallet so it can be re-linked elsewhere (Pg: column → NULL;
+    // in-memory: index entry removed in saveAccount).
+    const { walletAddress: _removed, ...rest } = account;
+    const updated: Account = { ...rest };
+    await this.store.saveAccount(updated);
+    return ok({ account: updated });
+  }
+
+  /**
    * Resolve the account for a session token. Returns `unauthorized` if the
    * token is unknown, expired, or its account no longer exists.
    */

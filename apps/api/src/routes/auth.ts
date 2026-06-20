@@ -232,6 +232,13 @@ export function authRoutes(): Hono<AppEnv> {
     return data(c, { account: result.account });
   });
 
+  // DELETE /wallet -> unlink the wallet from the authenticated account.
+  app.delete("/wallet", async (c) => {
+    const token = requireBearer(c.req.header("authorization"));
+    const result = unwrapResult(await c.get("ctx").auth.unlinkWallet(token));
+    return data(c, { account: result.account });
+  });
+
   // GET /session -> resolve the account for the presented session token.
   app.get("/session", async (c) => {
     const token = requireBearer(c.req.header("authorization"));

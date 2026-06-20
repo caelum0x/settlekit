@@ -117,6 +117,12 @@ export class InMemoryAuthStore implements AuthStore {
     this.accountIdByEmail.set(InMemoryAuthStore.emailKey(account.email), account.id);
     if (account.walletAddress !== undefined) {
       this.accountIdByWallet.set(InMemoryAuthStore.walletKey(account.walletAddress), account.id);
+    } else {
+      // Unlink: drop any stale wallet-index entry still pointing at this account
+      // so findAccountByWallet no longer resolves the removed wallet.
+      for (const [wallet, id] of this.accountIdByWallet) {
+        if (id === account.id) this.accountIdByWallet.delete(wallet);
+      }
     }
   }
 

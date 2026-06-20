@@ -194,6 +194,31 @@ export function linkWallet(
   return authPost<{ account: Account }>("/v1/auth/wallet/link", input, bearer);
 }
 
+/** Unlink the wallet from the authenticated account (server-side; bearer token). */
+export async function unlinkWallet(
+  bearer: string,
+): Promise<AuthResult<{ account: Account }>> {
+  try {
+    const res = await fetch(`${API_URL}/v1/auth/wallet`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${bearer}` },
+      cache: "no-store",
+    });
+    const body = (await res.json().catch(() => null)) as
+      | { data?: { account: Account }; error?: string }
+      | null;
+    if (!res.ok) {
+      return {
+        data: null,
+        error: (body && typeof body.error === "string" && body.error) || "Could not unlink wallet.",
+      };
+    }
+    return { data: body && "data" in body ? (body.data ?? null) : null, error: null };
+  } catch (err) {
+    return { data: null, error: err instanceof Error ? err.message : "Network error" };
+  }
+}
+
 /** Fetch the account for a given session token. */
 export function getSession(token: string): Promise<AuthResult<{ account: Account }>> {
   return authGet<{ account: Account }>("/v1/auth/session", token);

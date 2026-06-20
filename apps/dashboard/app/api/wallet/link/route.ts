@@ -7,7 +7,7 @@
 
 import { NextResponse } from "next/server";
 import { getSessionToken } from "@/lib/session";
-import { linkWallet } from "@/lib/auth";
+import { linkWallet, unlinkWallet } from "@/lib/auth";
 
 /** Same-origin guard (CSRF defense beyond SameSite=Lax); browser-only route. */
 function isSameOrigin(request: Request): boolean {
@@ -46,6 +46,21 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const result = await linkWallet(token, { message: body.message, signature: body.signature });
+  if (result.error || !result.data) {
+    return NextResponse.json({ data: null, error: result.error }, { status: 400 });
+  }
+  return NextResponse.json({ data: result.data, error: null });
+}
+
+export async function DELETE(request: Request): Promise<NextResponse> {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ data: null, error: "Forbidden" }, { status: 403 });
+  }
+  const token = getSessionToken();
+  if (!token) {
+    return NextResponse.json({ data: null, error: "Not signed in" }, { status: 401 });
+  }
+  const result = await unlinkWallet(token);
   if (result.error || !result.data) {
     return NextResponse.json({ data: null, error: result.error }, { status: 400 });
   }
