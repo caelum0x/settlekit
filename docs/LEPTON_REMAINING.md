@@ -3,7 +3,7 @@
 Status of the SettleKit Lepton submission (Canteen × Circle × Arc hackathon,
 Jun 15 → **Jun 29 2026**), ordered by judging-criteria impact. Companion to
 [../LEPTON_PRODUCTION_PLAN.md](../LEPTON_PRODUCTION_PLAN.md). Verified against the
-repo on 2026-06-19.
+repo on 2026-06-20.
 
 Judging weights: **Agentic 30% · Traction 30% · Circle tools 20% · Innovation 20%.**
 
@@ -44,8 +44,15 @@ Runbook: [../LEPTON_PRODUCTION_PLAN.md](../LEPTON_PRODUCTION_PLAN.md) → "Live 
   one-command deploy via `contracts/script/DeployLepton.s.sol`.
 - **End-to-end demo** — `pnpm --filter @settlekit/examples lepton`.
 - **Worker jobs** — three `lepton-*` jobs wired into the scheduler.
+- **`@settlekit/attribution`** (RFB 6.01) — reuse-detection, weighted provenance
+  lineage, and HMAC-signed proofs-of-citation; wired live into the
+  `rsshub-citation-toll` sidecar (`POST /attribution/{detect,proof,verify}`) and
+  persisted via `PgLineageStore`/`PgProofStore`.
+- **`apps/creator-dashboard`** — a Next.js earnings view in the Statement
+  greenbar-ledger design system, driven by real domain logic (`createSource` +
+  `computeRoyaltyDistribution` + `detectReuse`, not mocks). `next build` green.
 
-Health: 906 unit/integration tests + 25 contract tests green.
+Health: 948 unit/integration tests + 27 contract tests green.
 
 ---
 
@@ -55,9 +62,7 @@ Verified absent on disk.
 
 | Component | Path | Serves | Autonomous? |
 |---|---|---|---|
-| Reuse-detection + proof-of-citation | `packages/attribution` | Innovation, RFB 6.01 | ✅ yes |
 | Operator CLI | `clis/lepton` | Circle-tools / DX | ✅ yes |
-| Creator earnings dashboard | `apps/creator-dashboard` | Traction / demo link | ✅ yes (UI) |
 | Agent console | `apps/agent-console` | Agentic / Innovation | ✅ yes |
 | Stream meter UI | `apps/stream-meter` | Innovation, RFB 4 | ✅ yes |
 | Fiat off-ramp | `packages/payouts-cpn` | Creator cash-out | ⚠️ stub only (needs Circle CPN creds to be real) |
@@ -80,12 +85,12 @@ Verified absent on disk.
 
 1. **Go live on Arc** (section 0) — unlocks the 30% Traction criterion; the rest
    is theater without real USDC moving.
-2. **`packages/attribution`** — citation reuse-detection + signed proof-of-citation;
-   the missing piece the citation-toll sidecar was designed around. Lifts
-   Innovation (20%) and deepens RFB 6.
-3. **`apps/creator-dashboard`** — gives a live link + a visible "creators getting
-   paid" surface for the video.
-4. **Record the <3min video** and submit (submit early/often; resubmission allowed).
+2. **Deploy `apps/creator-dashboard`** — gives a live link + a visible "creators
+   getting paid" surface for the video. (Built and green; ✅ done in code.)
+3. **Record the <3min video** and submit (submit early/often; resubmission allowed).
+
+> ✅ `packages/attribution` (citation reuse-detection + signed proof-of-citation)
+> and `apps/creator-dashboard` are now **built, merged, and green** — see section 1.
 
 ---
 

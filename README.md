@@ -64,6 +64,7 @@ settlekit/
 │   ├── api/          HTTP API (Hono on Node) — /v1 resources
 │   ├── worker/       Background worker — delivery, confirmation, sweeps, retries
 │   ├── dashboard/    Merchant dashboard (Next.js 14)
+│   ├── creator-dashboard/ Creator earnings + attribution view (Next.js 14, Lepton)
 │   ├── checkout/     Hosted USDC checkout (Next.js 14)
 │   ├── marketplace/  Public marketplace (Next.js 14)
 │   ├── admin/        Internal admin + risk console (Next.js 14)
