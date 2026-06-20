@@ -17,11 +17,26 @@ interface MinimalCrypto {
   randomUUID(): string;
 }
 
-const webcrypto = (globalThis as { crypto: MinimalCrypto }).crypto;
+/**
+ * Resolve the Web Crypto implementation. `globalThis.crypto` is a global in
+ * Node 20+ (the repo's `engines.node`) and all browsers. Resolved lazily with a
+ * clear error so a sub-Node-20 runtime (e.g. a Vercel project still on Node 18)
+ * fails with an actionable message instead of a cryptic `undefined` access — and
+ * without statically importing `node:crypto`, which would break client bundling.
+ */
+function webCrypto(): MinimalCrypto {
+  const c = (globalThis as { crypto?: MinimalCrypto }).crypto;
+  if (c === undefined || typeof c.getRandomValues !== "function") {
+    throw new Error(
+      "Web Crypto API unavailable: SettleKit requires Node 20+ (global crypto). Pin the runtime to Node 20.",
+    );
+  }
+  return c;
+}
 
 /** Random bytes as lowercase hex (Buffer-free, browser-safe). */
 function randomHex(bytes: number): string {
-  const buf = webcrypto.getRandomValues(new Uint8Array(bytes));
+  const buf = webCrypto().getRandomValues(new Uint8Array(bytes));
   let hex = "";
   for (const byte of buf) {
     hex += byte.toString(16).padStart(2, "0");
@@ -33,7 +48,7 @@ const BASE64URL_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz
 
 /** Random bytes as URL-safe base64 without padding (Buffer-free, browser-safe). */
 function randomBase64Url(bytes: number): string {
-  const buf = webcrypto.getRandomValues(new Uint8Array(bytes));
+  const buf = webCrypto().getRandomValues(new Uint8Array(bytes));
   let out = "";
   for (let i = 0; i < buf.length; i += 3) {
     const b0 = buf[i] as number;
@@ -102,7 +117,7 @@ export function isId(resource: ResourceName, id: string): boolean {
 
 /** A random UUID v4, used where an opaque correlation token is needed. */
 export function uuid(): string {
-  return webcrypto.randomUUID();
+  return webCrypto().randomUUID();
 }
 
 /**
