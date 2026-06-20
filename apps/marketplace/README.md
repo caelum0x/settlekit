@@ -37,7 +37,7 @@ fee/price logic, and agent metadata all run through the real package functions.
 ## Run
 
 ```bash
-pnpm --filter @settlekit/marketplace-app dev   # http://localhost:3002
+pnpm --filter @settlekit/marketplace-app dev   # http://localhost:3011
 ```
 
 Env:

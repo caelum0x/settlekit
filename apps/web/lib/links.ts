@@ -4,7 +4,7 @@
 export const links = {
   dashboard: process.env.NEXT_PUBLIC_DASHBOARD_URL ?? "http://localhost:3001",
   marketplace:
-    process.env.NEXT_PUBLIC_MARKETPLACE_URL ?? "http://localhost:3002",
+    process.env.NEXT_PUBLIC_MARKETPLACE_URL ?? "http://localhost:3011",
   docs: process.env.NEXT_PUBLIC_DOCS_URL ?? "http://localhost:3000",
   github: "https://github.com/settlekit/settlekit",
 } as const;

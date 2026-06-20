@@ -41,7 +41,7 @@ override in deployment via environment variables:
 | Variable | Default | Target |
 | --- | --- | --- |
 | `NEXT_PUBLIC_DASHBOARD_URL` | `http://localhost:3001` | Merchant dashboard |
-| `NEXT_PUBLIC_MARKETPLACE_URL` | `http://localhost:3002` | Marketplace app |
+| `NEXT_PUBLIC_MARKETPLACE_URL` | `http://localhost:3011` | Marketplace app |
 | `NEXT_PUBLIC_DOCS_URL` | `http://localhost:3000` | Docs app |
 
 ## Commands

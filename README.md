@@ -160,7 +160,7 @@ cp .env.example .env
 | API         | `pnpm --filter @settlekit/api dev`         | `8787` | http://localhost:8787 |
 | Worker      | `pnpm --filter @settlekit/worker dev`      | —      | (no HTTP port)        |
 | Dashboard   | `pnpm --filter @settlekit/dashboard dev`   | `3001` | http://localhost:3001 |
-| Marketplace | `pnpm --filter @settlekit/marketplace dev` | `3002` | http://localhost:3002 |
+| Marketplace | `pnpm --filter @settlekit/marketplace dev` | `3011` | http://localhost:3011 |
 | Checkout    | `pnpm --filter @settlekit/checkout-app dev`| `3003` | http://localhost:3003 |
 | Admin       | `pnpm --filter @settlekit/admin dev`       | `3004` | http://localhost:3004 |
 | Docs        | `pnpm --filter @settlekit/docs-app dev`    | `3005` | http://localhost:3005 |
