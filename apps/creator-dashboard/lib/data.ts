@@ -16,6 +16,7 @@
  * renders. Swap this module for the Pg-backed stores to go live.
  */
 
+import { randomBytes } from "node:crypto";
 import {
   type Money,
   addMoney,
@@ -328,29 +329,63 @@ export function getCreatorContext(): CreatorContext {
 /* Attribution worked example (real detectReuse + signed proof)               */
 /* -------------------------------------------------------------------------- */
 
-const PROOF_SECRET = process.env.CITATION_PROOF_SECRET ?? "dev-citation-proof-secret";
+// Never ship a hard-coded signing secret. In dev a fixed string keeps proofs
+// reproducible; in production an unset secret falls back to a per-process random
+// one (forgery-proof) rather than a publicly-known constant.
+const PROOF_SECRET =
+  process.env.CITATION_PROOF_SECRET ??
+  (process.env.NODE_ENV === "production"
+    ? randomBytes(32).toString("hex")
+    : "dev-citation-proof-secret");
+
+/** A single grounding match, sanitized for the public detect endpoint. */
+export interface DetectedMatch {
+  sourceId: string;
+  title: string;
+  score: number;
+  matched: number;
+  total: number;
+}
+
+// The detect endpoint is unauthenticated, so build the comparison corpus once
+// (rebuilding it per request runs createSource hashing on every call — a cheap
+// amplification vector) and never carry author wallets into the response.
+interface DetectionCorpus {
+  candidates: { id: string; text: string }[];
+  titleById: Map<string, string>;
+  priceById: Map<string, string>;
+}
+
+let detectionCorpus: DetectionCorpus | null = null;
+
+function getDetectionCorpus(): DetectionCorpus {
+  if (detectionCorpus === null) {
+    const all = buildRegistry().registry.all();
+    detectionCorpus = {
+      candidates: all.map((s) => ({ id: s.id, text: [s.title, s.summary, s.body].join(". ") })),
+      titleById: new Map(all.map((s) => [s.id, s.title])),
+      priceById: new Map(all.map((s) => [s.id, s.priceUsdc])),
+    };
+  }
+  return detectionCorpus;
+}
 
 /** Run reuse detection for arbitrary text against the demo source corpus. */
 export function detectGroundingForText(text: string): {
   grounded: boolean;
-  matches: (ReuseMatch & { title: string })[];
+  matches: DetectedMatch[];
   quoteUsdc: string;
 } {
-  const { registry } = buildRegistry();
-  const candidates = registry.all().map((s) => ({
-    id: s.id,
-    text: [s.title, s.summary, s.body].join(". "),
-    wallet: s.authorWallet,
-  }));
+  const { candidates, titleById, priceById } = getDetectionCorpus();
   const report = detectReuse(text, candidates);
-  const titleById = new Map(registry.all().map((s) => [s.id, s.title]));
-  const matches = report.matches.map((m) => ({ ...m, title: titleById.get(m.sourceId) ?? m.sourceId }));
-  const quote = sum(
-    report.matches.map((m) => {
-      const s = registry.get(m.sourceId);
-      return s !== undefined ? money(s.priceUsdc) : money("0");
-    }),
-  );
+  const matches: DetectedMatch[] = report.matches.map((m) => ({
+    sourceId: m.sourceId,
+    title: titleById.get(m.sourceId) ?? m.sourceId,
+    score: m.score,
+    matched: m.matched,
+    total: m.total,
+  }));
+  const quote = sum(report.matches.map((m) => money(priceById.get(m.sourceId) ?? "0")));
   return { grounded: report.grounded, matches, quoteUsdc: quote.amount };
 }
 
