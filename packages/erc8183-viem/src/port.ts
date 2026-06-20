@@ -19,16 +19,19 @@
  *                    come from config because the Port shape lacks them.)
  *   - fundEscrow  -> USDC approve(contract, amount) THEN fund(jobId, "0x").
  *   - submitDeliverable -> submit(jobId, keccak256(toHex(deliverableUri)), "0x").
- *   - evaluate / settle -> complete(jobId, keccak256(toHex(reason)), "0x");
- *                    `complete` releases escrow to the provider. There is no
- *                    on-chain "fail" method, so `evaluate({passed:false})` still
- *                    calls `complete` — a failing verdict cannot be expressed
- *                    on-chain through this Port (it is gated off-chain by the
- *                    erc8183 state machine; an on-chain Rejected/Expired job is
- *                    not reachable via a Port method here).
+ *   - evaluate({passed:true})  -> NO on-chain tx (verdict recorded off-chain);
+ *                    the escrow release is deferred to settle(). Returns an
+ *                    empty-txHash success.
+ *   - evaluate({passed:false}) -> THROWS. AgenticCommerce has no reject method,
+ *                    and complete() releases escrow — so a fail must never reach
+ *                    complete(). Escrow for a failed job is recovered via the
+ *                    job's Expired timeout, not a Port method here.
+ *   - settle      -> complete(jobId, keccak256(toHex("settle")), "0x"). This is
+ *                    the ONLY call that releases escrow, reached only after a
+ *                    passing evaluate().
  *   - refund      -> NO direct AgenticCommerce function; throws a clear
- *                    SettleKitError. Escrow returns via the Rejected/Expired
- *                    job paths, not a method on this contract.
+ *                    SettleKitError. Escrow returns via the Expired job path,
+ *                    not a method on this contract.
  *   - getJob      -> getJob tuple -> Job. `deliverableUri` and `evaluation`
  *                    cannot be recovered (the contract stores only bytes32
  *                    hashes, not the URI/verdict), so they are omitted.
@@ -282,16 +285,31 @@ export function createViemErc8183Port(config: ViemErc8183Config): Erc8183Port {
       return write("submit", [id, deliverable, "0x"], "submitDeliverable failed");
     },
 
-    async evaluate({ jobId, passed, scoreOrUri }) {
-      const id = parseJobId(jobId);
-      // complete() always releases escrow; there is no on-chain fail method.
-      // The reason is a deterministic bytes32 of the score/uri (or the verdict).
-      const reason = hashToBytes32(scoreOrUri ?? (passed ? "passed" : "failed"));
-      return write("complete", [id, reason, "0x"], "evaluate failed");
+    async evaluate({ jobId, passed }) {
+      // Validate the id even though a passing verdict sends no transaction.
+      parseJobId(jobId);
+      if (!passed) {
+        // CRITICAL: AgenticCommerce exposes no on-chain reject. A failing
+        // verdict must NEVER call complete() — complete() releases the escrow to
+        // the provider, so mapping a fail to complete() would pay out for
+        // rejected work. Escrow for a failed job is recovered via the job's
+        // Expired timeout path, not a Port method here.
+        throw new SettleKitError({
+          code: "validation_error",
+          message:
+            "a failed evaluation cannot be settled on-chain (AgenticCommerce has no reject method) and must not release escrow; let the job expire to recover escrow",
+        });
+      }
+      // A passing verdict is recorded off-chain by the caller's state machine.
+      // The single on-chain escrow release is complete(), performed by settle()
+      // — so evaluate() itself sends no transaction (avoids a double complete()).
+      return { txHash: "", status: "success" as const };
     },
 
     async settle({ jobId }) {
       const id = parseJobId(jobId);
+      // complete() releases the escrow to the provider. This is the ONLY call
+      // that moves money, and it is reached only after a passing evaluate().
       const reason = hashToBytes32("settle");
       return write("complete", [id, reason, "0x"], "settle failed");
     },

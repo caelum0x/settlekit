@@ -242,17 +242,22 @@ describe("createViemErc8183Port — submit / evaluate / settle", () => {
     expect(keccak256(toHex("ipfs://x"))).not.toBe(keccak256(toHex("ipfs://y")));
   });
 
-  it("evaluate maps to complete() with a bytes32 reason", async () => {
+  it("evaluate(passed:true) sends NO transaction (escrow release is deferred to settle)", async () => {
     const { config, fakes } = buildConfig({});
     const port = createViemErc8183Port(config);
-    await port.evaluate({ jobId: "5", passed: true, scoreOrUri: "0.95" });
-    const call = fakes.writeContract.mock.calls[0]?.[0] as {
-      functionName: string;
-      args: readonly unknown[];
-    };
-    expect(call.functionName).toBe("complete");
-    expect(call.args[0]).toBe(5n);
-    expect(call.args[1]).toBe(keccak256(toHex("0.95")));
+    const result = await port.evaluate({ jobId: "5", passed: true, scoreOrUri: "0.95" });
+    expect(result.status).toBe("success");
+    // No on-chain call — a passing verdict must not release escrow on its own.
+    expect(fakes.writeContract.mock.calls.length).toBe(0);
+  });
+
+  it("evaluate(passed:false) throws and NEVER calls complete() (no escrow release on a fail)", async () => {
+    const { config, fakes } = buildConfig({});
+    const port = createViemErc8183Port(config);
+    await expect(port.evaluate({ jobId: "5", passed: false })).rejects.toBeInstanceOf(
+      SettleKitError,
+    );
+    expect(fakes.writeContract.mock.calls.length).toBe(0);
   });
 
   it("settle maps to complete() with a bytes32 reason", async () => {
