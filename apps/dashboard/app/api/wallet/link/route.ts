@@ -9,7 +9,21 @@ import { NextResponse } from "next/server";
 import { getSessionToken } from "@/lib/session";
 import { linkWallet } from "@/lib/auth";
 
+/** Same-origin guard (CSRF defense beyond SameSite=Lax); browser-only route. */
+function isSameOrigin(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  try {
+    return new URL(origin).host === request.headers.get("host");
+  } catch {
+    return false;
+  }
+}
+
 export async function POST(request: Request): Promise<NextResponse> {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ data: null, error: "Forbidden" }, { status: 403 });
+  }
   const token = getSessionToken();
   if (!token) {
     return NextResponse.json(

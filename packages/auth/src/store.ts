@@ -57,6 +57,11 @@ export interface AuthStore {
    * wallet login replay-safe.
    */
   consumeWalletNonce?(nonce: string, address: string, consumedAt: string): Promise<boolean>;
+  /**
+   * Delete wallet nonces that have expired as of `now` (ISO). Bounds table
+   * growth from unauthenticated nonce issuance. Returns the number removed.
+   */
+  pruneExpiredWalletNonces?(now: string): Promise<number>;
 }
 
 /** Strip the once-only plaintext token before persisting a session. */
@@ -179,5 +184,17 @@ export class InMemoryAuthStore implements AuthStore {
     }
     this.walletNoncesByNonce.set(nonce, { ...found, consumedAt });
     return true;
+  }
+
+  async pruneExpiredWalletNonces(now: string): Promise<number> {
+    const cutoff = Date.parse(now);
+    let removed = 0;
+    for (const [key, value] of this.walletNoncesByNonce) {
+      if (Date.parse(value.expiresAt) <= cutoff) {
+        this.walletNoncesByNonce.delete(key);
+        removed += 1;
+      }
+    }
+    return removed;
   }
 }

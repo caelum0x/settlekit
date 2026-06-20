@@ -8,7 +8,7 @@
  * before the document is written, mirroring the in-memory reference store. Magic
  * links are single-use via an atomic `UPDATE ... WHERE consumed_at IS NULL`.
  */
-import { and, eq, gt, isNull, type Database, authAccounts, authSessions, authMagicLinks, authPasswordCredentials, authWalletNonces } from "@settlekit/database";
+import { and, eq, gt, lt, isNull, type Database, authAccounts, authSessions, authMagicLinks, authPasswordCredentials, authWalletNonces } from "@settlekit/database";
 import { generateSecret } from "@settlekit/common";
 import type { Account, AuthStore, MagicLink, PasswordCredential, Session, WalletNonce } from "@settlekit/auth";
 import { packDoc, unpackDoc } from "./codec.js";
@@ -197,5 +197,13 @@ export class PgAuthStore implements AuthStore {
       )
       .returning({ id: authWalletNonces.id });
     return updated.length > 0;
+  }
+
+  async pruneExpiredWalletNonces(now: string): Promise<number> {
+    const removed = await this.db
+      .delete(authWalletNonces)
+      .where(lt(authWalletNonces.expiresAt, new Date(now)))
+      .returning({ id: authWalletNonces.id });
+    return removed.length;
   }
 }

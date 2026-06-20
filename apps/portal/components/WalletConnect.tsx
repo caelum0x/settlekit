@@ -71,6 +71,9 @@ export function WalletConnect() {
         nonce: nonceRes.data.nonce,
         version: "1",
         statement: "Sign in to SettleKit.",
+        issuedAt: new Date(),
+        // Finite lifetime — the server rejects messages with no expiration.
+        expirationTime: new Date(Date.now() + 10 * 60 * 1000),
       });
 
       const signature = (await provider.request({

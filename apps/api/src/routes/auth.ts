@@ -69,13 +69,13 @@ const walletNonceSchema = z.object({
 
 const walletLoginSchema = z.object({
   message: z.string().min(1),
-  signature: z.string().regex(/^0x[0-9a-fA-F]+$/, "signature must be 0x-hex"),
+  signature: z.string().regex(/^0x[0-9a-fA-F]{130}$/, "signature must be a 65-byte 0x-hex ECDSA signature"),
   type: z.enum(["merchant", "customer"]).optional(),
 });
 
 const walletLinkSchema = z.object({
   message: z.string().min(1),
-  signature: z.string().regex(/^0x[0-9a-fA-F]+$/, "signature must be 0x-hex"),
+  signature: z.string().regex(/^0x[0-9a-fA-F]{130}$/, "signature must be a 65-byte 0x-hex ECDSA signature"),
 });
 
 function unauthorized(message: string): SettleKitError {

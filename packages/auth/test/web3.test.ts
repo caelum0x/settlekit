@@ -24,6 +24,7 @@ async function signedLogin(
     chainId: 1,
     nonce,
     issuedAt: now,
+    expirationTime: new Date(now.getTime() + 10 * 60 * 1000),
   });
   const signature = await account.signMessage({ message });
   return { message, signature };
@@ -157,6 +158,7 @@ describe("AuthService wallet login (SIWE)", () => {
       chainId: 1,
       nonce: nonceRes.value.nonce,
       issuedAt: NOW,
+      expirationTime: new Date(NOW.getTime() + 10 * 60 * 1000),
     });
     // Sign with a DIFFERENT key than the message claims.
     const other = privateKeyToAccount(
@@ -166,5 +168,52 @@ describe("AuthService wallet login (SIWE)", () => {
     const res = await svc.loginWithWallet({ message, signature }, NOW);
     expect(isErr(res)).toBe(true);
     if (isErr(res)) expect(res.error.code).toBe("unauthorized");
+  });
+
+  it("rejects a message whose domain does not match the configured siweDomain", async () => {
+    const svc = new AuthService(new InMemoryAuthStore(), { siweDomain: "app.settlekit.com" });
+    const nonceRes = await svc.requestWalletNonce(account.address, NOW);
+    if (!isOk(nonceRes)) throw new Error("nonce");
+    const message = buildSiweMessage({
+      address: account.address,
+      domain: "evil.com", // attacker site — must be rejected
+      uri: "https://evil.com",
+      chainId: 1,
+      nonce: nonceRes.value.nonce,
+      issuedAt: NOW,
+      expirationTime: new Date(NOW.getTime() + 10 * 60 * 1000),
+    });
+    const signature = await account.signMessage({ message });
+    const res = await svc.loginWithWallet({ message, signature }, NOW);
+    expect(isErr(res)).toBe(true);
+    if (isErr(res)) expect(res.error.code).toBe("unauthorized");
+  });
+
+  it("rejects a message with no expiration time", async () => {
+    const svc = service();
+    const nonceRes = await svc.requestWalletNonce(account.address, NOW);
+    if (!isOk(nonceRes)) throw new Error("nonce");
+    const message = buildSiweMessage({
+      address: account.address,
+      domain: "app.settlekit.com",
+      uri: "https://app.settlekit.com",
+      chainId: 1,
+      nonce: nonceRes.value.nonce,
+      issuedAt: NOW,
+      // no expirationTime — server must reject (no infinite-lifetime credentials)
+    });
+    const signature = await account.signMessage({ message });
+    const res = await svc.loginWithWallet({ message, signature }, NOW);
+    expect(isErr(res)).toBe(true);
+  });
+
+  it("rejects email registration on the reserved wallet domain", async () => {
+    const svc = service();
+    const res = await svc.registerWithPassword(
+      { type: "customer", email: "0xabc@wallet.settlekit.local", password: "password123" },
+      NOW,
+    );
+    expect(isErr(res)).toBe(true);
+    if (isErr(res)) expect(res.error.code).toBe("validation_error");
   });
 });

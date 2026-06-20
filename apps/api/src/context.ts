@@ -411,7 +411,19 @@ export async function createContext(): Promise<AppContext> {
       defaultMaxDownloads: config.fileDelivery.defaultMaxDownloads,
     }),
 
-    auth: new AuthService(pick<AuthStore>(db, (d) => new PgAuthStore(d), () => new InMemoryAuthStore())),
+    auth: new AuthService(pick<AuthStore>(db, (d) => new PgAuthStore(d), () => new InMemoryAuthStore()), {
+      // SIWE binding: when AUTH_SIWE_DOMAIN is set, wallet sign-in rejects any
+      // signed message whose domain differs (EIP-4361 cross-site replay guard).
+      // AUTH_SIWE_CHAIN_IDS (comma-separated) optionally restricts chains.
+      ...(process.env.AUTH_SIWE_DOMAIN ? { siweDomain: process.env.AUTH_SIWE_DOMAIN } : {}),
+      ...(process.env.AUTH_SIWE_CHAIN_IDS
+        ? {
+            siweChainIds: process.env.AUTH_SIWE_CHAIN_IDS.split(",")
+              .map((s) => Number.parseInt(s.trim(), 10))
+              .filter((n) => Number.isFinite(n)),
+          }
+        : {}),
+    }),
     authCookieSecret: config.authCookieSecret,
 
     arcVerifier: integrations.arcVerifier,

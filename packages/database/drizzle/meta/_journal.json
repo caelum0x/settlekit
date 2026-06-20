@@ -50,6 +50,13 @@
       "when": 1782000000000,
       "tag": "0006_auth_web3",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1782000100000,
+      "tag": "0007_auth_wallet_unique",
+      "breakpoints": true
     }
   ]
 }

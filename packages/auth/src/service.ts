@@ -27,6 +27,16 @@ const DEFAULT_MAGIC_LINK_TTL_SEC = 15 * 60;
 /** Default SIWE nonce lifetime: 10 minutes. */
 const DEFAULT_WALLET_NONCE_TTL_SEC = 10 * 60;
 
+/** Default max accepted age of a SIWE message from its `issuedAt`: 10 minutes. */
+const DEFAULT_SIWE_MAX_AGE_SEC = 10 * 60;
+
+/**
+ * Reserved email domain for wallet-only accounts. Email registration / magic
+ * links are forbidden from using it, so an attacker cannot squat a victim's
+ * synthetic wallet email (`<address>@wallet.settlekit.local`) before they sign in.
+ */
+const WALLET_EMAIL_DOMAIN = "wallet.settlekit.local";
+
 /** Input for registering a new password-backed account. */
 export interface RegisterWithPasswordInput {
   type: AccountType;
@@ -63,6 +73,11 @@ function isValidEmail(email: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 }
 
+/** True for the reserved wallet-account email domain (cannot be registered). */
+function isReservedEmail(email: string): boolean {
+  return email.endsWith(`@${WALLET_EMAIL_DOMAIN}`);
+}
+
 function idForType(type: AccountType): string {
   return type === "merchant" ? generateId("merchant") : generateId("customer");
 }
@@ -82,6 +97,17 @@ export class AuthService {
       sessionTtlSec?: number;
       magicLinkTtlSec?: number;
       walletNonceTtlSec?: number;
+      /**
+       * Server's own SIWE `domain` (e.g. "app.settlekit.com"). When set, a
+       * signed message whose `domain` differs is rejected — this is the
+       * EIP-4361 binding that prevents a signature gathered on another site
+       * from being replayed here. Strongly recommended in production.
+       */
+      siweDomain?: string;
+      /** Allowed EVM chain ids for SIWE messages. When set, others are rejected. */
+      siweChainIds?: readonly number[];
+      /** Max accepted age of a SIWE message from its `issuedAt`. Default 600s. */
+      siweMaxAgeSec?: number;
     } = {},
   ) {}
 
@@ -97,6 +123,71 @@ export class AuthService {
     return this.options.walletNonceTtlSec ?? DEFAULT_WALLET_NONCE_TTL_SEC;
   }
 
+  private get siweMaxAgeSec(): number {
+    return this.options.siweMaxAgeSec ?? DEFAULT_SIWE_MAX_AGE_SEC;
+  }
+
+  /**
+   * Verify a signed SIWE message end-to-end (shared by login + link):
+   * structural fields present, server-binding (`domain`/`chainId`), time bounds
+   * (`expirationTime` required, `notBefore`, `issuedAt` skew), and an EOA
+   * signature whose recovered signer equals the message address. Returns the
+   * checksummed address + the in-message nonce, or a `SettleKitError`. Does NOT
+   * consume the nonce — the caller consumes it only after this resolves OK.
+   */
+  private async verifyWalletMessage(
+    message: string,
+    signature: Hex,
+    now: Date,
+  ): Promise<Result<{ address: string; nonce: string }, SettleKitError>> {
+    if (typeof message !== "string" || typeof signature !== "string") {
+      return err(unauthorized("Invalid wallet signature"));
+    }
+    const fields = parseWalletMessage(message);
+    if (fields.address === undefined || fields.nonce === undefined) {
+      return err(unauthorized("Invalid sign-in message"));
+    }
+    // EIP-4361 binding: the signature must have been produced for THIS server.
+    if (this.options.siweDomain !== undefined && fields.domain !== this.options.siweDomain) {
+      return err(unauthorized("Sign-in message domain does not match this site"));
+    }
+    if (
+      this.options.siweChainIds !== undefined &&
+      (fields.chainId === undefined || !this.options.siweChainIds.includes(fields.chainId))
+    ) {
+      return err(unauthorized("Sign-in message chain is not supported"));
+    }
+    // Time bounds: require a finite lifetime and reject skewed / not-yet-valid messages.
+    if (fields.expirationTime === undefined) {
+      return err(unauthorized("Sign-in message must set an expiration time"));
+    }
+    if (fields.expirationTime.getTime() <= now.getTime()) {
+      return err(unauthorized("Sign-in message has expired"));
+    }
+    if (fields.notBefore !== undefined && now.getTime() < fields.notBefore.getTime()) {
+      return err(unauthorized("Sign-in message is not yet valid"));
+    }
+    if (
+      fields.issuedAt !== undefined &&
+      now.getTime() - fields.issuedAt.getTime() > this.siweMaxAgeSec * 1000
+    ) {
+      return err(unauthorized("Sign-in message is too old"));
+    }
+
+    let claimed: string;
+    let signer: string;
+    try {
+      claimed = normalizeWalletAddress(fields.address);
+      signer = await recoverWalletSigner(message, signature);
+    } catch {
+      return err(unauthorized("Invalid wallet signature"));
+    }
+    if (signer !== claimed) {
+      return err(unauthorized("Wallet signature does not match the message address"));
+    }
+    return ok({ address: claimed, nonce: fields.nonce });
+  }
+
   /**
    * Register a new account with a password credential. Fails with `conflict`
    * if an account already exists for the email, and `validation_error` for
@@ -107,7 +198,7 @@ export class AuthService {
     now: Date = new Date(),
   ): Promise<Result<Account, SettleKitError>> {
     const email = normalizeEmail(input.email);
-    if (!isValidEmail(email)) {
+    if (!isValidEmail(email) || isReservedEmail(email)) {
       return err(validation("A valid email is required"));
     }
     if (typeof input.password !== "string" || input.password.length < 8) {
@@ -176,7 +267,7 @@ export class AuthService {
     now: Date = new Date(),
   ): Promise<Result<IssuedMagicLink, SettleKitError>> {
     const normalized = normalizeEmail(email);
-    if (!isValidEmail(normalized)) {
+    if (!isValidEmail(normalized) || isReservedEmail(normalized)) {
       return err(validation("A valid email is required"));
     }
     const issued = await issueMagicLink(normalized, this.magicLinkTtlSec, this.store, now);
@@ -233,6 +324,15 @@ export class AuthService {
     } catch {
       return err(validation("A valid wallet address is required"));
     }
+    // Opportunistically bound table growth: drop already-expired nonces.
+    // Best-effort — a cleanup failure must not block issuing a new challenge.
+    if (this.store.pruneExpiredWalletNonces !== undefined) {
+      try {
+        await this.store.pruneExpiredWalletNonces(now.toISOString());
+      } catch {
+        // ignore — cleanup is non-critical
+      }
+    }
     const nonce = generateWalletNonce();
     const record: WalletNonce = {
       nonce,
@@ -256,33 +356,14 @@ export class AuthService {
     if (this.store.consumeWalletNonce === undefined || this.store.findAccountByWallet === undefined) {
       return err(validation("Wallet login is not supported by this store"));
     }
-    if (typeof input.message !== "string" || typeof input.signature !== "string") {
-      return err(unauthorized("Invalid wallet signature"));
-    }
 
-    const fields = parseWalletMessage(input.message);
-    if (fields.address === undefined || fields.nonce === undefined) {
-      return err(unauthorized("Invalid sign-in message"));
-    }
-    if (fields.expirationTime !== undefined && fields.expirationTime.getTime() <= now.getTime()) {
-      return err(unauthorized("Sign-in message has expired"));
-    }
-
-    let claimed: string;
-    let signer: string;
-    try {
-      claimed = normalizeWalletAddress(fields.address);
-      signer = await recoverWalletSigner(input.message, input.signature);
-    } catch {
-      return err(unauthorized("Invalid wallet signature"));
-    }
-    if (signer !== claimed) {
-      return err(unauthorized("Wallet signature does not match the message address"));
-    }
+    const verified = await this.verifyWalletMessage(input.message, input.signature, now);
+    if (!verified.ok) return err(verified.error);
+    const { address: claimed, nonce } = verified.value;
 
     // Consume the nonce only after the signature is proven, so a bad signature
     // never burns a live challenge.
-    const consumed = await this.store.consumeWalletNonce(fields.nonce, claimed, now.toISOString());
+    const consumed = await this.store.consumeWalletNonce(nonce, claimed, now.toISOString());
     if (!consumed) {
       return err(unauthorized("Sign-in challenge is invalid or has expired"));
     }
@@ -293,17 +374,44 @@ export class AuthService {
       account = {
         id: idForType(type),
         type,
-        // Wallet accounts have no email; a stable, namespaced placeholder keeps
-        // the email index unique without colliding with real email accounts.
-        email: `${claimed.toLowerCase()}@wallet.settlekit.local`,
+        // Wallet accounts have no email; a stable, reserved-domain placeholder
+        // keeps the email index unique. The reserved domain cannot be used for
+        // email/magic-link registration (see registerWithPassword), so it can't
+        // be squatted ahead of a wallet sign-in.
+        email: `${claimed.toLowerCase()}@${WALLET_EMAIL_DOMAIN}`,
         walletAddress: claimed,
         createdAt: now.toISOString(),
       };
-      await this.store.saveAccount(account);
+      const saved = await this.saveNewWalletAccount(account);
+      if (!saved.ok) return err(saved.error);
+      account = saved.value;
     }
 
     const session = await createSession(account.id, this.sessionTtlSec, this.store, now);
     return ok({ account, session });
+  }
+
+  /**
+   * Persist a freshly-created wallet account, tolerating a concurrent creation:
+   * if another request claimed the same wallet between our lookup and write
+   * (a unique-constraint violation in Postgres), re-read by wallet and use the
+   * winner instead of failing.
+   */
+  private async saveNewWalletAccount(
+    account: Account,
+  ): Promise<Result<Account, SettleKitError>> {
+    try {
+      await this.store.saveAccount(account);
+      return ok(account);
+    } catch (error) {
+      const existing = await this.store.findAccountByWallet?.(account.walletAddress ?? "");
+      if (existing) return ok(existing);
+      return err(
+        error instanceof SettleKitError
+          ? error
+          : conflictError("This wallet is already linked to another account"),
+      );
+    }
   }
 
   /**
@@ -327,42 +435,39 @@ export class AuthService {
     }
     const { account } = auth.value;
 
-    if (typeof input.message !== "string" || typeof input.signature !== "string") {
-      return err(unauthorized("Invalid wallet signature"));
-    }
-    const fields = parseWalletMessage(input.message);
-    if (fields.address === undefined || fields.nonce === undefined) {
-      return err(unauthorized("Invalid sign-in message"));
-    }
-    if (fields.expirationTime !== undefined && fields.expirationTime.getTime() <= now.getTime()) {
-      return err(unauthorized("Sign-in message has expired"));
-    }
-
-    let claimed: string;
-    let signer: string;
-    try {
-      claimed = normalizeWalletAddress(fields.address);
-      signer = await recoverWalletSigner(input.message, input.signature);
-    } catch {
-      return err(unauthorized("Invalid wallet signature"));
-    }
-    if (signer !== claimed) {
-      return err(unauthorized("Wallet signature does not match the message address"));
-    }
+    const verified = await this.verifyWalletMessage(input.message, input.signature, now);
+    if (!verified.ok) return err(verified.error);
+    const { address: claimed, nonce } = verified.value;
 
     // Reject before consuming the nonce if another account already owns it.
     const existing = await this.store.findAccountByWallet(claimed);
     if (existing && existing.id !== account.id) {
       return err(conflictError("This wallet is already linked to another account"));
     }
+    // Idempotent: re-linking the same wallet to the same account is a no-op success.
+    if (existing && existing.id === account.id) {
+      const consumedSame = await this.store.consumeWalletNonce(nonce, claimed, now.toISOString());
+      if (!consumedSame) return err(unauthorized("Sign-in challenge is invalid or has expired"));
+      return ok({ account: existing });
+    }
 
-    const consumed = await this.store.consumeWalletNonce(fields.nonce, claimed, now.toISOString());
+    const consumed = await this.store.consumeWalletNonce(nonce, claimed, now.toISOString());
     if (!consumed) {
       return err(unauthorized("Sign-in challenge is invalid or has expired"));
     }
 
+    // Final gate against the find→save race: the DB unique constraint on
+    // wallet_address makes a concurrent claim throw, which we map to `conflict`.
     const updated: Account = { ...account, walletAddress: claimed };
-    await this.store.saveAccount(updated);
+    try {
+      await this.store.saveAccount(updated);
+    } catch (error) {
+      return err(
+        error instanceof SettleKitError
+          ? error
+          : conflictError("This wallet is already linked to another account"),
+      );
+    }
     return ok({ account: updated });
   }
 

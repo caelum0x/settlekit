@@ -71,7 +71,9 @@ export interface ParsedSiweFields {
   nonce?: string;
   domain?: string;
   chainId?: number;
+  issuedAt?: Date;
   expirationTime?: Date;
+  notBefore?: Date;
 }
 
 /** Parse a SIWE message string into its structured fields. */
@@ -82,7 +84,9 @@ export function parseWalletMessage(message: string): ParsedSiweFields {
     ...(parsed.nonce !== undefined ? { nonce: parsed.nonce } : {}),
     ...(parsed.domain !== undefined ? { domain: parsed.domain } : {}),
     ...(parsed.chainId !== undefined ? { chainId: parsed.chainId } : {}),
+    ...(parsed.issuedAt !== undefined ? { issuedAt: parsed.issuedAt } : {}),
     ...(parsed.expirationTime !== undefined ? { expirationTime: parsed.expirationTime } : {}),
+    ...(parsed.notBefore !== undefined ? { notBefore: parsed.notBefore } : {}),
   };
 }
 

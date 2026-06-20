@@ -77,6 +77,8 @@ export function LinkWallet({ linkedAddress }: LinkWalletProps) {
         nonce: nonceRes.data.nonce,
         version: "1",
         statement: "Link this wallet to your SettleKit account.",
+        issuedAt: new Date(),
+        expirationTime: new Date(Date.now() + 10 * 60 * 1000),
       });
 
       const signature = (await provider.request({

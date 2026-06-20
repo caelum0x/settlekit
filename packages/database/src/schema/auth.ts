@@ -8,7 +8,7 @@
  * few typed columns are projected for the indexed lookups (by email / token hash
  * / account id).
  */
-import { pgTable, text, index } from "drizzle-orm/pg-core";
+import { pgTable, text, index, uniqueIndex } from "drizzle-orm/pg-core";
 import {
   idColumn,
   timestamps,
@@ -33,7 +33,9 @@ export const authAccounts = pgTable(
   },
   (table) => ({
     emailIdx: index("auth_accounts_email_idx").on(table.email),
-    walletIdx: index("auth_accounts_wallet_address_idx").on(table.walletAddress),
+    // UNIQUE so a wallet can be linked to at most one account (NULLs allowed for
+    // email-only accounts). Final DB-level gate against the link/login race.
+    walletIdx: uniqueIndex("auth_accounts_wallet_address_idx").on(table.walletAddress),
   }),
 );
 

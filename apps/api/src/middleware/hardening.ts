@@ -64,14 +64,22 @@ export function requestIdMiddleware(): MiddlewareHandler {
 
 /**
  * A per-instance fixed-window rate limiter keyed by API key (falling back to the
- * client IP). Limit is `RATE_LIMIT_PER_MINUTE` (default 600); set
- * `RATE_LIMIT_ENABLED=false` to disable. Returns 429 with `Retry-After` and a
- * standard `{ error }` envelope when exceeded. Health, auth, and paid (x402)
- * routes are exempt — payment is their gate.
+ * client IP). General limit is `RATE_LIMIT_PER_MINUTE` (default 600); the auth
+ * subtree (`/v1/auth/*`, e.g. unauthenticated wallet-nonce issuance) gets a much
+ * stricter `AUTH_RATE_LIMIT_PER_MINUTE` (default 20) in its own bucket to stop
+ * nonce-spam / credential-stuffing. Set `RATE_LIMIT_ENABLED=false` to disable.
+ * Only `/health` and paid (x402) routes are exempt — payment is their gate.
+ *
+ * `X-Forwarded-For` is attacker-spoofable unless the API sits behind a trusted
+ * proxy that sets it authoritatively; it is only honored when `TRUST_PROXY`
+ * is true (default true, since the API deploys behind Render/Vercel). When
+ * false, only `x-real-ip` is used so a client cannot forge its limiter bucket.
  */
 export function rateLimitMiddleware(): MiddlewareHandler {
   const enabled = (process.env.RATE_LIMIT_ENABLED ?? "true").toLowerCase() !== "false";
   const limit = intEnv("RATE_LIMIT_PER_MINUTE", 600);
+  const authLimit = intEnv("AUTH_RATE_LIMIT_PER_MINUTE", 20);
+  const trustProxy = (process.env.TRUST_PROXY ?? "true").toLowerCase() !== "false";
   const windowMs = 60_000;
   const windows = new Map<string, RateLimitWindow>();
 
@@ -84,27 +92,31 @@ export function rateLimitMiddleware(): MiddlewareHandler {
   return async (c, next) => {
     if (!enabled) return next();
     const path = c.req.path;
-    if (path === "/health" || path.startsWith("/v1/auth") || path.startsWith("/v1/paid")) {
+    if (path === "/health" || path.startsWith("/v1/paid")) {
       return next();
     }
 
     const ip =
-      c.req.header("x-forwarded-for")?.split(",")[0]?.trim() ??
+      (trustProxy ? c.req.header("x-forwarded-for")?.split(",")[0]?.trim() : undefined) ??
       c.req.header("x-real-ip") ??
       "unknown";
-    const key = callerKey(c.req.header("authorization"), ip);
+    const isAuth = path.startsWith("/v1/auth");
+    // Auth routes get a stricter limit in a SEPARATE bucket (prefix "auth:") so
+    // they cannot be starved by — or starve — the general per-caller budget.
+    const effectiveLimit = isAuth ? authLimit : limit;
+    const key = (isAuth ? "auth:" : "") + callerKey(c.req.header("authorization"), ip);
 
     const now = new Date();
     const existing = windows.get(key);
     const window: RateLimitWindow =
       existing && new Date(existing.resetsAt).getTime() > now.getTime()
         ? existing
-        : { key, limit, used: 0, resetsAt: new Date(now.getTime() + windowMs).toISOString() };
+        : { key, limit: effectiveLimit, used: 0, resetsAt: new Date(now.getTime() + windowMs).toISOString() };
 
     if (!rateLimitAllows(window, 1, now)) {
       const retryAfter = Math.max(1, Math.ceil((new Date(window.resetsAt).getTime() - now.getTime()) / 1000));
       c.header("Retry-After", String(retryAfter));
-      c.header("X-RateLimit-Limit", String(limit));
+      c.header("X-RateLimit-Limit", String(effectiveLimit));
       c.header("X-RateLimit-Remaining", "0");
       return c.json(
         { error: { code: "rate_limited", message: `Rate limit exceeded. Retry in ${retryAfter}s.` } },
@@ -114,8 +126,8 @@ export function rateLimitMiddleware(): MiddlewareHandler {
 
     const updated = consumeRateLimit(window, 1);
     windows.set(key, updated);
-    c.header("X-RateLimit-Limit", String(limit));
-    c.header("X-RateLimit-Remaining", String(Math.max(0, limit - updated.used)));
+    c.header("X-RateLimit-Limit", String(effectiveLimit));
+    c.header("X-RateLimit-Remaining", String(Math.max(0, effectiveLimit - updated.used)));
     await next();
   };
 }

@@ -34,8 +34,23 @@ function cookieMaxAgeDays(days: number): number {
   return days * 24 * 60 * 60;
 }
 
+/** Same-origin guard (CSRF defense beyond SameSite=Lax); browser-only route. */
+function isSameOrigin(request: Request): boolean {
+  const origin = request.headers.get("origin");
+  if (!origin) return false;
+  try {
+    return new URL(origin).host === request.headers.get("host");
+  } catch {
+    return false;
+  }
+}
+
 /** Store the session token in an httpOnly cookie. */
 export async function POST(request: Request): Promise<NextResponse> {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ data: null, error: { message: "Forbidden." } }, { status: 403 });
+  }
+
   let payload: unknown;
   try {
     payload = await request.json();
@@ -55,6 +70,26 @@ export async function POST(request: Request): Promise<NextResponse> {
     return NextResponse.json(
       { data: null, error: { message: "sessionToken is required." } },
       { status: 400 },
+    );
+  }
+
+  // Never trust a client-supplied token: verify it against the API before
+  // persisting it (prevents session fixation / cookie injection).
+  try {
+    const verify = await fetch(`${API_URL}/v1/auth/session`, {
+      headers: { authorization: `Bearer ${sessionToken}` },
+      cache: "no-store",
+    });
+    if (!verify.ok) {
+      return NextResponse.json(
+        { data: null, error: { message: "Invalid session token." } },
+        { status: 401 },
+      );
+    }
+  } catch (err) {
+    return NextResponse.json(
+      { data: null, error: { message: err instanceof Error ? err.message : "Network error" } },
+      { status: 502 },
     );
   }
 
