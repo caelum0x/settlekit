@@ -4,9 +4,9 @@
   "private": true,
   "description": "SettleKit creator dashboard — see per-citation / per-listen / per-second earnings, payouts, and reuse attribution in USDC.",
   "scripts": {
-    "dev": "next dev -p 3007",
+    "dev": "next dev -p 3010",
     "build": "next build",
-    "start": "next start -p 3007",
+    "start": "next start -p 3010",
     "lint": "next lint",
     "typecheck": "tsc --noEmit"
   },

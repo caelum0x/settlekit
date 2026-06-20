@@ -31,7 +31,7 @@ Swap this module for the Postgres-backed stores (`@settlekit/persistence`) to go
 ```bash
 pnpm install
 pnpm --filter @settlekit/creator-dashboard dev
-# http://localhost:3007
+# http://localhost:3010
 ```
 
 ## Build
