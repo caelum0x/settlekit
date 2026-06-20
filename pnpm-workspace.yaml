@@ -1,6 +1,7 @@
 packages:
   - "packages/*"
   - "apps/*"
+  - "clis/lepton"
   - "services/sidecars/*"
 allowBuilds:
   esbuild: true

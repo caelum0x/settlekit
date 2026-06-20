@@ -1,0 +1,38 @@
+{
+  "name": "@settlekit/lepton-cli",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Operator CLI for the Lepton on-chain settlement stack — deploy contracts, generate sidecar config, inspect settlements, walk attribution lineage, and issue/verify citation proofs.",
+  "bin": {
+    "lepton": "./dist/index.js"
+  },
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "dev": "node --import tsx/esm src/index.ts",
+    "typecheck": "tsc -b",
+    "clean": "rm -rf dist"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "commander": "^12.1.0",
+    "@settlekit/attribution": "workspace:*",
+    "@settlekit/settlement-core": "workspace:*",
+    "@settlekit/persistence": "workspace:*",
+    "@settlekit/database": "workspace:*",
+    "@settlekit/common": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}
