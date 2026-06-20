@@ -307,6 +307,66 @@ export class AuthService {
   }
 
   /**
+   * Link a wallet to the already-authenticated account behind `sessionToken`.
+   * Verifies the SIWE signature + single-use nonce, then attaches the recovered
+   * address to the account. Returns `conflict` if the wallet is already linked
+   * to a different account, `unauthorized` for a bad session/signature.
+   */
+  async linkWallet(
+    sessionToken: string,
+    input: { message: string; signature: Hex },
+    now: Date = new Date(),
+  ): Promise<Result<{ account: Account }, SettleKitError>> {
+    if (this.store.consumeWalletNonce === undefined || this.store.findAccountByWallet === undefined) {
+      return err(validation("Wallet linking is not supported by this store"));
+    }
+
+    const auth = await this.authenticateSession(sessionToken, now);
+    if (!auth.ok) {
+      return err(auth.error);
+    }
+    const { account } = auth.value;
+
+    if (typeof input.message !== "string" || typeof input.signature !== "string") {
+      return err(unauthorized("Invalid wallet signature"));
+    }
+    const fields = parseWalletMessage(input.message);
+    if (fields.address === undefined || fields.nonce === undefined) {
+      return err(unauthorized("Invalid sign-in message"));
+    }
+    if (fields.expirationTime !== undefined && fields.expirationTime.getTime() <= now.getTime()) {
+      return err(unauthorized("Sign-in message has expired"));
+    }
+
+    let claimed: string;
+    let signer: string;
+    try {
+      claimed = normalizeWalletAddress(fields.address);
+      signer = await recoverWalletSigner(input.message, input.signature);
+    } catch {
+      return err(unauthorized("Invalid wallet signature"));
+    }
+    if (signer !== claimed) {
+      return err(unauthorized("Wallet signature does not match the message address"));
+    }
+
+    // Reject before consuming the nonce if another account already owns it.
+    const existing = await this.store.findAccountByWallet(claimed);
+    if (existing && existing.id !== account.id) {
+      return err(conflictError("This wallet is already linked to another account"));
+    }
+
+    const consumed = await this.store.consumeWalletNonce(fields.nonce, claimed, now.toISOString());
+    if (!consumed) {
+      return err(unauthorized("Sign-in challenge is invalid or has expired"));
+    }
+
+    const updated: Account = { ...account, walletAddress: claimed };
+    await this.store.saveAccount(updated);
+    return ok({ account: updated });
+  }
+
+  /**
    * Resolve the account for a session token. Returns `unauthorized` if the
    * token is unknown, expired, or its account no longer exists.
    */

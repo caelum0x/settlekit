@@ -186,6 +186,38 @@ export async function login(input: LoginInput): Promise<AuthResult<Account>> {
   return persistSession(result.data);
 }
 
+/** A single-use Sign-In-With-Ethereum challenge issued by the server. */
+export interface WalletNonceResult {
+  nonce: string;
+  address: string;
+}
+
+/** Request a single-use SIWE nonce for `address`. */
+export async function requestWalletNonce(
+  address: string,
+): Promise<AuthResult<WalletNonceResult>> {
+  return apiRequest<WalletNonceResult>("/v1/auth/wallet/nonce", {
+    method: "POST",
+    body: JSON.stringify({ address }),
+  });
+}
+
+/**
+ * Complete a wallet sign-in (Sign-In-With-Ethereum): exchange the signed SIWE
+ * message for a session and set the cookie. Portal accounts are customers.
+ */
+export async function walletLogin(input: {
+  message: string;
+  signature: string;
+}): Promise<AuthResult<Account>> {
+  const result = await apiRequest<AuthSession>("/v1/auth/wallet/login", {
+    method: "POST",
+    body: JSON.stringify({ ...input, type: "customer" }),
+  });
+  if (!result.ok) return result;
+  return persistSession(result.data);
+}
+
 export interface MagicLinkRequestResult {
   ok: true;
   /** Present only when no email transport is configured (dev convenience). */

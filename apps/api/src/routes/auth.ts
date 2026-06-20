@@ -73,6 +73,11 @@ const walletLoginSchema = z.object({
   type: z.enum(["merchant", "customer"]).optional(),
 });
 
+const walletLinkSchema = z.object({
+  message: z.string().min(1),
+  signature: z.string().regex(/^0x[0-9a-fA-F]+$/, "signature must be 0x-hex"),
+});
+
 function unauthorized(message: string): SettleKitError {
   return new SettleKitError({ code: "unauthorized", message });
 }
@@ -212,6 +217,19 @@ export function authRoutes(): Hono<AppEnv> {
     );
     setSessionCookie(c, result.session);
     return data(c, { account: result.account, sessionToken: result.session.token });
+  });
+
+  // POST /wallet/link -> attach a wallet to the authenticated account.
+  app.post("/wallet/link", async (c) => {
+    const token = requireBearer(c.req.header("authorization"));
+    const body = await parseBody(c, walletLinkSchema);
+    const result = unwrapResult(
+      await c.get("ctx").auth.linkWallet(token, {
+        message: body.message,
+        signature: body.signature as `0x${string}`,
+      }),
+    );
+    return data(c, { account: result.account });
   });
 
   // GET /session -> resolve the account for the presented session token.

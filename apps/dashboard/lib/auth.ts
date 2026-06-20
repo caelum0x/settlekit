@@ -20,6 +20,8 @@ export interface Account {
   type: AccountType;
   organizationId?: string;
   displayName?: string;
+  /** Linked web3 wallet address, if the account has one. */
+  walletAddress?: string;
 }
 
 /** Successful auth result carrying the account and an opaque session token. */
@@ -179,6 +181,17 @@ export function walletLogin(input: {
   type?: AccountType;
 }): Promise<AuthResult<AuthSession>> {
   return authPost<AuthSession>("/v1/auth/wallet/login", input);
+}
+
+/**
+ * Link a wallet to the authenticated account (server-side: pass the session
+ * token as bearer). Used by the /api/wallet/link route handler.
+ */
+export function linkWallet(
+  bearer: string,
+  input: { message: string; signature: string },
+): Promise<AuthResult<{ account: Account }>> {
+  return authPost<{ account: Account }>("/v1/auth/wallet/link", input, bearer);
 }
 
 /** Fetch the account for a given session token. */

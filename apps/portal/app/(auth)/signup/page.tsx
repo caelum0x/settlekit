@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AuthForm } from "@/components/AuthForm";
+import { WalletConnect } from "@/components/WalletConnect";
 
 export const metadata: Metadata = {
   title: "Create account · SettleKit Portal",
@@ -17,6 +18,9 @@ export default function SignupPage() {
       </p>
 
       <AuthForm mode="signup" />
+
+      <div className="auth-divider">or</div>
+      <WalletConnect />
 
       <p className="auth-switch">
         Already have an account? <Link href="/login">Sign in</Link>

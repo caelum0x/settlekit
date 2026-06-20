@@ -96,6 +96,56 @@ describe("AuthService wallet login (SIWE)", () => {
     expect(isErr(res)).toBe(true);
   });
 
+  it("links a wallet to an existing email account", async () => {
+    const svc = service();
+    const reg = await svc.registerWithPassword(
+      { type: "customer", email: "buyer@example.com", password: "password123" },
+      NOW,
+    );
+    if (!isOk(reg)) throw new Error("register");
+    const session = await svc.loginWithPassword(
+      { email: "buyer@example.com", password: "password123" },
+      NOW,
+    );
+    if (!isOk(session)) throw new Error("login");
+
+    const nonceRes = await svc.requestWalletNonce(account.address, NOW);
+    if (!isOk(nonceRes)) throw new Error("nonce");
+    const { message, signature } = await signedLogin(svc, nonceRes.value.nonce);
+
+    const linked = await svc.linkWallet(session.value.session.token, { message, signature }, NOW);
+    expect(isOk(linked)).toBe(true);
+    if (!isOk(linked)) return;
+    expect(linked.value.account.id).toBe(reg.value.id);
+    expect(linked.value.account.walletAddress).toBe(account.address);
+  });
+
+  it("rejects linking a wallet already owned by another account", async () => {
+    const svc = service();
+    // Account A claims the wallet via wallet login.
+    const n1 = await svc.requestWalletNonce(account.address, NOW);
+    if (!isOk(n1)) throw new Error("nonce");
+    const s1 = await signedLogin(svc, n1.value.nonce);
+    await svc.loginWithWallet({ message: s1.message, signature: s1.signature }, NOW);
+
+    // Account B (email) tries to link the same wallet.
+    await svc.registerWithPassword(
+      { type: "customer", email: "other@example.com", password: "password123" },
+      NOW,
+    );
+    const session = await svc.loginWithPassword(
+      { email: "other@example.com", password: "password123" },
+      NOW,
+    );
+    if (!isOk(session)) throw new Error("login");
+    const n2 = await svc.requestWalletNonce(account.address, NOW);
+    if (!isOk(n2)) throw new Error("nonce");
+    const s2 = await signedLogin(svc, n2.value.nonce);
+    const linked = await svc.linkWallet(session.value.session.token, s2, NOW);
+    expect(isErr(linked)).toBe(true);
+    if (isErr(linked)) expect(linked.error.code).toBe("conflict");
+  });
+
   it("rejects a signature from a different signer", async () => {
     const svc = service();
     const nonceRes = await svc.requestWalletNonce(account.address, NOW);

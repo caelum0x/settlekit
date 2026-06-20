@@ -1,6 +1,8 @@
 import { api } from "@/lib/api";
 import { PageHeader, Card, ErrorBanner } from "@/components/ui";
 import { SimpleCreateForm } from "@/components/forms/SimpleCreateForm";
+import { LinkWallet } from "@/components/LinkWallet";
+import { getCurrentAccount } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -20,6 +22,7 @@ async function saveSettings(values: Record<string, string>): Promise<string | nu
 
 export default async function SettingsPage() {
   const settings = await api.settings.get();
+  const account = await getCurrentAccount();
   return (
     <>
       <PageHeader
@@ -65,6 +68,13 @@ export default async function SettingsPage() {
             },
           ]}
         />
+      </Card>
+      <Card title="Wallet">
+        <p className="page-desc" style={{ marginBottom: 12 }}>
+          Link a web3 wallet to sign in with Ethereum (SIWE) instead of a
+          password.
+        </p>
+        <LinkWallet {...(account?.walletAddress ? { linkedAddress: account.walletAddress } : {})} />
       </Card>
     </>
   );
