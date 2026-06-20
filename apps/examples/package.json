@@ -13,6 +13,8 @@
     "bundle": "node --import tsx src/bundle-checkout.ts",
     "lepton": "node --import tsx src/lepton-nanopayments.ts",
     "arc-commerce": "node --import tsx src/arc-commerce.ts",
+    "erc8004-agent": "node --import tsx src/erc8004-agent.ts",
+    "erc8183-job": "node --import tsx src/erc8183-job.ts",
     "build": "tsc -b",
     "typecheck": "tsc -b",
     "test": "vitest run"
@@ -23,6 +25,8 @@
     "@settlekit/common": "workspace:*",
     "@settlekit/delivery": "workspace:*",
     "@settlekit/entitlements": "workspace:*",
+    "@settlekit/erc8004": "workspace:*",
+    "@settlekit/erc8183": "workspace:*",
     "@settlekit/license-keys": "workspace:*",
     "@settlekit/navidrome-scrobble": "workspace:*",
     "@settlekit/oss-fund": "workspace:*",

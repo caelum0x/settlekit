@@ -31,7 +31,9 @@ export type CircleBlockchain =
   | "SOL"
   | "SOL-DEVNET"
   | "UNI"
-  | "UNI-SEPOLIA";
+  | "UNI-SEPOLIA"
+  | "ARC"
+  | "ARC-TESTNET";
 
 /** Account model for a wallet: externally owned account or smart-contract account. */
 export type CircleAccountType = "EOA" | "SCA";

@@ -6,7 +6,7 @@
  */
 
 import type { Abi, Account, PublicClient, WalletClient } from "viem";
-import type { DEFAULT_ERC8183_ABI } from "./abi.js";
+import type { AGENTIC_COMMERCE_ABI } from "./abi.js";
 
 /** A 0x-prefixed hex string. */
 export type Hex = `0x${string}`;
@@ -27,13 +27,41 @@ export type Hex = `0x${string}`;
  * {@link import("./account.js").readPrivateKeyFromEnv}.
  */
 export interface ViemErc8183Config {
-  /** Deployed ERC-8183 job contract address. */
-  contractAddress: Hex;
   /**
-   * Override ABI. Defaults to {@link DEFAULT_ERC8183_ABI} (assumed — see abi.ts).
-   * Supply the real deployed ABI here to use this adapter without a code change.
+   * Deployed AgenticCommerce (ERC-8183) job contract address. OPTIONAL —
+   * defaults to {@link import("./abi.js").DEFAULT_AGENTIC_COMMERCE_ADDRESS}.
    */
-  abi?: typeof DEFAULT_ERC8183_ABI | Abi;
+  contractAddress?: Hex;
+  /**
+   * USDC token address used for the `approve` before `fund`. OPTIONAL —
+   * defaults to {@link import("./abi.js").DEFAULT_USDC_ADDRESS}.
+   */
+  usdcAddress?: Hex;
+  /**
+   * Override ABI. Defaults to the REAL deployed
+   * {@link import("./abi.js").AGENTIC_COMMERCE_ABI}. Supply a different ABI here
+   * only if the deployed contract diverges.
+   */
+  abi?: typeof AGENTIC_COMMERCE_ABI | Abi;
+  /**
+   * Evaluator address for {@link import("./port.js").createViemErc8183Port}'s
+   * `createJob`. The fixed `Erc8183Port.createJob` shape has no evaluator
+   * parameter, so it is supplied here. Defaults to the requester address
+   * (the requester self-evaluates) when omitted.
+   */
+  evaluator?: Hex;
+  /**
+   * On-chain job expiry, as a unix-seconds timestamp. The fixed
+   * `Erc8183Port.createJob` shape has no expiry parameter, so it is supplied
+   * here. REQUIRED in practice (no implicit Date.now() default — library code
+   * must stay deterministic); omitting it uses `0` (no expiry sentinel).
+   */
+  expiredAt?: bigint | number;
+  /**
+   * Hook contract address for the AgenticCommerce default path. Defaults to the
+   * zero address (no hook) when omitted.
+   */
+  hook?: Hex;
   /** JSON-RPC endpoint used when clients are built (not when injected). */
   rpcUrl?: string;
   /**

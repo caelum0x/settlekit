@@ -20,6 +20,8 @@
     { "path": "../../packages/bundles" },
     { "path": "../../packages/oss-fund" },
     { "path": "../../packages/settlement-core" },
+    { "path": "../../packages/erc8004" },
+    { "path": "../../packages/erc8183" },
     { "path": "../../services/sidecars/rsshub-citation-toll" },
     { "path": "../../services/sidecars/navidrome-scrobble" },
     { "path": "../../services/sidecars/owncast-stream" }

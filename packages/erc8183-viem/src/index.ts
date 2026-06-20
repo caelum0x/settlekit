@@ -1,15 +1,24 @@
 /**
- * @settlekit/erc8183-viem — a live, ABI-injectable viem adapter implementing
- * `@settlekit/erc8183`'s `Erc8183Port` against the deployed ERC-8183 job
- * contract on Arc.
+ * @settlekit/erc8183-viem — a live viem adapter implementing
+ * `@settlekit/erc8183`'s `Erc8183Port` against the REAL deployed AgenticCommerce
+ * (ERC-8183) job contract on Arc.
  *
- * The DEFAULT_ERC8183_ABI is ASSUMED from the documented lifecycle — confirm it
- * against the deployed contract and override via `config.abi` if needed.
+ * The default ABI ({@link AGENTIC_COMMERCE_ABI}) and the default contract/USDC
+ * addresses match the deployed reference implementation; all are overridable via
+ * `config`.
  */
 
 export { createViemErc8183Port } from "./port.js";
 export { configureViemErc8183 } from "./configure.js";
-export { DEFAULT_ERC8183_ABI, JOB_STATUS_BY_INDEX } from "./abi.js";
+export {
+  AGENTIC_COMMERCE_ABI,
+  DEFAULT_ERC8183_ABI,
+  USDC_ABI,
+  ERC20_APPROVE_ABI,
+  DEFAULT_AGENTIC_COMMERCE_ADDRESS,
+  DEFAULT_USDC_ADDRESS,
+  JOB_STATUS_BY_INDEX,
+} from "./abi.js";
 export { defineArcChain, type DefineArcChainInput } from "./chain.js";
 export {
   toUsdcBaseUnits,

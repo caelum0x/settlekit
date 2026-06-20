@@ -12,9 +12,13 @@ import { main as licenseVerify } from "../src/license-verify.js";
 import { main as githubRepoSale } from "../src/github-repo-sale.js";
 import { main as bundleCheckout } from "../src/bundle-checkout.js";
 import { main as arcCommerce } from "../src/arc-commerce.js";
+import { main as erc8004Agent } from "../src/erc8004-agent.js";
+import { main as erc8183Job } from "../src/erc8183-job.js";
 import { main as runAllMain, runAll } from "../src/run-all.js";
 
 import { LocalAppKitSdk, configureAppKit } from "@settlekit/app-kit";
+import { LocalErc8004Port, configureErc8004 } from "@settlekit/erc8004";
+import { LocalErc8183Port, configureErc8183 } from "@settlekit/erc8183";
 
 describe("saas-entitlement-check", () => {
   it("grants a plan entitlement, verifies a feature, and deducts credits", async () => {
@@ -143,6 +147,113 @@ describe("arc-commerce", () => {
     expect(res.ok).toBe(false);
     if (!res.ok) {
       expect(res.error.code).toBe("payment_failed");
+    }
+  });
+});
+
+describe("erc8004-agent", () => {
+  const TX_RE = /^0xlocal[0-9a-f]{8}$/;
+  const HANDLE_RE = /^0x[0-9a-f]{64}$/;
+
+  it("registers, feeds back, requests + responds validation, and reaches validated", async () => {
+    const result = await erc8004Agent();
+
+    // Identity: sequential decimal id, owned by the demo owner constant.
+    expect(result.agentId).toMatch(/^[0-9]+$/);
+    expect(result.owner).toBe("0xAgentOwnerWallet");
+    expect(result.metadataUri.length).toBeGreaterThan(0);
+
+    // Request handle is bytes32-shaped (FNV-1a in the local port).
+    expect(result.requestHash).toMatch(HANDLE_RE);
+
+    // Final status reflects a passing validation.
+    expect(result.finalStatus.agentId).toBe(result.agentId);
+    expect(result.finalStatus.validator).toBe("0xValidatorWallet");
+    expect(result.finalStatus.response).toBe(100);
+    expect(result.finalStatus.passed).toBe(true);
+    expect(result.validated).toBe(true);
+
+    // Deterministic synthetic tx hashes + Arc explorer URLs.
+    expect(result.registerTx.txHash).toMatch(TX_RE);
+    expect(result.feedbackTx.txHash).toMatch(TX_RE);
+    expect(result.respondTx.txHash).toMatch(TX_RE);
+    expect(result.registerTx.explorerUrl).toContain("testnet.arcscan.app");
+  });
+
+  it("is deterministic per run (each run builds its own local port)", async () => {
+    const first = await erc8004Agent();
+    const second = await erc8004Agent();
+    // Each run starts its own port, so agentId restarts at "1": assert shape.
+    expect(first.agentId).toMatch(/^[0-9]+$/);
+    expect(second.agentId).toMatch(/^[0-9]+$/);
+    expect(first.validated).toBe(second.validated);
+  });
+
+  it("rejects feedback with an empty tag (boundary validation)", async () => {
+    const registry = configureErc8004({ port: new LocalErc8004Port({ owner: "0xOwner" }) });
+    const res = await registry.giveFeedback({ agentId: "1", score: 50, tag: "" });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe("validation_error");
+    }
+  });
+});
+
+describe("erc8183-job", () => {
+  it("funds, delivers, evaluates, and settles a job to the terminal state", async () => {
+    const result = await erc8183Job();
+
+    expect(result.jobId).toBe("job_1");
+    // money() normalizes/strips trailing zeros: "100.00" -> "100" (see
+    // @settlekit/common normalizeAmount), so the escrowed amount reads "100".
+    expect(result.amountUsdc).toBe("100");
+    expect(result.evaluationPassed).toBe(true);
+    expect(result.finalStatus).toBe("settled");
+    expect(result.completed).toBe(true);
+    expect(result.statusTrail).toEqual([
+      "created",
+      "funded",
+      "submitted",
+      "evaluated",
+      "settled",
+    ]);
+    expect(result.createTxHash).toMatch(/^0xlocal[0-9a-f]{8}$/);
+  });
+
+  it("maps a thrown settle into a typed integration error", async () => {
+    const jobs = configureErc8183({ port: new LocalErc8183Port({ throwOn: ["settle"] }) });
+    const created = await jobs.createJob({
+      requester: "0xR",
+      worker: "0xW",
+      amountUsdc: "100.00",
+      specUri: "ipfs://spec",
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    await jobs.fundEscrow({ jobId: created.value.jobId, amountUsdc: "100.00" });
+    await jobs.submitDeliverable({ jobId: created.value.jobId, deliverableUri: "ipfs://d" });
+    await jobs.evaluate({ jobId: created.value.jobId, passed: true });
+    const res = await jobs.settle({ jobId: created.value.jobId });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe("integration_error");
+    }
+  });
+
+  it("rejects settle on a job that has only been created (conflict)", async () => {
+    const jobs = configureErc8183({ port: new LocalErc8183Port() });
+    const created = await jobs.createJob({
+      requester: "0xR",
+      worker: "0xW",
+      amountUsdc: "100.00",
+      specUri: "ipfs://spec",
+    });
+    expect(created.ok).toBe(true);
+    if (!created.ok) return;
+    const res = await jobs.settle({ jobId: created.value.jobId });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe("conflict");
     }
   });
 });

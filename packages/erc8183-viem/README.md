@@ -1,10 +1,15 @@
 # @settlekit/erc8183-viem
 
-A live, **ABI-injectable** [viem](https://viem.sh) adapter implementing
-`@settlekit/erc8183`'s `Erc8183Port` against the deployed ERC-8183 job contract
-on Arc. It maps each lifecycle method (`createJob` / `fundEscrow` /
-`submitDeliverable` / `evaluate` / `settle` / `refund` / `getJob`) to a contract
-write or read, and maps the on-chain job tuple to the SettleKit `Job` type.
+A live [viem](https://viem.sh) adapter implementing `@settlekit/erc8183`'s
+`Erc8183Port` against the **REAL deployed AgenticCommerce (ERC-8183)** reference
+implementation on Arc. It maps each SettleKit lifecycle method to the real
+contract surface (`createJob` / `setBudget` / `fund` / `submit` / `complete` /
+`getJob`) and maps the on-chain job tuple to the SettleKit `Job` type.
+
+Defaults (all overridable via config):
+
+- AgenticCommerce contract: `0x0747EEf0706327138c69792bF28Cd525089e4583` (Arc Testnet)
+- USDC token: `0x3600000000000000000000000000000000000000`
 
 ## Usage
 
@@ -14,10 +19,13 @@ write or read, and maps the on-chain job tuple to the SettleKit `Job` type.
 import { configureViemErc8183, readPrivateKeyFromEnv } from "@settlekit/erc8183-viem";
 
 const jobs = configureViemErc8183({
-  contractAddress: "0x...", // deployed ERC-8183 job contract
+  // contractAddress / usdcAddress default to the deployed addresses above
   rpcUrl: "https://rpc.testnet.arc.network/",
   chainId: 1234,            // REQUIRED — see "Arc chainId gap" below
   privateKey: readPrivateKeyFromEnv(process.env), // never hardcode
+  // evaluator/expiredAt/hook supply the real createJob params the Port lacks:
+  evaluator: "0x...",       // defaults to the requester when omitted
+  expiredAt: 1893456000n,   // unix seconds; defaults to 0 (no expiry)
 });
 
 const created = await jobs.createJob({
@@ -34,36 +42,41 @@ const created = await jobs.createJob({
 import { createViemErc8183Port } from "@settlekit/erc8183-viem";
 
 const port = createViemErc8183Port({
-  contractAddress: "0x...",
   walletClient, // a viem WalletClient WITH an account
   publicClient, // a viem PublicClient
+  // contractAddress / usdcAddress default to the deployed addresses
 });
 ```
 
 When clients are injected they are used **verbatim** — no transport (`http()`)
 is created. This is also how the test suite runs with zero network.
 
-## ABI is assumed — confirm against the deployed contract
+## Port → contract mapping
 
-The exact deployed ERC-8183 ABI is **not** published in this repo. `DEFAULT_ERC8183_ABI`
-is reconstructed from the documented lifecycle and the `Job` shape. Function
-names, argument order, the `getJob` return tuple layout, the `jobId` type
-(assumed `uint256`), and the `status` `uint8` enum ordering may **not** match the
-real contract. Every ABI entry is commented `assumed; confirm against deployed
-contract`.
+The default ABI (`AGENTIC_COMMERCE_ABI`, also exported as `DEFAULT_ERC8183_ABI`)
+is the **real** deployed surface. The fixed `Erc8183Port` methods map as:
 
-Once the real ABI is known, override it **without a code change**:
+| Port method        | On-chain call(s)                                              | Notes |
+| ------------------ | ------------------------------------------------------------ | ----- |
+| `createJob`        | `createJob(provider, evaluator, expiredAt, description, hook)` then `setBudget` when `amountUsdc > 0` | `jobId` is **decoded from the `JobCreated` receipt log** (not a return value). `requester → client` (msg.sender), `worker → provider`, `specUri → description`. |
+| `fundEscrow`       | USDC `approve(contract, amount)` **then** `fund(jobId, "0x")` | The fund receipt is the returned `TxResult`. |
+| `submitDeliverable`| `submit(jobId, keccak256(toHex(deliverableUri)), "0x")`      | The deliverable is stored as a `bytes32` hash. |
+| `evaluate`         | `complete(jobId, keccak256(toHex(scoreOrUri)), "0x")`        | `complete` **releases escrow**. There is no on-chain fail method, so `evaluate({ passed: false })` still calls `complete` — a failing verdict cannot be expressed on-chain via this Port. |
+| `settle`           | `complete(jobId, keccak256(toHex("settle")), "0x")`          | Redundant once `evaluate` has run `complete`. |
+| `refund`           | **none** — throws a `SettleKitError`                         | Escrow returns via the Rejected/Expired job paths, not a method on this contract. |
+| `getJob`           | `getJob(jobId)` → 9-field tuple                              | `deliverableUri`/`evaluation` are **omitted**: the contract stores only `bytes32` hashes, not the URI/verdict. |
 
-```ts
-import { createViemErc8183Port } from "@settlekit/erc8183-viem";
-import { REAL_ERC8183_ABI } from "./my-abi"; // your verified ABI
+### Interface gap
 
-createViemErc8183Port({ contractAddress, walletClient, publicClient, abi: REAL_ERC8183_ABI });
-```
+`Erc8183Port.createJob` only passes `{ requester, worker, amountUsdc, specUri }`,
+but the real `createJob` also needs `evaluator`, `expiredAt`, and `hook`. Those
+are supplied via config (`evaluator` defaults to the requester, `hook` to the
+zero address, `expiredAt` to `0`). Set them explicitly for production — a wrong
+evaluator default routes the job's verdict to an unintended party.
 
-`createJob` is the most likely-to-differ piece: it currently `simulateContract`s
-to recover an assumed `uint256` return value, then broadcasts. A real contract
-may instead emit an event whose log you must decode for the job id.
+The on-chain `uint8` status enum maps `0..5` →
+`created / funded / submitted / settled / refunded / cancelled`
+(`JOB_STATUS_BY_INDEX`).
 
 ## Arc chainId gap
 
@@ -81,11 +94,9 @@ to 6-decimal base units with integer-only BigInt math (no floating point) via
 `formatUnits` (with `6`) equivalents are exported as `parseUsdc`/`formatUsdc` and
 agree with the common helpers.
 
-> Note: if the deployed `fundEscrow` requires a prior ERC-20 `approve` of the
-> escrow (like SettleKit's onchain escrow) you will also need the Arc USDC token
-> address and an approval step. The USDC address on Arc Testnet is not published
-> in this repo, so allowance handling is out of scope here — confirm against the
-> real contract's escrow mechanics.
+> `fundEscrow` performs the ERC-20 `approve` on the USDC token
+> (`config.usdcAddress`, default `0x3600…0000`) for the AgenticCommerce contract,
+> then calls `fund`. Both amounts use the same 6-decimal base-unit conversion.
 
 ## Never hardcode a private key
 

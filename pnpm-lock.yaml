@@ -469,6 +469,12 @@ importers:
       '@settlekit/entitlements':
         specifier: workspace:*
         version: link:../../packages/entitlements
+      '@settlekit/erc8004':
+        specifier: workspace:*
+        version: link:../../packages/erc8004
+      '@settlekit/erc8183':
+        specifier: workspace:*
+        version: link:../../packages/erc8183
       '@settlekit/license-keys':
         specifier: workspace:*
         version: link:../../packages/license-keys
@@ -1018,6 +1024,9 @@ importers:
       '@settlekit/common':
         specifier: workspace:*
         version: link:../common
+      viem:
+        specifier: ^2.21.0
+        version: 2.52.2(typescript@5.9.3)(zod@3.25.76)
     devDependencies:
       '@types/node':
         specifier: ^20.14.0
@@ -1025,6 +1034,9 @@ importers:
       typescript:
         specifier: ^5.5.4
         version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
 
   packages/billing-credits:
     dependencies:
@@ -1444,6 +1456,31 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)
 
+  packages/erc8004-dcw:
+    dependencies:
+      '@settlekit/arc-chains':
+        specifier: workspace:*
+        version: link:../arc-chains
+      '@settlekit/circle-wallets':
+        specifier: workspace:*
+        version: link:../circle-wallets
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      '@settlekit/erc8004':
+        specifier: workspace:*
+        version: link:../erc8004
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
   packages/erc8004-viem:
     dependencies:
       '@settlekit/arc-chains':
@@ -1474,6 +1511,31 @@ importers:
       '@settlekit/common':
         specifier: workspace:*
         version: link:../common
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
+  packages/erc8183-dcw:
+    dependencies:
+      '@settlekit/arc-chains':
+        specifier: workspace:*
+        version: link:../arc-chains
+      '@settlekit/circle-wallets':
+        specifier: workspace:*
+        version: link:../circle-wallets
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      '@settlekit/erc8183':
+        specifier: workspace:*
+        version: link:../erc8183
     devDependencies:
       '@types/node':
         specifier: ^20.14.0
