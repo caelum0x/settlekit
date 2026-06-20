@@ -15,7 +15,26 @@ export interface Account {
   /** Set for merchant accounts that belong to an organization. */
   organizationId?: string;
   displayName?: string;
+  /**
+   * Checksummed EOA address for web3 (Sign-In-With-Ethereum) accounts. Set when
+   * the account was created or linked via a wallet signature.
+   */
+  walletAddress?: string;
   createdAt: IsoTimestamp;
+}
+
+/**
+ * A single-use Sign-In-With-Ethereum challenge. The server issues a `nonce`
+ * bound to a wallet `address`; the wallet signs a SIWE message embedding it, and
+ * the nonce is consumed exactly once at login to prevent signature replay.
+ */
+export interface WalletNonce {
+  /** Random, single-use challenge value embedded in the signed SIWE message. */
+  nonce: string;
+  /** Checksummed wallet address the nonce was issued to. */
+  address: string;
+  expiresAt: IsoTimestamp;
+  consumedAt?: IsoTimestamp;
 }
 
 /**

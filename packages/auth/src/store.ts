@@ -1,4 +1,4 @@
-import type { Account, MagicLink, PasswordCredential, Session } from "./types.js";
+import type { Account, MagicLink, PasswordCredential, Session, WalletNonce } from "./types.js";
 
 /**
  * Persistence boundary for authentication state. SettleKit is storage-agnostic:
@@ -42,6 +42,21 @@ export interface AuthStore {
   getPassword(accountId: string): Promise<PasswordCredential | undefined>;
   /** Insert or replace the password credential for an account. */
   setPassword(credential: PasswordCredential): Promise<void>;
+
+  // --- web3 / Sign-In-With-Ethereum (optional) -------------------------
+  // Stores that support wallet login implement these; the AuthService web3
+  // methods return `unauthorized`/`validation_error` when they are absent.
+  /** Find an account by its (checksummed) wallet address, or `undefined`. */
+  findAccountByWallet?(address: string): Promise<Account | undefined>;
+  /** Persist a freshly issued single-use SIWE nonce. */
+  saveWalletNonce?(nonce: WalletNonce): Promise<void>;
+  /**
+   * Atomically consume a SIWE nonce for `address`. Implementations MUST be
+   * single-use: returns `true` only on the first consume of a live (unexpired,
+   * unconsumed) nonce bound to `address`; `false` otherwise. This is what makes
+   * wallet login replay-safe.
+   */
+  consumeWalletNonce?(nonce: string, address: string, consumedAt: string): Promise<boolean>;
 }
 
 /** Strip the once-only plaintext token before persisting a session. */
@@ -65,12 +80,18 @@ function toStoredMagicLink(magicLink: MagicLink): MagicLink {
 export class InMemoryAuthStore implements AuthStore {
   private readonly accountsById = new Map<string, Account>();
   private readonly accountIdByEmail = new Map<string, string>();
+  private readonly accountIdByWallet = new Map<string, string>();
   private readonly sessionsByHash = new Map<string, Session>();
   private readonly magicLinksByHash = new Map<string, MagicLink>();
   private readonly passwordsByAccount = new Map<string, PasswordCredential>();
+  private readonly walletNoncesByNonce = new Map<string, WalletNonce>();
 
   private static emailKey(email: string): string {
     return email.trim().toLowerCase();
+  }
+
+  private static walletKey(address: string): string {
+    return address.trim().toLowerCase();
   }
 
   async findAccountById(id: string): Promise<Account | undefined> {
@@ -89,6 +110,9 @@ export class InMemoryAuthStore implements AuthStore {
   async saveAccount(account: Account): Promise<void> {
     this.accountsById.set(account.id, { ...account });
     this.accountIdByEmail.set(InMemoryAuthStore.emailKey(account.email), account.id);
+    if (account.walletAddress !== undefined) {
+      this.accountIdByWallet.set(InMemoryAuthStore.walletKey(account.walletAddress), account.id);
+    }
   }
 
   async saveSession(session: Session, tokenHash: string): Promise<void> {
@@ -129,5 +153,31 @@ export class InMemoryAuthStore implements AuthStore {
 
   async setPassword(credential: PasswordCredential): Promise<void> {
     this.passwordsByAccount.set(credential.accountId, { ...credential });
+  }
+
+  async findAccountByWallet(address: string): Promise<Account | undefined> {
+    const id = this.accountIdByWallet.get(InMemoryAuthStore.walletKey(address));
+    if (id === undefined) {
+      return undefined;
+    }
+    return this.findAccountById(id);
+  }
+
+  async saveWalletNonce(nonce: WalletNonce): Promise<void> {
+    this.walletNoncesByNonce.set(nonce.nonce, { ...nonce });
+  }
+
+  async consumeWalletNonce(nonce: string, address: string, consumedAt: string): Promise<boolean> {
+    const found = this.walletNoncesByNonce.get(nonce);
+    if (
+      !found ||
+      found.consumedAt !== undefined ||
+      InMemoryAuthStore.walletKey(found.address) !== InMemoryAuthStore.walletKey(address) ||
+      Date.parse(found.expiresAt) <= Date.parse(consumedAt)
+    ) {
+      return false;
+    }
+    this.walletNoncesByNonce.set(nonce, { ...found, consumedAt });
+    return true;
   }
 }
