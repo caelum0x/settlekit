@@ -12,6 +12,7 @@
  *   - GET  /v1/w3s/wallets                         list wallets
  *   - GET  /v1/w3s/wallets/{id}/balances           get wallet token balances
  *   - POST /v1/w3s/developer/transactions/transfer create a transfer transaction
+ *   - POST /v1/w3s/developer/transactions/contractExecution execute a contract call
  *   - GET  /v1/w3s/transactions/{id}               get transaction status
  *
  * ENTITY SECRET (read this): every mutating call requires an
@@ -28,6 +29,8 @@ import { SettleKitError } from "@settlekit/common";
 import { createFetchWalletsHttp } from "./http.js";
 import type { WalletsHttp, WalletsRequest } from "./http.js";
 import { assertOk, requireString, unwrapData } from "./envelope.js";
+import { buildContractExecutionRequest } from "./contract-execution.js";
+import type { CreateContractExecutionInput } from "./contract-execution.js";
 import type {
   CircleAccountType,
   CircleBlockchain,
@@ -128,6 +131,9 @@ export interface WalletsClient {
   listWallets(input?: ListWalletsInput): Promise<CircleWalletResource[]>;
   getWalletBalance(walletId: string): Promise<CircleTokenBalance[]>;
   createTransfer(input: CreateTransferInput): Promise<CircleTransactionResource>;
+  createContractExecution(
+    input: CreateContractExecutionInput,
+  ): Promise<CircleTransactionResource>;
   getTransaction(id: string): Promise<CircleTransactionResource>;
 }
 
@@ -250,6 +256,25 @@ export function createWalletsClient(config: WalletsClientConfig): WalletsClient 
           entitySecretCiphertext,
         },
       });
+    },
+
+    async createContractExecution(
+      input: CreateContractExecutionInput,
+    ): Promise<CircleTransactionResource> {
+      requireString(input.walletAddress, "createContractExecution.walletAddress");
+      requireString(input.blockchain, "createContractExecution.blockchain");
+      requireString(input.contractAddress, "createContractExecution.contractAddress");
+      requireString(input.abiFunctionSignature, "createContractExecution.abiFunctionSignature");
+      if (!Array.isArray(input.abiParameters)) {
+        throw new SettleKitError({
+          code: "validation_error",
+          message: "createContractExecution requires abiParameters to be an array",
+        });
+      }
+      const entitySecretCiphertext = await resolveEntitySecret(input, "createContractExecution");
+      return send<CircleTransactionResource>(
+        buildContractExecutionRequest(input, entitySecretCiphertext),
+      );
     },
 
     async getTransaction(id: string): Promise<CircleTransactionResource> {

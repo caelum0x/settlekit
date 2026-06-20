@@ -38,6 +38,7 @@ export class LocalAppKitSdk implements AppKitSdk<string> {
   private readonly throwOn: ReadonlySet<TransferKind>;
   private counter = 0;
   private readonly recorded: RecordedCall[] = [];
+  private lastSwapConfigValue: SdkSwapParams<string>["config"];
 
   readonly unifiedBalance: {
     deposit(params: SdkDepositParams<string>): Promise<SdkResult>;
@@ -58,6 +59,21 @@ export class LocalAppKitSdk implements AppKitSdk<string> {
   /** All calls made so far, oldest first. */
   calls(): readonly RecordedCall[] {
     return [...this.recorded];
+  }
+
+  /**
+   * The `config` passed to the most recent {@link swap} call, or `undefined` if
+   * no swap has run yet. Returns a defensive copy so assertions cannot mutate
+   * recorded state.
+   */
+  lastSwapConfig(): SdkSwapParams<string>["config"] {
+    if (this.lastSwapConfigValue === undefined) return undefined;
+    const { kitKey, slippageTolerance, fee } = this.lastSwapConfigValue;
+    return {
+      ...(kitKey !== undefined ? { kitKey } : {}),
+      ...(slippageTolerance !== undefined ? { slippageTolerance } : {}),
+      ...(fee !== undefined ? { fee: { recipient: fee.recipient, bps: fee.bps } } : {}),
+    };
   }
 
   private async simulate(
@@ -93,6 +109,7 @@ export class LocalAppKitSdk implements AppKitSdk<string> {
   }
 
   swap(params: SdkSwapParams<string>): Promise<SdkResult> {
+    this.lastSwapConfigValue = params.config;
     return this.simulate("swap", "swap", params.amountIn, params.from.chain);
   }
 }

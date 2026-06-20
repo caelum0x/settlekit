@@ -18,7 +18,14 @@ import {
   type TransferResult,
   type TransferStatus,
 } from "./types.js";
-import { firstError, validateAddress, validateAmount, validateChain, validateToken } from "./validate.js";
+import {
+  firstError,
+  validateAddress,
+  validateAmount,
+  validateBps,
+  validateChain,
+  validateToken,
+} from "./validate.js";
 
 /** Default token when a request omits one. */
 const DEFAULT_TOKEN = "USDC";
@@ -199,6 +206,12 @@ export class ArcPaymentClient<A> {
     if (req.tokenIn === req.tokenOut) {
       return err(validationError("tokenIn and tokenOut must differ", { token: req.tokenIn }));
     }
+    const monetizationInvalid = firstError(
+      req.slippageBps !== undefined ? validateBps(req.slippageBps, "slippageBps") : null,
+      req.fee !== undefined ? validateBps(req.fee.bps, "fee.bps") : null,
+      req.fee !== undefined ? validateAddress(req.fee.recipient, "fee.recipient") : null,
+    );
+    if (monetizationInvalid !== null) return err(monetizationInvalid);
     if (this.kitKey === undefined || this.kitKey.length === 0) {
       return err(
         new SettleKitError({
@@ -208,13 +221,20 @@ export class ArcPaymentClient<A> {
       );
     }
 
+    const kitKey = this.kitKey;
+    const config = {
+      kitKey,
+      ...(req.slippageBps !== undefined ? { slippageTolerance: req.slippageBps } : {}),
+      ...(req.fee !== undefined ? { fee: { recipient: req.fee.recipient, bps: req.fee.bps } } : {}),
+    };
+
     return this.run("swap", () =>
       this.sdk.swap({
         from: { adapter: req.adapter, chain: req.chain },
         tokenIn: req.tokenIn,
         tokenOut: req.tokenOut,
         amountIn: req.amountIn,
-        config: { kitKey: this.kitKey },
+        config,
       }),
     );
   }

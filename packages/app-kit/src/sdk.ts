@@ -49,7 +49,13 @@ export interface SdkSwapParams<A> {
   tokenIn: string;
   tokenOut: string;
   amountIn: string;
-  config?: { kitKey?: string };
+  config?: {
+    kitKey?: string;
+    /** Slippage tolerance in basis points (mapped from request `slippageBps`). */
+    slippageTolerance?: number;
+    /** Custom spread fee to collect on the swap. */
+    fee?: { recipient: string; bps: number };
+  };
 }
 
 /** App Kit `unifiedBalance.deposit` parameters. */

@@ -14,6 +14,12 @@ export type {
   CreateTransferInput,
 } from "./client.js";
 
+export { pollTransaction, buildContractExecutionRequest } from "./contract-execution.js";
+export type {
+  CreateContractExecutionInput,
+  PollTransactionOptions,
+} from "./contract-execution.js";
+
 export { createUserWalletsClient } from "./user-wallets.js";
 export type {
   UserWalletsClient,

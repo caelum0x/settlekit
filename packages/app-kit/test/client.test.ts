@@ -168,6 +168,109 @@ describe("swap", () => {
     if (!isErr(res)) return;
     expect(res.error.code).toBe("validation_error");
   });
+
+  it("passes valid slippage and fee through to the SDK", async () => {
+    const sdk = new LocalAppKitSdk();
+    const { arc } = client({ kitKey: "kit_test", sdk });
+    const res = await arc.swap({
+      adapter: ADAPTER,
+      chain: "Arc_Testnet",
+      tokenIn: "USDC",
+      tokenOut: "EURC",
+      amountIn: "1",
+      slippageBps: 50,
+      fee: { recipient: "0xfeeacct", bps: 30 },
+    });
+    expect(isOk(res)).toBe(true);
+    expect(sdk.lastSwapConfig()).toEqual({
+      kitKey: "kit_test",
+      slippageTolerance: 50,
+      fee: { recipient: "0xfeeacct", bps: 30 },
+    });
+  });
+
+  it("omits slippage/fee from config when not provided", async () => {
+    const sdk = new LocalAppKitSdk();
+    const { arc } = client({ kitKey: "kit_test", sdk });
+    const res = await arc.swap({
+      adapter: ADAPTER,
+      chain: "Arc_Testnet",
+      tokenIn: "USDC",
+      tokenOut: "EURC",
+      amountIn: "1",
+    });
+    expect(isOk(res)).toBe(true);
+    expect(sdk.lastSwapConfig()).toEqual({ kitKey: "kit_test" });
+  });
+
+  it("accepts boundary basis points (0 slippage, 10000 fee)", async () => {
+    const sdk = new LocalAppKitSdk();
+    const { arc } = client({ kitKey: "kit_test", sdk });
+    const res = await arc.swap({
+      adapter: ADAPTER,
+      chain: "Arc_Testnet",
+      tokenIn: "USDC",
+      tokenOut: "EURC",
+      amountIn: "1",
+      slippageBps: 0,
+      fee: { recipient: "0xfeeacct", bps: 10000 },
+    });
+    expect(isOk(res)).toBe(true);
+    expect(sdk.lastSwapConfig()).toEqual({
+      kitKey: "kit_test",
+      slippageTolerance: 0,
+      fee: { recipient: "0xfeeacct", bps: 10000 },
+    });
+  });
+
+  it("rejects out-of-range or non-integer slippageBps", async () => {
+    const { arc } = client({ kitKey: "kit_test" });
+    for (const slippageBps of [-1, 10001, 1.5, Number.NaN]) {
+      const res = await arc.swap({
+        adapter: ADAPTER,
+        chain: "Arc_Testnet",
+        tokenIn: "USDC",
+        tokenOut: "EURC",
+        amountIn: "1",
+        slippageBps,
+      });
+      expect(isErr(res)).toBe(true);
+      if (!isErr(res)) return;
+      expect(res.error.code).toBe("validation_error");
+    }
+  });
+
+  it("rejects out-of-range or non-integer fee.bps", async () => {
+    const { arc } = client({ kitKey: "kit_test" });
+    for (const bps of [20000, 12.3, -5]) {
+      const res = await arc.swap({
+        adapter: ADAPTER,
+        chain: "Arc_Testnet",
+        tokenIn: "USDC",
+        tokenOut: "EURC",
+        amountIn: "1",
+        fee: { recipient: "0xfeeacct", bps },
+      });
+      expect(isErr(res)).toBe(true);
+      if (!isErr(res)) return;
+      expect(res.error.code).toBe("validation_error");
+    }
+  });
+
+  it("rejects an empty fee.recipient", async () => {
+    const { arc } = client({ kitKey: "kit_test" });
+    const res = await arc.swap({
+      adapter: ADAPTER,
+      chain: "Arc_Testnet",
+      tokenIn: "USDC",
+      tokenOut: "EURC",
+      amountIn: "1",
+      fee: { recipient: "   ", bps: 30 },
+    });
+    expect(isErr(res)).toBe(true);
+    if (!isErr(res)) return;
+    expect(res.error.code).toBe("validation_error");
+  });
 });
 
 describe("unified balance", () => {

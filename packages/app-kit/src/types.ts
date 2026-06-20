@@ -110,6 +110,17 @@ export interface BridgeRequest<A> {
   amount: string;
 }
 
+/**
+ * A custom spread fee collected on a swap (Stablecoin-FX monetization).
+ * The fee is taken as a share of the swap and routed to {@link SwapFee.recipient}.
+ */
+export interface SwapFee {
+  /** Wallet address that receives the collected fee. Must be non-empty. */
+  recipient: string;
+  /** Fee size in basis points (0..10000, where 10000 = 100%). */
+  bps: number;
+}
+
 /** Exchange one token for another on the same chain. */
 export interface SwapRequest<A> {
   adapter: A;
@@ -118,6 +129,14 @@ export interface SwapRequest<A> {
   tokenOut: SupportedToken;
   /** Decimal input amount. */
   amountIn: string;
+  /**
+   * Slippage tolerance in basis points (0..10000, where 100 = 1%). When set,
+   * the swap reverts if the realized price moves beyond this bound. Maps to the
+   * SDK's `config.slippageTolerance`.
+   */
+  slippageBps?: number;
+  /** Optional custom spread fee to collect on this swap. */
+  fee?: SwapFee;
 }
 
 /** Deposit a token from one chain into the chain-abstracted Unified Balance. */

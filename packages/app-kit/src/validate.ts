@@ -54,6 +54,27 @@ export function validateToken(token: string, field = "token"): SettleKitError | 
   return null;
 }
 
+/** Maximum basis points (100%). */
+const MAX_BPS = 10000;
+
+/**
+ * Validate a basis-points value: an integer in the inclusive range 0..10000.
+ * Relies on {@link Number.isInteger} so `NaN`/`Infinity`/fractions are rejected
+ * (range comparisons alone would let `NaN` slip through).
+ */
+export function validateBps(value: number, field: string): SettleKitError | null {
+  if (typeof value !== "number" || !Number.isInteger(value)) {
+    return validationError(`${field} must be an integer`, { field, value });
+  }
+  if (value < 0 || value > MAX_BPS) {
+    return validationError(`${field} must be between 0 and ${MAX_BPS} basis points`, {
+      field,
+      value,
+    });
+  }
+  return null;
+}
+
 /** Validate a non-empty wallet address. */
 export function validateAddress(address: string, field = "address"): SettleKitError | null {
   if (typeof address !== "string" || address.trim().length === 0) {
