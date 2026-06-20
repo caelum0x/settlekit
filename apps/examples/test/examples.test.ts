@@ -11,7 +11,10 @@ import { main as x402PaidApi } from "../src/x402-paid-api.js";
 import { main as licenseVerify } from "../src/license-verify.js";
 import { main as githubRepoSale } from "../src/github-repo-sale.js";
 import { main as bundleCheckout } from "../src/bundle-checkout.js";
+import { main as arcCommerce } from "../src/arc-commerce.js";
 import { main as runAllMain, runAll } from "../src/run-all.js";
+
+import { LocalAppKitSdk, configureAppKit } from "@settlekit/app-kit";
 
 describe("saas-entitlement-check", () => {
   it("grants a plan entitlement, verifies a feature, and deducts credits", async () => {
@@ -70,6 +73,77 @@ describe("bundle-checkout", () => {
     expect(result.actionTypes).toEqual(["github_invite", "license_key_create"]);
     expect(result.entitlementCount).toBe(2);
     expect(result.entitlementTypes).toEqual(["github_repo_access", "license_key"]);
+  });
+});
+
+describe("arc-commerce", () => {
+  const HASH_RE = /^0xlocal[0-9a-f]{8}$/;
+
+  it("accepts USDC on Arc and settles a bridged payment to success", async () => {
+    const result = await arcCommerce();
+
+    // Order total equals the summed line items (19.99 + 29.01 = 49).
+    expect(result.order.items).toHaveLength(2);
+    expect(result.total).toBe("49");
+    expect(result.order.totalUsdc).toBe("49");
+    expect(result.total).toBe(result.order.totalUsdc);
+
+    // Same-chain leg: deterministic synthetic hash + Arc explorer URL.
+    expect(result.sameChain.status).toBe("success");
+    expect(result.sameChain.txHash).toMatch(HASH_RE);
+    expect(result.sameChain.explorerUrl).toContain("testnet.arcscan.app");
+    expect(result.sameChain.amountUsdc).toBe("49");
+
+    // Bridged leg: distinct synthetic hash, also success.
+    expect(result.bridged.status).toBe("success");
+    expect(result.bridged.txHash).toMatch(HASH_RE);
+    expect(result.bridged.txHash).not.toBe(result.sameChain.txHash);
+
+    expect(result.allSucceeded).toBe(true);
+  });
+
+  it("is deterministic per run (each run builds its own local SDK)", async () => {
+    const first = await arcCommerce();
+    const second = await arcCommerce();
+    // Per-run shape is stable; hashes restart each run, so assert shape only.
+    expect(first.sameChain.txHash).toMatch(/^0xlocal/);
+    expect(second.sameChain.txHash).toMatch(/^0xlocal/);
+    expect(first.total).toBe(second.total);
+  });
+
+  it("surfaces a typed integration error when the bridge throws", async () => {
+    const arc = configureAppKit({
+      sdk: new LocalAppKitSdk({ throwOn: ["bridge"] }),
+      kitKey: "k",
+    });
+    const res = await arc.bridge({
+      adapter: "demo-viem-adapter",
+      fromChain: "Base_Sepolia",
+      toChain: "Arc_Testnet",
+      amount: "49",
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe("integration_error");
+    }
+  });
+
+  it("fails a send when the SDK reports a reverted state", async () => {
+    const arc = configureAppKit({
+      sdk: new LocalAppKitSdk({ state: "reverted" }),
+      kitKey: "k",
+    });
+    const res = await arc.send({
+      adapter: "demo-viem-adapter",
+      chain: "Arc_Testnet",
+      to: "0xMerchantArcWallet",
+      amount: "49",
+      token: "USDC",
+    });
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.error.code).toBe("payment_failed");
+    }
   });
 });
 

@@ -17,6 +17,8 @@
   },
   "dependencies": {
     "@settlekit/api-keys": "workspace:*",
+    "@settlekit/app-kit": "workspace:*",
+    "@settlekit/app-kit-viem": "workspace:*",
     "@settlekit/arc": "workspace:*",
     "@settlekit/circle-wallets": "workspace:*",
     "@settlekit/citation-toll": "workspace:*",
@@ -35,7 +37,8 @@
     "@settlekit/saas": "workspace:*",
     "@settlekit/settlement-core": "workspace:*",
     "@settlekit/streaming": "workspace:*",
-    "@settlekit/webhooks": "workspace:*"
+    "@settlekit/webhooks": "workspace:*",
+    "viem": "^2.21.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

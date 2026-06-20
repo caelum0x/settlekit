@@ -37,6 +37,7 @@ import type { RoyaltyLegStore } from "@settlekit/citation-toll";
 import type { StreamStore } from "@settlekit/streaming";
 import { createWalletsClient, type WalletsClient } from "@settlekit/circle-wallets";
 import { createLogger, type Logger } from "./logger.js";
+import { createArcSettlementProvider } from "./settlement/arc-provider.js";
 import { createDeliveryClients } from "./wiring/delivery-clients.js";
 import { Scheduler, type ScheduledJob } from "./scheduler.js";
 import {
@@ -172,6 +173,27 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
           })
         : null;
 
+  // Settlement provider resolution (mirrors the walletsClient block above):
+  //  - an explicitly injected provider wins (tests);
+  //  - else, when SETTLEMENT_PROVIDER=arc, build the live viem-backed provider —
+  //    but if arcSettlement could not be assembled (missing ARC_SETTLER_PRIVATE_KEY),
+  //    warn and fall back to local (undefined → jobs no-op);
+  //  - else (the default), leave it undefined so behavior is unchanged.
+  let settlementProvider: SettlementProvider | undefined;
+  if (deps.settlementProvider !== undefined) {
+    settlementProvider = deps.settlementProvider;
+  } else if (deps.config.settlementProvider === "arc") {
+    if (deps.config.arcSettlement === null) {
+      logger.warn("SETTLEMENT_PROVIDER=arc but no signer configured; falling back to local", {
+        reason: "missing ARC_SETTLER_PRIVATE_KEY",
+      });
+      settlementProvider = undefined;
+    } else {
+      // createArcSettlementProvider already warns and returns null on failure.
+      settlementProvider = createArcSettlementProvider(deps.config.arcSettlement, logger) ?? undefined;
+    }
+  }
+
   // Settlement spine: Pg-backed stores when a DB is configured; the confirmation
   // source and settlement provider are injected by the deployment (they need an
   // Arc indexer URL and signer/wallet config), so the Lepton jobs no-op until set.
@@ -196,7 +218,7 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     walletsClient,
     ...(settlementStore !== undefined ? { settlementStore } : {}),
     ...(deps.confirmationSource !== undefined ? { confirmationSource: deps.confirmationSource } : {}),
-    ...(deps.settlementProvider !== undefined ? { settlementProvider: deps.settlementProvider } : {}),
+    ...(settlementProvider !== undefined ? { settlementProvider } : {}),
     ...(royaltyLegStore !== undefined ? { royaltyLegStore } : {}),
     ...(streamStore !== undefined ? { streamStore } : {}),
     now,

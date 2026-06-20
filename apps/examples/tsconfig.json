@@ -10,6 +10,7 @@
   },
   "references": [
     { "path": "../../packages/common" },
+    { "path": "../../packages/app-kit" },
     { "path": "../../packages/saas" },
     { "path": "../../packages/entitlements" },
     { "path": "../../packages/x402" },

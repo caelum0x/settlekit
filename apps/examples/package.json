@@ -12,11 +12,13 @@
     "github": "node --import tsx src/github-repo-sale.ts",
     "bundle": "node --import tsx src/bundle-checkout.ts",
     "lepton": "node --import tsx src/lepton-nanopayments.ts",
+    "arc-commerce": "node --import tsx src/arc-commerce.ts",
     "build": "tsc -b",
     "typecheck": "tsc -b",
     "test": "vitest run"
   },
   "dependencies": {
+    "@settlekit/app-kit": "workspace:*",
     "@settlekit/bundles": "workspace:*",
     "@settlekit/common": "workspace:*",
     "@settlekit/delivery": "workspace:*",

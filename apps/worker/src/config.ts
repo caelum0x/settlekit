@@ -50,6 +50,29 @@ export interface ArcConfig {
   minConfirmations: number;
 }
 
+/**
+ * Which settlement provider the Lepton settlement jobs use to move funds.
+ * `local` (the default) keeps the worker's historical behavior: no live
+ * provider is wired, so the settlement jobs no-op. `arc` opts into the live
+ * Circle App Kit provider over viem (see {@link ArcSettlementConfig}).
+ */
+export type SettlementProviderKind = "local" | "arc";
+
+/**
+ * Live Arc settlement signer configuration. Assembled only when
+ * `SETTLEMENT_PROVIDER=arc` and `ARC_SETTLER_PRIVATE_KEY` is present; the RPC
+ * url is shared with {@link ArcConfig.rpcUrl}. The private key is a secret and
+ * is never logged.
+ */
+export interface ArcSettlementConfig {
+  /** JSON-RPC endpoint used to submit settlement transfers (shared with arc.rpcUrl). */
+  rpcUrl: string;
+  /** 0x-prefixed settler EOA private key used to sign transfers. Never logged. */
+  privateKey: string;
+  /** Optional Circle kit key (only needed by swap; settle uses send). */
+  circleKitKey?: string;
+}
+
 /** Transactional email sender configuration (Resend). */
 export interface EmailConfig {
   apiKey: string;
@@ -93,6 +116,20 @@ export interface WorkerConfig {
   license: LicenseConfig;
   /** Circle wallets for payout reconciliation; null when unconfigured. */
   circleWallets: CircleWalletsConfig | null;
+  /**
+   * Selected settlement provider. Defaults to `local` (no live provider →
+   * settlement jobs no-op). `arc` requests the live Circle App Kit provider; the
+   * runtime falls back to local (with a logged warning) when {@link arcSettlement}
+   * could not be assembled, so a misconfigured `arc` never crashes boot.
+   */
+  settlementProvider: SettlementProviderKind;
+  /**
+   * Live Arc settlement signer config; non-null only when
+   * `SETTLEMENT_PROVIDER=arc` AND `ARC_SETTLER_PRIVATE_KEY` is present. The raw
+   * {@link settlementProvider} selection is kept separately so the runtime can
+   * detect "arc requested but incomplete" and warn + fall back.
+   */
+  arcSettlement: ArcSettlementConfig | null;
   /** Default grace window (days) applied when a renewal is missed. */
   graceDays: number;
   /** HMAC secret used to sign outbound webhooks dispatched by delivery actions. */
@@ -190,9 +227,30 @@ export function loadConfig(env: Env = process.env): WorkerConfig {
         }
       : null;
 
+  // Settlement provider selection. `local` (the default) leaves the live
+  // provider unwired so the Lepton settlement jobs no-op exactly as before.
+  // When `arc` is selected we assemble the signer config ONLY if the private
+  // key is present; we never throw here (loadConfig has no logger) so the
+  // runtime — where the Logger lives — can warn and fall back to local.
+  const settlementProvider: SettlementProviderKind =
+    optionalString(env, "SETTLEMENT_PROVIDER", "local") === "arc" ? "arc" : "local";
+  const arcSettlerKey = env.ARC_SETTLER_PRIVATE_KEY;
+  const arcSettlement: ArcSettlementConfig | null =
+    settlementProvider === "arc" && arcSettlerKey !== undefined && arcSettlerKey.trim().length > 0
+      ? {
+          rpcUrl: requireString(env, "ARC_RPC_URL"),
+          privateKey: arcSettlerKey,
+          ...(env.CIRCLE_KIT_KEY && env.CIRCLE_KIT_KEY.trim().length > 0
+            ? { circleKitKey: env.CIRCLE_KIT_KEY }
+            : {}),
+        }
+      : null;
+
   return {
     intervals,
     circleWallets,
+    settlementProvider,
+    arcSettlement,
     arc: {
       rpcUrl: requireString(env, "ARC_RPC_URL"),
       usdcAddress: requireArcAddress(env, "ARC_USDC_ADDRESS"),

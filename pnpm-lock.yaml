@@ -454,6 +454,9 @@ importers:
 
   apps/examples:
     dependencies:
+      '@settlekit/app-kit':
+        specifier: workspace:*
+        version: link:../../packages/app-kit
       '@settlekit/bundles':
         specifier: workspace:*
         version: link:../../packages/bundles
@@ -636,6 +639,12 @@ importers:
       '@settlekit/api-keys':
         specifier: workspace:*
         version: link:../../packages/api-keys
+      '@settlekit/app-kit':
+        specifier: workspace:*
+        version: link:../../packages/app-kit
+      '@settlekit/app-kit-viem':
+        specifier: workspace:*
+        version: link:../../packages/app-kit-viem
       '@settlekit/arc':
         specifier: workspace:*
         version: link:../../packages/arc
@@ -693,6 +702,9 @@ importers:
       '@settlekit/webhooks':
         specifier: workspace:*
         version: link:../../packages/webhooks
+      viem:
+        specifier: ^2.21.0
+        version: 2.52.2(typescript@5.9.3)(zod@3.25.76)
     devDependencies:
       '@types/node':
         specifier: ^20.14.0
@@ -892,6 +904,31 @@ importers:
       '@settlekit/settlement-core':
         specifier: workspace:*
         version: link:../settlement-core
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
+  packages/app-kit-viem:
+    dependencies:
+      '@settlekit/app-kit':
+        specifier: workspace:*
+        version: link:../app-kit
+      '@settlekit/arc-chains':
+        specifier: workspace:*
+        version: link:../arc-chains
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      viem:
+        specifier: ^2.21.0
+        version: 2.52.2(typescript@5.9.3)(zod@3.25.76)
     devDependencies:
       '@types/node':
         specifier: ^20.14.0
@@ -1407,11 +1444,61 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)
 
+  packages/erc8004-viem:
+    dependencies:
+      '@settlekit/arc-chains':
+        specifier: workspace:*
+        version: link:../arc-chains
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      '@settlekit/erc8004':
+        specifier: workspace:*
+        version: link:../erc8004
+      viem:
+        specifier: ^2.21.0
+        version: 2.52.2(typescript@5.9.3)(zod@3.25.76)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
   packages/erc8183:
     dependencies:
       '@settlekit/common':
         specifier: workspace:*
         version: link:../common
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)
+
+  packages/erc8183-viem:
+    dependencies:
+      '@settlekit/arc-chains':
+        specifier: workspace:*
+        version: link:../arc-chains
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      '@settlekit/erc8183':
+        specifier: workspace:*
+        version: link:../erc8183
+      viem:
+        specifier: ^2.21.0
+        version: 2.52.2(typescript@5.9.3)(zod@3.25.76)
     devDependencies:
       '@types/node':
         specifier: ^20.14.0
