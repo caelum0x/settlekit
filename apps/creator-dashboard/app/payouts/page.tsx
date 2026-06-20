@@ -8,6 +8,7 @@ export default function PayoutsPage() {
   return (
     <>
       <PageHeader
+        eyebrow="Earnings"
         title="Payouts"
         description="Settled sweeps roll your accrued royalty lines into one gas-free on-chain settlement per batch."
       />

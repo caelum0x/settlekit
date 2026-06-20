@@ -15,8 +15,14 @@ export function Sidebar() {
   return (
     <aside className="sidebar">
       <div className="sidebar-brand">
-        <span className="sidebar-logo">◆</span>
-        <span>SettleKit · Creator</span>
+        <span className="brand-mark" aria-hidden="true">
+          SK
+        </span>
+        <span>
+          SettleKit
+          <br />
+          <span className="sidebar-role">Creator Ledger</span>
+        </span>
       </div>
       <nav className="sidebar-nav">
         {NAV_GROUPS.map((group) => (

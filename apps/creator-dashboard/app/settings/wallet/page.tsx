@@ -8,6 +8,7 @@ export default function WalletSettingsPage() {
   return (
     <>
       <PageHeader
+        eyebrow="Account"
         title="Wallet"
         description="Your payout wallet is the rule that turns attribution into settlement. Map your identity once; every citation routes here."
       />

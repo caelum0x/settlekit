@@ -10,6 +10,7 @@ export default function AttributionPage() {
   return (
     <>
       <PageHeader
+        eyebrow="Attribution"
         title="Reuse & proofs"
         description="The citation toll charges deliberate fetches. Attribution closes the loop — it detects when an agent's output was grounded in your work and charges that implicit reuse (RFB 6.01)."
       />

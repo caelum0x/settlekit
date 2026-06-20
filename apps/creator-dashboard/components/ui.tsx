@@ -6,18 +6,31 @@ import type { ReactNode } from "react";
 export function PageHeader({
   title,
   description,
+  eyebrow,
   action,
+  reference,
 }: {
   title: string;
   description?: string;
+  /** Mono section label printed above the title (e.g. "Earnings"). */
+  eyebrow?: string;
   action?: ReactNode;
+  /** Optional document reference printed at the right (label + value). */
+  reference?: { label: string; value: string };
 }) {
   return (
     <div className="page-header">
       <div>
+        {eyebrow ? <div className="page-eyebrow">{eyebrow}</div> : null}
         <h1 className="page-title">{title}</h1>
         {description ? <p className="page-desc">{description}</p> : null}
       </div>
+      {reference ? (
+        <div className="page-ref">
+          {reference.label}
+          <b>{reference.value}</b>
+        </div>
+      ) : null}
       {action ? <div className="page-action">{action}</div> : null}
     </div>
   );
@@ -33,7 +46,7 @@ export function Card({
   return (
     <section className="card">
       {title ? <h2 className="card-title">{title}</h2> : null}
-      {children}
+      <div className="card-body">{children}</div>
     </section>
   );
 }

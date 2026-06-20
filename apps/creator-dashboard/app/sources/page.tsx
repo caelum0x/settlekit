@@ -1,4 +1,4 @@
-import { Card, DataTable, EmptyState, PageHeader, StatusBadge } from "@/components/ui";
+import { Card, DataTable, EmptyState, PageHeader } from "@/components/ui";
 import { getCreatorContext, type SourceStat } from "@/lib/data";
 import { formatNumber, formatUsdc } from "@/lib/format";
 
@@ -10,6 +10,7 @@ export default function SourcesPage() {
   return (
     <>
       <PageHeader
+        eyebrow="Earnings"
         title="Sources"
         description="Your priced, citeable works — and the works you cite, which route a share back to their authors."
       />
@@ -22,7 +23,15 @@ export default function SourcesPage() {
             { header: "Title", cell: (r) => r.title },
             { header: "Per-access toll", cell: (r) => <span className="mono">{formatUsdc(r.priceUsdc)}</span> },
             { header: "Accesses", align: "right", cell: (r) => <span className="mono">{formatNumber(r.accesses)}</span> },
-            { header: "Cites", cell: (r) => (r.citesCount > 0 ? <StatusBadge status="active" /> : <span className="dim">—</span>) },
+            {
+              header: "Cites",
+              cell: (r) =>
+                r.citesCount > 0 ? (
+                  <span className="badge badge-neutral">routes {r.citesCount}</span>
+                ) : (
+                  <span className="dim">—</span>
+                ),
+            },
             {
               header: "Earned by you",
               align: "right",
