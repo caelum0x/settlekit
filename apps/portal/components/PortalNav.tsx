@@ -20,6 +20,7 @@ const ITEMS: NavItem[] = [
   { label: "API Keys", segment: "api-keys" },
   { label: "Access", segment: "access" },
   { label: "Downloads", segment: "downloads" },
+  { label: "Wallet", segment: "wallet" },
 ];
 
 export function PortalNav({ customerId }: PortalNavProps) {

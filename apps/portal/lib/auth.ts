@@ -253,6 +253,21 @@ export async function completeMagicLink(
 }
 
 /**
+ * Link a wallet to the authenticated account (server-side: pass the session
+ * token as bearer). Used by the /api/wallet/link route handler.
+ */
+export async function linkWalletWithToken(
+  token: string,
+  input: { message: string; signature: string },
+): Promise<AuthResult<{ account: Account }>> {
+  return apiRequest<{ account: Account }>("/v1/auth/wallet/link", {
+    method: "POST",
+    headers: { authorization: `Bearer ${token}` },
+    body: JSON.stringify(input),
+  });
+}
+
+/**
  * Read the current session from the httpOnly cookie via the local route
  * handler, which forwards the stored token to GET /v1/auth/session.
  */
