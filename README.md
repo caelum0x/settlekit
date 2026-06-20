@@ -100,7 +100,12 @@ settlekit/
     ├── agent-services/ AI agent service listings
     ├── escrow/       Escrow tasks
     ├── arc/          Arc settlement + USDC chain reads
+    ├── arc-chains/   Arc/Circle chain · token · contract constants (one source of truth)
+    ├── app-kit/      Circle App Kit on Arc — Send/Bridge/Swap/Unified Balance + settlement bridge
+    ├── erc8004/      ERC-8004 agent identity · reputation · validation on Arc
+    ├── erc8183/      ERC-8183 autonomous-agent job lifecycle (escrow create→settle)
     ├── circle/       Circle Gateway / x402 payment rails
+    ├── circle-wallets/ Circle Developer-Controlled Wallets (transfers + contract execution)
     ├── x402/         x402 paid-API middleware
     ├── database/     drizzle schema, migrations, doc codec
     ├── persistence/  Shared Postgres stores (used by api · worker · checkout)
