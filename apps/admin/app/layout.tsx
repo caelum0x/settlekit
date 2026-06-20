@@ -27,6 +27,7 @@ const NAV: ReadonlyArray<{ href: string; label: string }> = [
   { href: "/", label: "Overview" },
   { href: "/risk", label: "Risk queue" },
   { href: "/organizations", label: "Organizations" },
+  { href: "/settlements", label: "Settlements" },
   { href: "/deliveries", label: "Failed deliveries" },
   { href: "/webhooks", label: "Webhooks" },
 ];

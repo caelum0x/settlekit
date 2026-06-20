@@ -2,6 +2,7 @@ import { api } from "@/lib/api";
 import { PageHeader, Card, ErrorBanner } from "@/components/ui";
 import { SimpleCreateForm } from "@/components/forms/SimpleCreateForm";
 import { LinkWallet } from "@/components/LinkWallet";
+import { EditProfile } from "@/components/EditProfile";
 import { getCurrentAccount } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -68,6 +69,16 @@ export default async function SettingsPage() {
             },
           ]}
         />
+      </Card>
+      <Card title="Profile">
+        {account ? (
+          <EditProfile
+            email={account.email}
+            {...(account.displayName ? { displayName: account.displayName } : {})}
+          />
+        ) : (
+          <p className="page-desc">Sign in to edit your profile.</p>
+        )}
       </Card>
       <Card title="Wallet">
         <p className="page-desc" style={{ marginBottom: 12 }}>

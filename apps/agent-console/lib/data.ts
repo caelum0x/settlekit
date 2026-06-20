@@ -23,7 +23,7 @@
  * stores to go live.
  */
 
-import { type Money, addMoney, isOk, money } from "@settlekit/common";
+import { type Money, type Result, addMoney, isOk, money } from "@settlekit/common";
 import {
   type AgentService,
   type AgentReadableMetadata,
@@ -53,6 +53,18 @@ import {
   detectReuse,
   issueCitationProof,
 } from "@settlekit/attribution";
+import {
+  type AgentIdentity,
+  LocalErc8004Port,
+  configureErc8004,
+} from "@settlekit/erc8004";
+import {
+  type Job,
+  type JobStatus,
+  type JobTransition,
+  LocalErc8183Port,
+  configureErc8183,
+} from "@settlekit/erc8183";
 
 /* -------------------------------------------------------------------------- */
 /* Determinism                                                                 */
@@ -585,4 +597,310 @@ export function detectGroundingForText(text: string): {
     }),
   );
   return { grounded: report.grounded, matches, quoteUsdc: quote.amount };
+}
+
+/* ========================================================================== */
+/* ERC-8004 — agent identity, reputation & validation                          */
+/* ========================================================================== */
+
+/*
+ * These builders drive the REAL @settlekit/erc8004 / @settlekit/erc8183 clients
+ * over their deterministic LOCAL ports (no chain, no Date.now, no Math.random).
+ * Every client method is async and returns a Result, so the builders are async
+ * and unwrap each Result with isOk — throwing inside the seed on failure, the
+ * same discipline buildMarketplace() uses with createServiceOrThrow.
+ *
+ * resolveAgent caveat: LocalErc8004Port.findAgentId returns the FIRST agent for
+ * an owner, so we instantiate ONE port per distinct owner to keep every minted
+ * identity resolvable by its owner wallet.
+ */
+
+interface AgentIdentitySeed {
+  /** Owner wallet that mints + owns the identity (one local port per owner). */
+  owner: string;
+  /** Metadata URI describing the agent (validated non-empty by the client). */
+  metadataUri: string;
+  /** Validator wallet that attests the agent (non-empty address). */
+  validator: string;
+  /** Reputation feedback scores, each 0..100, folded into the summary. */
+  ratings: number[];
+  /** Validation request descriptor + verdict response (100 => passed). */
+  validation: { requestUri: string; subject: string; response: number };
+}
+
+const AGENT_IDENTITY_SEEDS: readonly AgentIdentitySeed[] = [
+  {
+    owner: "0xa9e0000000000000000000000000000000000a01",
+    metadataUri: "ipfs://agent/atlas-researcher.json",
+    validator: "0xva1d000000000000000000000000000000000001",
+    ratings: [92, 88, 95, 90],
+    validation: {
+      requestUri: "ipfs://validation/atlas-request.json",
+      subject: "atlas-researcher:capability-attestation",
+      response: 100,
+    },
+  },
+  {
+    owner: "0xb70000000000000000000000000000000000000b",
+    metadataUri: "ipfs://agent/scout-indexer.json",
+    validator: "0xva1d000000000000000000000000000000000002",
+    ratings: [78, 84, 80],
+    validation: {
+      requestUri: "ipfs://validation/scout-request.json",
+      subject: "scout-indexer:capability-attestation",
+      response: 60,
+    },
+  },
+];
+
+/** One reputation/identity row rendered by the /agents identity table. */
+export interface AgentIdentityRow {
+  agentId: string;
+  owner: string;
+  metadataUri: string;
+  /** Mean of the recorded feedback scores (0..100), rounded to 1dp. */
+  avgScore: number;
+  feedbackCount: number;
+  /** True when the validator responded with a passing verdict. */
+  validationPassed: boolean;
+  /** Raw validator response (0..100). */
+  validationResponse: number;
+  /** On-chain request hash for the validation. */
+  requestHash: string;
+  /** Status string for the StatusBadge: "granted" (passed) or "pending". */
+  validationStatus: "granted" | "pending";
+}
+
+export interface AgentIdentityTotals {
+  agentsRegistered: number;
+  ownerWallets: number;
+  validationsPassed: number;
+  validationsTotal: number;
+  avgReputation: number;
+}
+
+export interface AgentIdentityContext {
+  totals: AgentIdentityTotals;
+  agents: AgentIdentityRow[];
+}
+
+/** Unwrap an erc8004/erc8183 Result inside a seed, throwing on failure. */
+function unwrap<T>(label: string, r: Result<T>): T {
+  if (!isOk(r)) throw new Error(`${label} failed in seed: ${r.error.message}`);
+  return r.value;
+}
+
+function mean(values: readonly number[]): number {
+  if (values.length === 0) return 0;
+  const total = values.reduce((acc, n) => acc + n, 0);
+  return Math.round((total / values.length) * 10) / 10;
+}
+
+/**
+ * Register the demo agents through the REAL AgentRegistryClient, record their
+ * reputation feedback, run a validation request/response per agent, and project
+ * the result into rows for the identity view. Deterministic across renders.
+ */
+export async function getAgentIdentityContext(): Promise<AgentIdentityContext> {
+  const rows: AgentIdentityRow[] = [];
+
+  for (const seed of AGENT_IDENTITY_SEEDS) {
+    // One port per owner so resolveAgent(owner) maps to THIS agent.
+    const port = new LocalErc8004Port({ owner: seed.owner });
+    const registry = configureErc8004({ port });
+
+    unwrap("registerAgent", await registry.registerAgent({ metadataUri: seed.metadataUri }));
+
+    const identity = unwrap<AgentIdentity | null>(
+      "resolveAgent",
+      await registry.resolveAgent({ owner: seed.owner }),
+    );
+    if (identity === null) throw new Error(`resolveAgent returned null for ${seed.owner}`);
+
+    for (const score of seed.ratings) {
+      unwrap(
+        "giveFeedback",
+        await registry.giveFeedback({
+          agentId: identity.agentId,
+          score,
+          tag: "task_completion",
+        }),
+      );
+    }
+
+    const request = unwrap(
+      "requestValidation",
+      await registry.requestValidation({
+        agentId: identity.agentId,
+        validator: seed.validator,
+        requestUri: seed.validation.requestUri,
+        subject: seed.validation.subject,
+      }),
+    );
+    unwrap(
+      "respondValidation",
+      await registry.respondValidation({
+        requestHash: request.requestHash,
+        response: seed.validation.response,
+        tag: "capability",
+      }),
+    );
+    const status = unwrap(
+      "getValidationStatus",
+      await registry.getValidationStatus({ requestHash: request.requestHash }),
+    );
+
+    rows.push({
+      agentId: identity.agentId,
+      owner: identity.owner,
+      metadataUri: identity.metadataUri,
+      avgScore: mean(seed.ratings),
+      feedbackCount: seed.ratings.length,
+      validationPassed: status.passed,
+      validationResponse: status.response,
+      requestHash: request.requestHash,
+      validationStatus: status.passed ? "granted" : "pending",
+    });
+  }
+
+  const passed = rows.filter((r) => r.validationPassed).length;
+  return {
+    totals: {
+      agentsRegistered: rows.length,
+      ownerWallets: new Set(rows.map((r) => r.owner)).size,
+      validationsPassed: passed,
+      validationsTotal: rows.length,
+      avgReputation: mean(rows.map((r) => r.avgScore)),
+    },
+    agents: rows,
+  };
+}
+
+/* ========================================================================== */
+/* ERC-8183 — autonomous-agent job lifecycle                                   */
+/* ========================================================================== */
+
+interface JobSeed {
+  requester: string;
+  worker: string;
+  /** Decimal USDC (no thousands separators, <=6dp) — matches AMOUNT_RE. */
+  amountUsdc: string;
+  specUri: string;
+  deliverableUri: string;
+}
+
+const JOB_SEEDS: readonly JobSeed[] = [
+  {
+    requester: "0xreq0000000000000000000000000000000000001",
+    worker: "0xwrk0000000000000000000000000000000000001",
+    amountUsdc: "120.00",
+    specUri: "ipfs://jobs/spec-corpus-embedding.json",
+    deliverableUri: "ipfs://jobs/deliverable-corpus-embedding.json",
+  },
+  {
+    requester: "0xreq0000000000000000000000000000000000002",
+    worker: "0xwrk0000000000000000000000000000000000002",
+    amountUsdc: "85.50",
+    specUri: "ipfs://jobs/spec-provenance-report.json",
+    deliverableUri: "ipfs://jobs/deliverable-provenance-report.json",
+  },
+];
+
+/** One transition in a job's lifecycle timeline. */
+export interface JobStep {
+  transition: JobTransition | "create";
+  /** Job status AFTER this transition completed. */
+  status: JobStatus;
+  /** Counter-based tx hash from the local port. */
+  txHash: string;
+}
+
+/** One job rendered by the /jobs lifecycle view. */
+export interface JobRow {
+  id: string;
+  requester: string;
+  worker: string;
+  amount: Money;
+  status: JobStatus;
+  steps: JobStep[];
+}
+
+export interface JobLifecycleTotals {
+  jobsTotal: number;
+  settled: number;
+  inFlight: number;
+  totalEscrowed: Money;
+}
+
+export interface JobLifecycleContext {
+  totals: JobLifecycleTotals;
+  jobs: JobRow[];
+}
+
+/**
+ * Drive each demo job through the REAL JobClient happy path —
+ * create -> fund -> submit -> evaluate(passed) -> settle — over the local port,
+ * capturing the tx hash of every step to build a status timeline. Deterministic.
+ */
+export async function getJobLifecycleContext(): Promise<JobLifecycleContext> {
+  const port = new LocalErc8183Port();
+  const jobs = configureErc8183({ port });
+  const rows: JobRow[] = [];
+
+  for (const seed of JOB_SEEDS) {
+    const created = unwrap(
+      "createJob",
+      await jobs.createJob({
+        requester: seed.requester,
+        worker: seed.worker,
+        amountUsdc: seed.amountUsdc,
+        specUri: seed.specUri,
+      }),
+    );
+    const jobId = created.jobId;
+    const steps: JobStep[] = [{ transition: "create", status: "created", txHash: created.txHash }];
+
+    const funded = unwrap(
+      "fundEscrow",
+      await jobs.fundEscrow({ jobId, amountUsdc: seed.amountUsdc }),
+    );
+    steps.push({ transition: "fund", status: "funded", txHash: funded.txHash });
+
+    const submitted = unwrap(
+      "submitDeliverable",
+      await jobs.submitDeliverable({ jobId, deliverableUri: seed.deliverableUri }),
+    );
+    steps.push({ transition: "submit", status: "submitted", txHash: submitted.txHash });
+
+    const evaluated = unwrap(
+      "evaluate",
+      await jobs.evaluate({ jobId, passed: true, scoreOrUri: "100" }),
+    );
+    steps.push({ transition: "evaluate_pass", status: "evaluated", txHash: evaluated.txHash });
+
+    const settled = unwrap("settle", await jobs.settle({ jobId }));
+    steps.push({ transition: "settle", status: "settled", txHash: settled.txHash });
+
+    const final = unwrap<Job>("getJob", await jobs.getJob({ jobId }));
+    rows.push({
+      id: final.id,
+      requester: final.requester,
+      worker: final.worker,
+      amount: final.amount,
+      status: final.status,
+      steps,
+    });
+  }
+
+  const settledCount = rows.filter((r) => r.status === "settled").length;
+  const totalEscrowed = sum(rows.map((r) => r.amount));
+  return {
+    totals: {
+      jobsTotal: rows.length,
+      settled: settledCount,
+      inFlight: rows.length - settledCount,
+      totalEscrowed,
+    },
+    jobs: rows,
+  };
 }

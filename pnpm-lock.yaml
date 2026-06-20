@@ -75,6 +75,12 @@ importers:
       '@settlekit/common':
         specifier: workspace:*
         version: link:../../packages/common
+      '@settlekit/erc8004':
+        specifier: workspace:*
+        version: link:../../packages/erc8004
+      '@settlekit/erc8183':
+        specifier: workspace:*
+        version: link:../../packages/erc8183
       next:
         specifier: ^14.2.5
         version: 14.2.35(react-dom@18.3.1(react@18.3.1))(react@18.3.1)

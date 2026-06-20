@@ -219,6 +219,40 @@ export async function unlinkWallet(
   }
 }
 
+/**
+ * Update mutable profile fields on the authenticated account (server-side;
+ * bearer token). PATCH is not covered by the shared authPost helper, so this
+ * does its own raw fetch mirroring unlinkWallet. Used by the /api/account route.
+ */
+export async function updateAccount(
+  bearer: string,
+  input: { displayName?: string },
+): Promise<AuthResult<{ account: Account }>> {
+  try {
+    const res = await fetch(`${API_URL}/v1/auth/account`, {
+      method: "PATCH",
+      headers: {
+        authorization: `Bearer ${bearer}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify(input),
+      cache: "no-store",
+    });
+    const body = (await res.json().catch(() => null)) as
+      | { data?: { account: Account }; error?: string }
+      | null;
+    if (!res.ok) {
+      return {
+        data: null,
+        error: (body && typeof body.error === "string" && body.error) || "Could not update profile.",
+      };
+    }
+    return { data: body && "data" in body ? (body.data ?? null) : null, error: null };
+  } catch (err) {
+    return { data: null, error: err instanceof Error ? err.message : "Network error" };
+  }
+}
+
 /** Fetch the account for a given session token. */
 export function getSession(token: string): Promise<AuthResult<{ account: Account }>> {
   return authGet<{ account: Account }>("/v1/auth/session", token);

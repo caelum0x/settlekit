@@ -6,6 +6,7 @@ import type {
   AdminOrganization,
   AdminPayment,
   AdminRiskProfile,
+  AdminSettlement,
   AdminWebhookEvent,
 } from "./types";
 
@@ -104,6 +105,37 @@ export const seedWebhookEvents: AdminWebhookEvent[] = [
     endpointUrl: "https://umbrella.example.com/in",
     payload: { deliveryRunId: "drun_4", error: "rate limited (429)" },
     delivered: false, attempts: 2, lastError: "HTTP 401 unauthorized", createdAt: iso(3 * DAY + 3 * HOUR),
+  },
+];
+
+export const seedSettlements: AdminSettlement[] = [
+  {
+    id: "po_2001", organizationId: "org_acme", status: "settled",
+    amount: money("129.00"), network: "base", reference: "stl_po_2001",
+    txHash: "0x9f1a3c7e2b4d6f8a0c1e2d3b4a5f6e7d8c9b0a1f2e3d4c5b6a7f8e9d0c1b2a3f",
+    createdAt: iso(6 * HOUR), updatedAt: iso(6 * HOUR + 12 * 60_000),
+  },
+  {
+    id: "po_2002", organizationId: "org_globex", status: "settled",
+    amount: money("999.00"), network: "arbitrum", reference: "stl_po_2002",
+    txHash: "0x1b2c3d4e5f60718293a4b5c6d7e8f90112233445566778899aabbccddeeff001",
+    createdAt: iso(DAY + 3 * HOUR), updatedAt: iso(DAY + 3 * HOUR + 9 * 60_000),
+  },
+  {
+    id: "po_2003", organizationId: "org_initech", status: "submitted",
+    amount: money("2500.00"), network: "arc", reference: "stl_po_2003",
+    txHash: "0xaabb00ff11223344556677889900aabbccddeeff00112233445566778899aabb",
+    createdAt: iso(2 * DAY + 2 * HOUR), updatedAt: iso(2 * DAY + 2 * HOUR + 90_000),
+  },
+  {
+    id: "po_2004", organizationId: "org_acme", status: "pending",
+    amount: money("49.00"), network: "base", reference: "stl_po_2004",
+    createdAt: iso(4 * DAY), updatedAt: iso(4 * DAY),
+  },
+  {
+    id: "po_2005", organizationId: "org_umbrella", status: "failed",
+    amount: money("750.00"), network: "polygon", reference: "stl_po_2005",
+    createdAt: iso(3 * DAY + 4 * HOUR), updatedAt: iso(3 * DAY + 4 * HOUR + 6 * 60_000),
   },
 ];
 

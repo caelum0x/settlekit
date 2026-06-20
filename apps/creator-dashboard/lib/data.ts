@@ -205,6 +205,8 @@ function sum(amounts: Money[]): Money {
 
 export interface SourceStat {
   id: string;
+  /** Stable seed slug used for deep links (Source.id is random per render). */
+  slug: string;
   title: string;
   priceUsdc: string;
   isMine: boolean;
@@ -276,21 +278,25 @@ export function getCreatorContext(): CreatorContext {
     }));
 
   // Per-source: accesses + what I earned attributable to that accessed source.
-  const sources: SourceStat[] = registry.all().map((s) => {
-    const accesses = SEEDS.find((seed) => bySlug.get(seed.slug)?.id === s.id)?.accesses ?? 0;
+  // Keyed on the stable seed slug — Source.id is random per render, so it must
+  // never leak into URLs (see getSourceDetail / sources list links).
+  const sources: SourceStat[] = SEEDS.map((seed) => {
+    const s = bySlug.get(seed.slug);
+    if (s === undefined) return undefined;
     const earnedByMe = sum(
       mine.filter((e) => e.accessedSourceId === s.id).map((e) => e.amount),
     );
     return {
       id: s.id,
+      slug: seed.slug,
       title: s.title,
       priceUsdc: s.priceUsdc,
       isMine: s.authorWallet.toLowerCase() === ME.wallet.toLowerCase(),
-      accesses,
+      accesses: seed.accesses,
       earnedByMe,
       citesCount: s.cites.length,
     };
-  });
+  }).filter((s): s is SourceStat => s !== undefined);
 
   // Payout sweeps: settled legs grouped by their settlement id.
   const bySweep = new Map<string, RoyaltyEvent[]>();
@@ -321,6 +327,180 @@ export function getCreatorContext(): CreatorContext {
     sources,
     payouts,
     attribution: buildAttributionExample(registry),
+  };
+}
+
+/* -------------------------------------------------------------------------- */
+/* Deterministic, slug/settlementId-keyed detail lookups                       */
+/* -------------------------------------------------------------------------- */
+
+/** One royalty recipient in a source's recursive lineage. */
+export interface LineageLeg {
+  sourceId: string;
+  wallet: string;
+  amount: Money;
+  depth: number;
+}
+
+/** A citation edge resolved to the cited work's title. */
+export interface ResolvedCitation {
+  sourceId: string;
+  shareBps: number;
+  title: string;
+}
+
+export interface SourceDetail {
+  slug: string;
+  source: Source;
+  /** Works this source cites (routes a share onward to), titled. */
+  cites: ResolvedCitation[];
+  /** Deterministic number of simulated paid accesses for this source. */
+  accesses: number;
+  /** Per-access royalty lineage: own author (depth 0) + recursive cuts. */
+  legs: LineageLeg[];
+  /** Platform fee + distributable for one access, for context. */
+  gross: Money;
+  platformFee: Money;
+  distributable: Money;
+  /** What the signed-in creator earned attributable to this source's accesses. */
+  earnedByMe: Money;
+  /** Titles of works that cite this source (it earns a recursive cut of theirs). */
+  citedByTitles: string[];
+}
+
+/** All stable seed slugs — for link building and generateStaticParams. */
+export function listSourceSlugs(): string[] {
+  return SEEDS.map((s) => s.slug);
+}
+
+/**
+ * Resolve a per-source detail view by its stable seed slug. Returns undefined
+ * for an unknown slug so callers can render a 404. Thin wrapper over the same
+ * registry/distribution the dashboard already computes — no new domain logic.
+ */
+export function getSourceDetail(slug: string): SourceDetail | undefined {
+  const { registry, bySlug, events } = simulateLedger();
+  const source = bySlug.get(slug);
+  if (source === undefined) return undefined;
+
+  const titleById = new Map<string, string>();
+  for (const s of registry.all()) titleById.set(s.id, s.title);
+
+  const cites: ResolvedCitation[] = source.cites.map((c) => ({
+    sourceId: c.sourceId,
+    shareBps: c.shareBps,
+    title: titleById.get(c.sourceId) ?? c.sourceId,
+  }));
+
+  const distribution = computeRoyaltyDistribution(registry, source.id);
+  const legs: LineageLeg[] =
+    distribution?.legs.map((leg) => ({
+      sourceId: leg.sourceId,
+      wallet: leg.wallet,
+      amount: leg.amount,
+      depth: leg.depth,
+    })) ?? [];
+
+  const mine = events.filter((e) => e.wallet.toLowerCase() === ME.wallet.toLowerCase());
+  const earnedByMe = sum(
+    mine.filter((e) => e.accessedSourceId === source.id).map((e) => e.amount),
+  );
+
+  const citedByTitles = registry
+    .all()
+    .filter((s) => s.cites.some((c) => c.sourceId === source.id))
+    .map((s) => s.title);
+
+  const accesses = SEEDS.find((seed) => seed.slug === slug)?.accesses ?? 0;
+
+  return {
+    slug,
+    source,
+    cites,
+    accesses,
+    legs,
+    gross: distribution?.gross ?? money("0"),
+    platformFee: distribution?.platformFee ?? money("0"),
+    distributable: distribution?.distributable ?? money("0"),
+    earnedByMe,
+    citedByTitles,
+  };
+}
+
+/** One settled royalty line within a payout sweep, titled for display. */
+export interface PayoutLeg {
+  accessId: string;
+  sourceTitle: string;
+  wallet: string;
+  amount: Money;
+  depth: number;
+  status: PersistedRoyaltyLeg["status"];
+  createdAt: string;
+}
+
+/** Aggregation of a sweep's lines by citation depth (tier). */
+export interface PayoutDepthGroup {
+  depth: number;
+  lines: number;
+  amount: Money;
+}
+
+export interface PayoutDetail {
+  settlementId: string;
+  legs: PayoutLeg[];
+  total: Money;
+  lineCount: number;
+  byDepth: PayoutDepthGroup[];
+}
+
+/**
+ * Resolve a payout (settlement sweep) detail view by its stable settlement id
+ * (set_1..set_6). Returns undefined for an unknown/empty id so callers can 404.
+ */
+export function getPayoutDetail(settlementId: string): PayoutDetail | undefined {
+  const { registry, events } = simulateLedger();
+  const titleById = new Map<string, string>();
+  for (const s of registry.all()) titleById.set(s.id, s.title);
+
+  const mine = events.filter((e) => e.wallet.toLowerCase() === ME.wallet.toLowerCase());
+  const rows = mine.filter(
+    (e) => e.status === "settled" && e.settlementId === settlementId,
+  );
+  if (rows.length === 0) return undefined;
+
+  const legs: PayoutLeg[] = rows
+    .slice()
+    .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
+    .map((e) => ({
+      accessId: e.accessId,
+      sourceTitle: titleById.get(e.accessedSourceId) ?? e.accessedSourceId,
+      wallet: e.wallet,
+      amount: e.amount,
+      depth: e.depth,
+      status: e.status,
+      createdAt: e.createdAt,
+    }));
+
+  const byDepthMap = new Map<number, RoyaltyEvent[]>();
+  for (const e of rows) {
+    const arr = byDepthMap.get(e.depth) ?? [];
+    arr.push(e);
+    byDepthMap.set(e.depth, arr);
+  }
+  const byDepth: PayoutDepthGroup[] = [...byDepthMap.entries()]
+    .map(([depth, group]) => ({
+      depth,
+      lines: group.length,
+      amount: sum(group.map((g) => g.amount)),
+    }))
+    .sort((a, b) => a.depth - b.depth);
+
+  return {
+    settlementId,
+    legs,
+    total: sum(rows.map((r) => r.amount)),
+    lineCount: rows.length,
+    byDepth,
   };
 }
 

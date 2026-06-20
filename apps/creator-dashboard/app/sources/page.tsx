@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Card, DataTable, EmptyState, PageHeader, StatusBadge } from "@/components/ui";
 import { getCreatorContext, type SourceStat } from "@/lib/data";
 import { formatNumber, formatUsdc } from "@/lib/format";
@@ -19,7 +21,7 @@ export default function SourcesPage() {
           rows={mine}
           getKey={(r) => r.id}
           columns={[
-            { header: "Title", cell: (r) => r.title },
+            { header: "Title", cell: (r) => <Link href={`/sources/${r.slug}`}>{r.title}</Link> },
             { header: "Per-access toll", cell: (r) => <span className="mono">{formatUsdc(r.priceUsdc)}</span> },
             { header: "Accesses", align: "right", cell: (r) => <span className="mono">{formatNumber(r.accesses)}</span> },
             { header: "Cites", cell: (r) => (r.citesCount > 0 ? <StatusBadge status="active" /> : <span className="dim">—</span>) },
@@ -42,7 +44,7 @@ export default function SourcesPage() {
           rows={others}
           getKey={(r) => r.id}
           columns={[
-            { header: "Title", cell: (r) => r.title },
+            { header: "Title", cell: (r) => <Link href={`/sources/${r.slug}`}>{r.title}</Link> },
             { header: "Per-access toll", cell: (r) => <span className="mono">{formatUsdc(r.priceUsdc)}</span> },
             { header: "Accesses", align: "right", cell: (r) => <span className="mono">{formatNumber(r.accesses)}</span> },
             {

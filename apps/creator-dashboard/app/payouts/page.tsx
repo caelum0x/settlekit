@@ -1,3 +1,5 @@
+import Link from "next/link";
+
 import { Card, DataTable, EmptyState, PageHeader, StatCard, StatGrid } from "@/components/ui";
 import { getCreatorContext, type PayoutSweep } from "@/lib/data";
 import { formatNumber, formatUsdc } from "@/lib/format";
@@ -23,7 +25,7 @@ export default function PayoutsPage() {
           rows={payouts}
           getKey={(r) => r.settlementId}
           columns={[
-            { header: "Settlement", cell: (r) => <span className="mono">{r.settlementId}</span> },
+            { header: "Settlement", cell: (r) => <Link className="mono" href={`/payouts/${r.settlementId}`}>{r.settlementId}</Link> },
             { header: "Lines batched", align: "right", cell: (r) => <span className="mono">{formatNumber(r.legs)}</span> },
             {
               header: "Amount",

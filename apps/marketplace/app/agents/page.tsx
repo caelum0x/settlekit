@@ -18,11 +18,13 @@ export default async function AgentServicesPage({
 }: AgentsPageProps) {
   const q = readString(searchParams, "q") ?? "";
   const network = readNetwork(searchParams);
+  const minPrice = readString(searchParams, "minPrice") ?? "";
   const maxPrice = readString(searchParams, "maxPrice") ?? "";
 
   const services = await fetchAgentServices({
     ...(q ? { q } : {}),
     ...(network ? { network } : {}),
+    ...(minPrice ? { minPrice } : {}),
     ...(maxPrice ? { maxPrice } : {}),
   });
 
@@ -34,7 +36,12 @@ export default async function AgentServicesPage({
         {services.length} result{services.length === 1 ? "" : "s"}.
       </p>
 
-      <AgentSearch q={q} network={network ?? ""} maxPrice={maxPrice} />
+      <AgentSearch
+        q={q}
+        network={network ?? ""}
+        minPrice={minPrice}
+        maxPrice={maxPrice}
+      />
 
       {services.length === 0 ? (
         <div className="empty">

@@ -13,6 +13,7 @@ import type {
   AdminOrganization,
   AdminPayment,
   AdminRiskProfile,
+  AdminSettlement,
   AdminWebhookEvent,
 } from "./types";
 import { getStore, replaceById } from "./store";
@@ -21,6 +22,7 @@ import {
   dbEntitlements,
   dbOrganizations,
   dbPayments,
+  dbSettlements,
   dbWebhookEvents,
   isDbEnabled,
 } from "./db";
@@ -58,6 +60,10 @@ export async function listFailedDeliveryRuns(): Promise<AdminDeliveryRun[]> {
 
 export async function listWebhookEvents(): Promise<AdminWebhookEvent[]> {
   return isDbEnabled() ? dbWebhookEvents() : getStore().webhookEvents;
+}
+
+export async function listSettlements(): Promise<AdminSettlement[]> {
+  return isDbEnabled() ? dbSettlements() : getStore().settlements;
 }
 
 export async function listRiskProfiles(): Promise<AdminRiskProfile[]> {

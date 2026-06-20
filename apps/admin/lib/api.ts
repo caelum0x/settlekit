@@ -5,6 +5,7 @@ import type {
   AdminOrganization,
   AdminPayment,
   AdminRiskProfile,
+  AdminSettlement,
   AdminWebhookEvent,
 } from "./types";
 import type { PlatformOverview } from "./service";
@@ -54,6 +55,7 @@ export const api = {
       deliveryRuns: AdminDeliveryRun[];
     }>(`/api/v1/organizations/${encodeURIComponent(id)}`),
   riskProfiles: () => getJson<AdminRiskProfile[]>("/api/v1/risk"),
+  settlements: () => getJson<AdminSettlement[]>("/api/v1/settlements"),
   failedDeliveries: () =>
     getJson<AdminDeliveryRun[]>("/api/v1/delivery-runs?status=failed"),
   webhookEvents: () => getJson<AdminWebhookEvent[]>("/api/v1/webhooks"),

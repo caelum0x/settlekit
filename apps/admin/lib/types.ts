@@ -74,6 +74,26 @@ export interface AdminWebhookEvent {
   readonly deliveredAt?: string;
 }
 
+export type SettlementStatus = "settled" | "submitted" | "failed" | "pending";
+
+/**
+ * A settlement (merchant payout) flattened for the console. Modeled on the
+ * `payouts` table in @settlekit/database (status, amount, currency, network,
+ * tx_hash). `reference` is derived deterministically since payouts has no
+ * dedicated reference column; `txHash` is absent for pending/failed rows.
+ */
+export interface AdminSettlement {
+  readonly id: string;
+  readonly organizationId: string;
+  readonly status: SettlementStatus;
+  readonly amount: Money;
+  readonly network: string;
+  readonly reference: string;
+  readonly txHash?: string;
+  readonly createdAt: string;
+  readonly updatedAt: string;
+}
+
 /** A risk profile enriched with the live engine decision + manual override. */
 export interface AdminRiskProfile {
   readonly id: string;

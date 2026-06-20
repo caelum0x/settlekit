@@ -20,6 +20,13 @@ export const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    title: "Agent economy",
+    items: [
+      { label: "Identity (ERC-8004)", href: "/agents" },
+      { label: "Jobs (ERC-8183)", href: "/jobs" },
+    ],
+  },
+  {
     title: "Marketplace",
     items: [{ label: "Services", href: "/services" }],
   },

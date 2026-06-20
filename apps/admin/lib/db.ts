@@ -11,6 +11,7 @@ import type {
   AdminEntitlement,
   AdminOrganization,
   AdminPayment,
+  AdminSettlement,
   AdminWebhookEvent,
 } from "./types";
 
@@ -104,6 +105,23 @@ export async function dbDeliveryRuns(): Promise<AdminDeliveryRun[]> {
       updatedAt: toIso(r.updatedAt, new Date(0).toISOString()),
     };
   });
+}
+
+export async function dbSettlements(): Promise<AdminSettlement[]> {
+  const repo = createRepository(db(), schema.payouts);
+  const rows = await repo.findMany();
+  return rows.map((r) => ({
+    id: r.id,
+    organizationId: r.organizationId,
+    status: (r.status as AdminSettlement["status"]) ?? "pending",
+    amount: money(r.amount, (r.currency as "USDC") ?? "USDC"),
+    network: r.network,
+    // payouts has no reference column; derive a stable, non-empty value.
+    reference: `stl_${r.id}`,
+    txHash: r.txHash ?? undefined,
+    createdAt: toIso(r.createdAt, new Date(0).toISOString()),
+    updatedAt: toIso(r.updatedAt, new Date(0).toISOString()),
+  }));
 }
 
 export async function dbWebhookEvents(): Promise<AdminWebhookEvent[]> {

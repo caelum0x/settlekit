@@ -5,6 +5,7 @@ import type {
   AdminPayment,
   AdminEntitlement,
   AdminRiskProfile,
+  AdminSettlement,
   AdminWebhookEvent,
 } from "./types";
 import {
@@ -13,6 +14,7 @@ import {
   seedOrganizations,
   seedPayments,
   seedRiskProfiles,
+  seedSettlements,
   seedWebhookEvents,
 } from "./seed";
 
@@ -34,6 +36,7 @@ export interface AdminStore {
   deliveryRuns: AdminDeliveryRun[];
   webhookEvents: AdminWebhookEvent[];
   riskProfiles: AdminRiskProfile[];
+  settlements: AdminSettlement[];
 }
 
 const GLOBAL_KEY = "__settlekit_admin_store__";
@@ -48,6 +51,7 @@ function createStore(): AdminStore {
     deliveryRuns: [...seedDeliveryRuns],
     webhookEvents: [...seedWebhookEvents],
     riskProfiles: [...seedRiskProfiles],
+    settlements: [...seedSettlements],
   };
 }
 

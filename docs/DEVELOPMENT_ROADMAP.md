@@ -10,25 +10,25 @@ Convention: `[ ]` todo · `[x]` done · `[~]` in progress · 🔒 blocked-on-cre
 
 ## Phase 1 — Web3 account & session management
 - [x] Wallet **unlink** — `DELETE /v1/auth/wallet` + `AuthService.unlinkWallet` (guards against stranding a wallet-only login) + store index cleanup; dashboard "Unlink" button. (portal unlink button: follow-up)
-- [ ] **Profile** page — view/edit `displayName`; `PATCH /v1/auth/account`.
+- [x] **Profile** page — view/edit `displayName`; `PATCH /v1/auth/account` + dashboard Profile card (EditProfile).
 - [ ] **Active sessions** — list + revoke individual sessions; `GET/DELETE /v1/auth/sessions`; dashboard "Security" section.
 
 ## Phase 2 — Agent economy surfaces (ERC-8004 / ERC-8183 → product)
 - [ ] API + persistence for **agent identities** (`@settlekit/erc8004` Local port) — register / list / reputation.
 - [ ] API + persistence for **agent jobs** (`@settlekit/erc8183` Local port) — create / fund / submit / evaluate / settle, status timeline.
-- [ ] `apps/agent-console`: **Agents** page (register + reputation) and **Jobs** page (lifecycle), driven by the above.
+- [x] `apps/agent-console`: **Agents** page (ERC-8004 identity + reputation) and **Jobs** page (ERC-8183 lifecycle timeline), driven by the Local ports.
 
 ## Phase 3 — Creator monetization surfaces
-- [ ] `apps/creator-dashboard`: **Source detail** page — per-source earnings, citations, lineage.
-- [ ] **Payout detail** page — a payout's legs + recursive split breakdown.
+- [x] `apps/creator-dashboard`: **Source detail** page — per-source earnings, citations, lineage.
+- [x] **Payout detail** page — a payout's legs + recursive split breakdown.
 - [ ] **Attribution** management — issue/verify proofs UI on top of `@settlekit/attribution`.
 
 ## Phase 4 — Marketplace & checkout depth
-- [ ] `apps/marketplace`: agent-service **detail** page + tag/search filtering.
+- [x] `apps/marketplace`: agent-service **detail** page + tag/search filtering.
 - [ ] `apps/checkout`: **wallet-pay** option (App Kit `send` on Arc) alongside hosted USDC.
 
 ## Phase 5 — Admin & observability
-- [ ] `apps/admin`: **settlements** console (status, reconcile view).
+- [x] `apps/admin`: **settlements** console (status, reconcile view).
 - [ ] **Webhook delivery** log + replay UI.
 - [ ] **Risk** review queue surface.
 

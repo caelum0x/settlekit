@@ -1,18 +1,108 @@
-import { Card, DataTable, EmptyState, PageHeader } from "@/components/ui";
-import { getAgentConsoleContext, type AgentStat } from "@/lib/data";
-import { formatNumber, formatUsdc } from "@/lib/format";
+import {
+  Card,
+  DataTable,
+  EmptyState,
+  PageHeader,
+  StatCard,
+  StatGrid,
+  StatusBadge,
+} from "@/components/ui";
+import {
+  getAgentConsoleContext,
+  getAgentIdentityContext,
+  type AgentIdentityRow,
+  type AgentStat,
+} from "@/lib/data";
+import { formatNumber, formatUsdc, shortWallet } from "@/lib/format";
 
-export default function AgentsPage() {
+export default async function AgentsPage() {
   const { agents } = getAgentConsoleContext();
+  const identity = await getAgentIdentityContext();
 
   return (
     <>
       <PageHeader
         title="Agents"
-        description="Autonomous agents doing commerce: each holds a budget cap, pays per call via x402, and presents proofs-of-citation for the sources it cites."
+        description="Agent identity (ERC-8004) and autonomous spend. Each agent holds an on-chain identity with reputation feedback and validator attestations, a budget cap, and pays per call via x402."
       />
 
-      <Card title="Autonomous agents">
+      <StatGrid>
+        <StatCard
+          label="Agents registered"
+          value={formatNumber(identity.totals.agentsRegistered)}
+          hint="ERC-8004 identities"
+        />
+        <StatCard
+          label="Owner wallets"
+          value={formatNumber(identity.totals.ownerWallets)}
+        />
+        <StatCard
+          label="Validations passed"
+          value={`${identity.totals.validationsPassed} / ${identity.totals.validationsTotal}`}
+          tone={
+            identity.totals.validationsPassed === identity.totals.validationsTotal
+              ? "good"
+              : "warn"
+          }
+        />
+        <StatCard
+          label="Avg reputation"
+          value={`${identity.totals.avgReputation} / 100`}
+          hint="Mean feedback score"
+        />
+      </StatGrid>
+
+      <Card title="Agent identity (ERC-8004)">
+        <DataTable<AgentIdentityRow>
+          rows={identity.agents}
+          getKey={(r) => r.agentId}
+          columns={[
+            {
+              header: "Agent ID",
+              cell: (r) => <span className="mono">#{r.agentId}</span>,
+            },
+            {
+              header: "Owner",
+              cell: (r) => (
+                <span className="mono" title={r.owner}>
+                  {shortWallet(r.owner)}
+                </span>
+              ),
+            },
+            {
+              header: "Metadata URI",
+              cell: (r) => (
+                <span className="mono muted" title={r.metadataUri}>
+                  {r.metadataUri}
+                </span>
+              ),
+            },
+            {
+              header: "Reputation",
+              align: "right",
+              cell: (r) => (
+                <span className="mono" style={{ fontWeight: 600 }}>
+                  {r.avgScore} / 100{" "}
+                  <span className="muted">({formatNumber(r.feedbackCount)})</span>
+                </span>
+              ),
+            },
+            {
+              header: "Validation",
+              align: "right",
+              cell: (r) => <StatusBadge status={r.validationStatus} />,
+            },
+          ]}
+          empty={
+            <EmptyState
+              title="No agent identities"
+              message="Register an ERC-8004 agent to see its identity, reputation, and validation status here."
+            />
+          }
+        />
+      </Card>
+
+      <Card title="Autonomous spend (x402)">
         <DataTable<AgentStat>
           rows={agents}
           getKey={(r) => r.id}
