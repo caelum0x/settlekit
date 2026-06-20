@@ -63,6 +63,16 @@ const magicLinkCompleteSchema = z.object({
   token: z.string().min(1),
 });
 
+const walletNonceSchema = z.object({
+  address: z.string().min(1),
+});
+
+const walletLoginSchema = z.object({
+  message: z.string().min(1),
+  signature: z.string().regex(/^0x[0-9a-fA-F]+$/, "signature must be 0x-hex"),
+  type: z.enum(["merchant", "customer"]).optional(),
+});
+
 function unauthorized(message: string): SettleKitError {
   return new SettleKitError({ code: "unauthorized", message });
 }
@@ -179,6 +189,27 @@ export function authRoutes(): Hono<AppEnv> {
   app.post("/magic-link/complete", async (c) => {
     const body = await parseBody(c, magicLinkCompleteSchema);
     const result = unwrapResult(await c.get("ctx").auth.completeMagicLink(body.token));
+    setSessionCookie(c, result.session);
+    return data(c, { account: result.account, sessionToken: result.session.token });
+  });
+
+  // POST /wallet/nonce -> issue a single-use SIWE nonce bound to the address.
+  app.post("/wallet/nonce", async (c) => {
+    const body = await parseBody(c, walletNonceSchema);
+    const result = unwrapResult(await c.get("ctx").auth.requestWalletNonce(body.address));
+    return data(c, { nonce: result.nonce, address: result.address });
+  });
+
+  // POST /wallet/login -> verify the SIWE signature and open a session.
+  app.post("/wallet/login", async (c) => {
+    const body = await parseBody(c, walletLoginSchema);
+    const result = unwrapResult(
+      await c.get("ctx").auth.loginWithWallet({
+        message: body.message,
+        signature: body.signature as `0x${string}`,
+        ...(body.type !== undefined ? { type: body.type } : {}),
+      }),
+    );
     setSessionCookie(c, result.session);
     return data(c, { account: result.account, sessionToken: result.session.token });
   });

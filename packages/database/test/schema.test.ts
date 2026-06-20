@@ -126,6 +126,7 @@ const EXPECTED_TABLE_NAMES = [
   "auth_sessions",
   "auth_magic_links",
   "auth_password_credentials",
+  "auth_wallet_nonces",
   "worker_delivery_queue",
   "worker_webhook_jobs",
   "worker_email_ledger",

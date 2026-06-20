@@ -26,11 +26,33 @@ export const authAccounts = pgTable(
     /** Lowercased email for case-insensitive unique lookup. */
     email: text("email").notNull().unique(),
     organizationId: text("organization_id"),
+    /** Lowercased wallet address for web3 (SIWE) account lookup. */
+    walletAddress: text("wallet_address"),
     metadata: metadataColumn(),
     ...timestamps,
   },
   (table) => ({
     emailIdx: index("auth_accounts_email_idx").on(table.email),
+    walletIdx: index("auth_accounts_wallet_address_idx").on(table.walletAddress),
+  }),
+);
+
+/** A single-use Sign-In-With-Ethereum challenge, indexed by its nonce. */
+export const authWalletNonces = pgTable(
+  "auth_wallet_nonces",
+  {
+    id: idColumn(),
+    /** The single-use nonce value embedded in the signed SIWE message. */
+    nonce: text("nonce").notNull().unique(),
+    /** Lowercased wallet address the nonce was issued to. */
+    address: text("address").notNull(),
+    expiresAt: requiredTimestamp("expires_at"),
+    consumedAt: nullableTimestamp("consumed_at"),
+    metadata: metadataColumn(),
+    ...timestamps,
+  },
+  (table) => ({
+    nonceIdx: index("auth_wallet_nonces_nonce_idx").on(table.nonce),
   }),
 );
 

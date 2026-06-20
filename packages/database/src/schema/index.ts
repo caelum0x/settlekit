@@ -116,6 +116,7 @@ import {
   authSessions,
   authMagicLinks,
   authPasswordCredentials,
+  authWalletNonces,
 } from "./auth.js";
 import {
   workerDeliveryQueue,
@@ -192,6 +193,7 @@ export const schema = {
   authSessions,
   authMagicLinks,
   authPasswordCredentials,
+  authWalletNonces,
   workerDeliveryQueue,
   workerWebhookJobs,
   workerEmailLedger,

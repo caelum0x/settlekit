@@ -159,6 +159,28 @@ export function completeMagicLink(
   return authPost<AuthSession>("/v1/auth/magic-link/complete", { token });
 }
 
+/** A single-use Sign-In-With-Ethereum challenge issued by the server. */
+export interface WalletNonceResult {
+  nonce: string;
+  address: string;
+}
+
+/** Request a single-use SIWE nonce for `address`. */
+export function requestWalletNonce(
+  address: string,
+): Promise<AuthResult<WalletNonceResult>> {
+  return authPost<WalletNonceResult>("/v1/auth/wallet/nonce", { address });
+}
+
+/** Complete a wallet sign-in by presenting the signed SIWE message. */
+export function walletLogin(input: {
+  message: string;
+  signature: string;
+  type?: AccountType;
+}): Promise<AuthResult<AuthSession>> {
+  return authPost<AuthSession>("/v1/auth/wallet/login", input);
+}
+
 /** Fetch the account for a given session token. */
 export function getSession(token: string): Promise<AuthResult<{ account: Account }>> {
   return authGet<{ account: Account }>("/v1/auth/session", token);

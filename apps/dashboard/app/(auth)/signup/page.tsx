@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { AuthForm } from "@/components/AuthForm";
+import { WalletConnect } from "@/components/WalletConnect";
 
 export const metadata = {
   title: "Create account — SettleKit",
@@ -16,6 +17,8 @@ export default function SignupPage() {
         </p>
       </div>
       <AuthForm mode="signup" />
+      <div className="auth-divider">or</div>
+      <WalletConnect type="merchant" />
       <p className="auth-alt">
         Already have an account? <Link href="/login">Sign in</Link>
       </p>

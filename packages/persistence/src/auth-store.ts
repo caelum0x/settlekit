@@ -8,14 +8,19 @@
  * before the document is written, mirroring the in-memory reference store. Magic
  * links are single-use via an atomic `UPDATE ... WHERE consumed_at IS NULL`.
  */
-import { and, eq, isNull, type Database, authAccounts, authSessions, authMagicLinks, authPasswordCredentials } from "@settlekit/database";
+import { and, eq, gt, isNull, type Database, authAccounts, authSessions, authMagicLinks, authPasswordCredentials, authWalletNonces } from "@settlekit/database";
 import { generateSecret } from "@settlekit/common";
-import type { Account, AuthStore, MagicLink, PasswordCredential, Session } from "@settlekit/auth";
+import type { Account, AuthStore, MagicLink, PasswordCredential, Session, WalletNonce } from "@settlekit/auth";
 import { packDoc, unpackDoc } from "./codec.js";
 
 /** Normalize an email for case-insensitive storage + lookup. */
 function emailKey(email: string): string {
   return email.trim().toLowerCase();
+}
+
+/** Normalize a wallet address for case-insensitive storage + lookup. */
+function walletKey(address: string): string {
+  return address.trim().toLowerCase();
 }
 
 /** Strip the once-only plaintext token before persisting a session. */
@@ -56,6 +61,7 @@ export class PgAuthStore implements AuthStore {
       type: account.type,
       email: emailKey(account.email),
       organizationId: account.organizationId ?? null,
+      walletAddress: account.walletAddress !== undefined ? walletKey(account.walletAddress) : null,
       metadata: packDoc(account),
     };
     await this.db
@@ -151,5 +157,45 @@ export class PgAuthStore implements AuthStore {
       .insert(authPasswordCredentials)
       .values({ id: `apc_${generateSecret(12)}`, ...projection })
       .onConflictDoUpdate({ target: authPasswordCredentials.accountId, set: projection });
+  }
+
+  // --- web3 / Sign-In-With-Ethereum ------------------------------------
+
+  async findAccountByWallet(address: string): Promise<Account | undefined> {
+    const rows = await this.db
+      .select({ metadata: authAccounts.metadata })
+      .from(authAccounts)
+      .where(eq(authAccounts.walletAddress, walletKey(address)))
+      .limit(1);
+    return unpackDoc<Account>(rows[0]) ?? undefined;
+  }
+
+  async saveWalletNonce(nonce: WalletNonce): Promise<void> {
+    await this.db.insert(authWalletNonces).values({
+      id: `awn_${generateSecret(12)}`,
+      nonce: nonce.nonce,
+      address: walletKey(nonce.address),
+      expiresAt: new Date(nonce.expiresAt),
+      metadata: packDoc(nonce),
+    });
+  }
+
+  async consumeWalletNonce(nonce: string, address: string, consumedAt: string): Promise<boolean> {
+    // Atomic single-use: only consumes a matching, unconsumed, unexpired nonce
+    // bound to `address`. The WHERE guards make replay and cross-address reuse
+    // impossible even under concurrent logins.
+    const updated = await this.db
+      .update(authWalletNonces)
+      .set({ consumedAt: new Date(consumedAt) })
+      .where(
+        and(
+          eq(authWalletNonces.nonce, nonce),
+          eq(authWalletNonces.address, walletKey(address)),
+          isNull(authWalletNonces.consumedAt),
+          gt(authWalletNonces.expiresAt, new Date(consumedAt)),
+        ),
+      )
+      .returning({ id: authWalletNonces.id });
+    return updated.length > 0;
   }
 }

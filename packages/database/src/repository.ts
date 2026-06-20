@@ -1,4 +1,4 @@
-import { eq, and, or, lte, gte, inArray, isNull, type SQL } from "drizzle-orm";
+import { eq, and, or, lt, lte, gt, gte, inArray, isNull, type SQL } from "drizzle-orm";
 import type {
   PgTable,
   PgColumn,
@@ -101,5 +101,5 @@ export function createRepository<TTable extends TableWithId>(
 }
 
 /** Re-export of common drizzle predicate helpers for repository callers. */
-export { eq, and, or, lte, gte, inArray, isNull };
+export { eq, and, or, lt, lte, gt, gte, inArray, isNull };
 export type { SQL };
