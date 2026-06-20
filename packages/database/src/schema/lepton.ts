@@ -220,6 +220,43 @@ export const leptonSettlements = pgTable(
   }),
 );
 
+/** A provenance "derives-from" edge: `childId` routes `weight` of its value to
+ * `parentId`. The canonical {@link LineageEdge} lives in `metadata.__doc`. */
+export const leptonLineageEdges = pgTable(
+  "lepton_lineage_edges",
+  {
+    id: idColumn(),
+    childId: text("child_id").notNull(),
+    parentId: text("parent_id").notNull(),
+    metadata: metadataColumn(),
+    createdAt: requiredTimestamp("created_at"),
+  },
+  (t) => ({
+    edgeIdx: uniqueIndex("lepton_lineage_edges_pair_idx").on(t.childId, t.parentId),
+    childIdx: index("lepton_lineage_edges_child_idx").on(t.childId),
+    parentIdx: index("lepton_lineage_edges_parent_idx").on(t.parentId),
+  }),
+);
+
+/** A signed proof-of-citation an agent presented. `consumed` gives stateless
+ * sellers replay protection; the canonical proof lives in `metadata.__doc`. */
+export const leptonCitationProofs = pgTable(
+  "lepton_citation_proofs",
+  {
+    id: idColumn(),
+    nonce: text("nonce").notNull(),
+    agent: text("agent").notNull(),
+    accessId: text("access_id").notNull(),
+    consumed: boolean("consumed").notNull().default(false),
+    metadata: metadataColumn(),
+    createdAt: requiredTimestamp("created_at"),
+  },
+  (t) => ({
+    nonceIdx: uniqueIndex("lepton_citation_proofs_nonce_idx").on(t.nonce),
+    accessIdx: index("lepton_citation_proofs_access_idx").on(t.accessId),
+  }),
+);
+
 /** One-time x402 nonces for replay protection. */
 export const leptonNonces = pgTable(
   "lepton_nonces",

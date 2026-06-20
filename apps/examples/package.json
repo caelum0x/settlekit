@@ -13,7 +13,7 @@
     "bundle": "node --import tsx src/bundle-checkout.ts",
     "lepton": "node --import tsx src/lepton-nanopayments.ts",
     "build": "tsc -b",
-    "typecheck": "tsc -b --noEmit",
+    "typecheck": "tsc -b",
     "test": "vitest run"
   },
   "dependencies": {

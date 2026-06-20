@@ -35,6 +35,18 @@ contract LeptonStreamSettlementTest is Test {
         assertEq(usdc.balanceOf(streamer), 10);
     }
 
+    function testRejectsZeroPayee() public {
+        vm.prank(viewer);
+        vm.expectRevert(LeptonStreamSettlement.InvalidPayee.selector);
+        stream.open(keccak256("zero-payee"), address(0), RATE, RESERVE);
+    }
+
+    function testRejectsSelfPayee() public {
+        vm.prank(viewer);
+        vm.expectRevert(LeptonStreamSettlement.InvalidPayee.selector);
+        stream.open(keccak256("self-payee"), viewer, RATE, RESERVE);
+    }
+
     function testPauseExcludesTime() public {
         vm.warp(1_000_005); // watched 5s
         vm.prank(viewer);

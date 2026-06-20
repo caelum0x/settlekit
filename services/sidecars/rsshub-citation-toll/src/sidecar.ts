@@ -18,6 +18,12 @@ import {
 } from "@settlekit/citation-toll";
 import { InMemoryPayeeRegistry, type PayeeRegistry } from "@settlekit/payee-registry";
 import {
+  type CitationProof,
+  InMemoryProofStore,
+  type ProofStore,
+} from "@settlekit/attribution";
+import { type AttributionService, createAttributionService } from "./attribution.js";
+import {
   LocalSettlementProvider,
   type SettlementProvider,
   settlementProviderFromEnv,
@@ -41,6 +47,8 @@ export interface Sidecar {
   payees: PayeeRegistry;
   royaltyLegStore: RoyaltyLegStore;
   settlementProvider: SettlementProvider;
+  proofStore: ProofStore;
+  attribution: AttributionService;
   ingestor: RssCitationIngestor;
   /** Local x402 settler for demos/tests; real agents settle on-chain. */
   demoSettler: Settler;
@@ -62,6 +70,12 @@ export function createSidecar(
   const payees = new InMemoryPayeeRegistry();
   const royaltyLegStore = new InMemoryRoyaltyLegStore();
   const settlementProvider = options.settlementProvider ?? new LocalSettlementProvider();
+  const proofStore = new InMemoryProofStore();
+  const attribution = createAttributionService({
+    registry,
+    proofStore,
+    proofSecret: config.proofSecret,
+  });
   const ingestor = createRssIngestor({ registry, payees, config });
 
   // x402 verification: on-chain via the Arc indexer when configured, else a
@@ -107,6 +121,52 @@ export function createSidecar(
   // x402-gated citation content: GET /articles/:id returns a 402 until paid.
   app.all("/articles/:id", (c) => tollRouter(c.req.raw));
 
+  // Attribution: detect which ingested sources an agent's generated text was
+  // grounded in, and quote the toll owed for that implicit reuse (RFB 6.01).
+  app.post("/attribution/detect", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { text?: string } | null;
+    if (body === null || typeof body.text !== "string") {
+      return c.json({ error: "text required" }, 400);
+    }
+    return c.json({ data: attribution.detect(body.text) });
+  });
+
+  // Attribution: issue a signed proof-of-citation an agent presents downstream.
+  app.post("/attribution/proof", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as Partial<{
+      agent: string;
+      accessId: string;
+      sourceIds: string[];
+      amountUsdc: string;
+      ttlSeconds: number;
+    }> | null;
+    if (
+      body === null ||
+      typeof body.agent !== "string" ||
+      typeof body.accessId !== "string" ||
+      !Array.isArray(body.sourceIds)
+    ) {
+      return c.json({ error: "agent, accessId, sourceIds[] required" }, 400);
+    }
+    const proof = await attribution.issueProof({
+      agent: body.agent,
+      accessId: body.accessId,
+      sourceIds: body.sourceIds,
+      ...(typeof body.amountUsdc === "string" ? { amountUsdc: body.amountUsdc } : {}),
+      ...(typeof body.ttlSeconds === "number" ? { ttlSeconds: body.ttlSeconds } : {}),
+    });
+    return c.json({ data: proof });
+  });
+
+  // Attribution: verify a presented proof and consume its nonce (anti-replay).
+  app.post("/attribution/verify", async (c) => {
+    const body = (await c.req.json().catch(() => null)) as { proof?: CitationProof } | null;
+    if (body === null || body.proof === undefined) {
+      return c.json({ error: "proof required" }, 400);
+    }
+    return c.json({ data: await attribution.verify(body.proof) });
+  });
+
   // Admin: sweep pending royalties into author payouts (the settlement worker
   // does this on a schedule in production; exposed here so the full flow is
   // demonstrable end to end).
@@ -122,6 +182,8 @@ export function createSidecar(
     payees,
     royaltyLegStore,
     settlementProvider,
+    proofStore,
+    attribution,
     ingestor,
     demoSettler: localSettlement.settler,
   };

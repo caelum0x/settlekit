@@ -82,7 +82,7 @@ export class GatewaySettlementProvider implements SettlementProvider {
   }
 
   async settle(request: SettlementRequest): Promise<SettlementReceipt> {
-    return withIdempotency(this.idempotency, request, async () => {
+    return withIdempotency(this.idempotency, request, "gateway", async () => {
       const createdAt = toIso(new Date());
       const amount: Money = money(request.amountUsdc);
       const { txHash, batchId } = await this.port.transfer({

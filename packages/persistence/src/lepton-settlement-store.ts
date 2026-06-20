@@ -50,6 +50,40 @@ export class PgIdempotencyStore implements SettlementReceiptStore {
       .onConflictDoUpdate({ target: leptonSettlements.reference, set: projection });
   }
 
+  /**
+   * Atomically claim a reference by inserting its pending receipt; the unique
+   * constraint on `reference` makes this safe across processes. Returns true
+   * only when this caller inserted the row (and must therefore settle).
+   */
+  async reserve(pending: SettlementReceipt): Promise<boolean> {
+    const rows = await this.db
+      .insert(leptonSettlements)
+      .values({
+        id: pending.id,
+        reference: pending.reference,
+        recipient: pending.to,
+        amount: pending.amount.amount,
+        network: pending.network,
+        status: pending.status,
+        provider: pending.provider,
+        txHash: null,
+        batchId: null,
+        createdAt: new Date(pending.createdAt),
+        settledAt: null,
+        metadata: packDoc(pending),
+      })
+      .onConflictDoNothing({ target: leptonSettlements.reference })
+      .returning({ id: leptonSettlements.id });
+    return rows.length > 0;
+  }
+
+  /** Remove a still-pending claim so a failed settlement can be retried. */
+  async release(reference: string): Promise<void> {
+    await this.db
+      .delete(leptonSettlements)
+      .where(and(eq(leptonSettlements.reference, reference), eq(leptonSettlements.status, "pending")));
+  }
+
   async listByStatus(status: SettlementStatus): Promise<SettlementReceipt[]> {
     const rows = await this.db
       .select({ metadata: leptonSettlements.metadata })

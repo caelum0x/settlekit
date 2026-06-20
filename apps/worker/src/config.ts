@@ -155,6 +155,16 @@ function requireArcAddress(env: Env, key: string): ArcAddress {
  * `process.env` but accepts an explicit env map for tests.
  */
 export function loadConfig(env: Env = process.env): WorkerConfig {
+  // Fail closed in production: a worker without a shared database runs on a
+  // process-local in-memory store, isolated from the API's Postgres — it would
+  // "succeed" while delivering and settling nothing durable.
+  const hasDatabase = Boolean(env.DATABASE_URL && env.DATABASE_URL.length > 0);
+  if (env.NODE_ENV === "production" && !hasDatabase) {
+    throw new ConfigError(
+      "DATABASE_URL must be set in production: an in-memory worker is isolated from the API database and processes nothing durable.",
+    );
+  }
+
   const intervals: JobIntervals = {
     deliveryRunnerMs: intInRange(env, "WORKER_DELIVERY_INTERVAL_MS", 5_000, 250, 3_600_000),
     paymentConfirmMs: intInRange(env, "WORKER_PAYMENT_INTERVAL_MS", 10_000, 250, 3_600_000),

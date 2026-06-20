@@ -8,6 +8,7 @@
   },
   "references": [
     { "path": "../../../packages/common" },
+    { "path": "../../../packages/attribution" },
     { "path": "../../../packages/x402" },
     { "path": "../../../packages/x402-client" },
     { "path": "../../../packages/citation-toll" },

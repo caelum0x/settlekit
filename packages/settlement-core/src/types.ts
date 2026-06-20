@@ -59,6 +59,22 @@ export interface SettlementProvider {
 export interface IdempotencyStore {
   get(reference: string): Promise<SettlementReceipt | undefined>;
   put(receipt: SettlementReceipt): Promise<void>;
+  /**
+   * Atomically record a `pending` receipt **iff** its `reference` is still
+   * unclaimed, returning `true` when THIS caller won the claim (and must
+   * therefore perform the settlement) and `false` when another caller already
+   * holds it. This is what makes {@link IdempotencyStore} safe under concurrency
+   * and across processes: without an atomic claim, two simultaneous requests
+   * with the same reference both pass a get()-then-settle() check and double
+   * spend. Optional — stores that omit it fall back to non-atomic get/put.
+   */
+  reserve?(pending: SettlementReceipt): Promise<boolean>;
+  /**
+   * Drop a `pending` claim so a later retry of a *failed* settlement can
+   * proceed. Only removes a claim still in `pending` status — a recorded
+   * (settled/failed) receipt is never deleted.
+   */
+  release?(reference: string): Promise<void>;
 }
 
 /** A queryable receipt store (the settlement worker reconciles by status). */

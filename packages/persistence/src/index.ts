@@ -10,6 +10,7 @@ export * from "./agent-reputation-store.js";
 export * from "./agent-service-store.js";
 export * from "./agent-usage-store.js";
 export * from "./api-key-store.js";
+export * from "./attribution-store.js";
 export * from "./auth-store.js";
 export * from "./bundle-store.js";
 export * from "./checkout-repository.js";

@@ -22,7 +22,7 @@ export class LocalSettlementProvider implements SettlementProvider {
   }
 
   async settle(request: SettlementRequest): Promise<SettlementReceipt> {
-    return withIdempotency(this.idempotency, request, async () => {
+    return withIdempotency(this.idempotency, request, "local", async () => {
       const now = toIso(new Date());
       const receipt: SettlementReceipt = {
         id: settlementId(),

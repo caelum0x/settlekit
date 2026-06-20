@@ -63,10 +63,12 @@ export function createBundle(input: CreateBundleInput): Bundle {
 }
 
 /**
- * Synchronous lookup of whether a product id exists/belongs to the bundle's
- * organization. Injected so validation stays decoupled from the product store.
+ * Lookup of whether a product id exists/belongs to the bundle's organization.
+ * Injected so validation stays decoupled from the product store. May be async
+ * so it can consult a database directly — never a process-local cache, which
+ * goes stale across instances under horizontal scaling.
  */
-export type ProductExistsLookup = (productId: string) => boolean;
+export type ProductExistsLookup = (productId: string) => boolean | Promise<boolean>;
 
 /** Input for {@link validateBundle}. */
 export interface ValidateBundleInput {
@@ -83,7 +85,9 @@ export interface ValidateBundleInput {
  *
  * Returns a {@link Result} so callers can branch without exceptions.
  */
-export function validateBundle(input: ValidateBundleInput): Result<true, SettleKitError> {
+export async function validateBundle(
+  input: ValidateBundleInput,
+): Promise<Result<true, SettleKitError>> {
   const { bundle, productExists } = input;
 
   if (bundle.productIds.length === 0) {
@@ -104,7 +108,7 @@ export function validateBundle(input: ValidateBundleInput): Result<true, SettleK
     }
     seen.add(productId);
 
-    if (!productExists(productId)) {
+    if (!(await productExists(productId))) {
       return err(
         new SettleKitError({
           code: "not_found",

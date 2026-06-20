@@ -142,6 +142,8 @@ const EXPECTED_TABLE_NAMES = [
   "lepton_payee_splits",
   "lepton_settlements",
   "lepton_nonces",
+  "lepton_lineage_edges",
+  "lepton_citation_proofs",
 ] as const;
 
 describe("schema table coverage", () => {

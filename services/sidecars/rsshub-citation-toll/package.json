@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",
+    "@settlekit/attribution": "workspace:*",
     "@settlekit/common": "workspace:*",
     "@settlekit/x402": "workspace:*",
     "@settlekit/x402-client": "workspace:*",
