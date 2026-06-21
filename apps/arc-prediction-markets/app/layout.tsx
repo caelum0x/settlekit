@@ -34,7 +34,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: "Prediction Markets · SettleKit",
-  description: "Prediction markets on Arc, powered by SettleKit.",
+  description:
+    "Trade Yes/No outcome tokens on Arc prediction markets with UMA Optimistic Oracle resolution and a built-in AMM, powered by SettleKit.",
 };
 
 export default function RootLayout({

@@ -349,7 +349,7 @@ export const Web3Provider: React.FC<{ children: React.ReactNode }> = ({ children
                 await initializeWeb3(newCredential);
 
                 // Save the credential to the database via API
-                const response = await fetch(`${baseUrl}/api/update-passkey`, {
+                const response = await fetch(`${baseUrl}/api/update-login-credential`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
