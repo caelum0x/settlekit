@@ -16,20 +16,25 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import { createRequire } from "node:module";
 import path from "node:path";
 import type { NextConfig } from "next";
+
+const require = createRequire(import.meta.url);
 
 const nextConfig: NextConfig = {
   typescript: { ignoreBuildErrors: true }, eslint: { ignoreDuringBuilds: true },
   cacheComponents: true,
   webpack: (config) => {
-    // @hookform/resolvers@5 imports `zod/v4/core`. In the pnpm monorepo, the
-    // hoisted `zod` is v3 (other packages use it), so that subpath isn't
-    // exported and the build fails. Pin `zod` (and its subpaths) to this app's
-    // own zod@4 install so the v4 path resolves.
+    // Two parts of this app need different zod majors:
+    //   - @hookform/resolvers@5 imports `zod/v4/core` (needs zod 4)
+    //   - @circle-fin/bridge-kit pins zod@3 and uses zod-3 APIs (`.returns()`)
+    // In the pnpm monorepo @hookform's `zod/v4/core` resolves up to a hoisted
+    // zod@3 that lacks that subpath. Alias ONLY the v4 entry to this app's
+    // zod@4 — leaving bare `zod` alone so bridge-kit keeps its nested zod@3.
     config.resolve.alias = {
       ...config.resolve.alias,
-      zod: path.resolve(process.cwd(), "node_modules/zod"),
+      "zod/v4/core$": path.dirname(require.resolve("zod/v4/core")),
     };
     return config;
   },
