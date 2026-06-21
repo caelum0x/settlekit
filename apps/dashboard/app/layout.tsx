@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import type { ReactNode } from "react";
 import { Archivo, IBM_Plex_Mono } from "next/font/google";
 import { Sidebar } from "@/components/Sidebar";
+import { Topbar } from "@/components/Topbar";
 import "./globals.css";
 
 const archivo = Archivo({
@@ -30,7 +31,10 @@ export default function RootLayout({ children }: { children: ReactNode }) {
       <body>
         <div className="app-shell">
           <Sidebar />
-          <main className="main">{children}</main>
+          <main className="main">
+            <Topbar />
+            {children}
+          </main>
         </div>
       </body>
     </html>

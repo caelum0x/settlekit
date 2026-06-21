@@ -451,6 +451,23 @@ code {
   margin-bottom: 18px;
 }
 
+.demo-notice {
+  background: var(--warn-soft);
+  border: 1px solid rgba(154, 106, 24, 0.4);
+  color: var(--warn);
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  font-size: 12px;
+  margin-bottom: 18px;
+}
+
+.advance-job {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  align-items: flex-start;
+}
+
 /* ---------- Sub navigation ---------- */
 .subnav {
   display: flex;

@@ -33,9 +33,9 @@ Convention: `[ ]` todo · `[x]` done · `[~]` in progress · 🔒 blocked-on-cre
 - [x] **Risk** review queue surface (admin).
 
 ## Phase 6 — Live wiring, notifications, analytics, real Circle SDKs
-- [ ] **Agent console live wiring** — `apps/agent-console` calls the real `/v1/agents` + `/v1/jobs` APIs (replace Local-port demo data) with register/create/transition actions.
-- [ ] **Notifications & webhooks** — `apps/dashboard` in-app notification center + webhook endpoint management UI + delivery/retry view.
-- [ ] **Analytics & reporting** — `apps/admin` revenue/settlement/agent-economy dashboards with date ranges + CSV export.
+- [x] **Agent console live wiring** — `apps/agent-console` calls the real `/v1/agents` + `/v1/jobs` APIs (replace Local-port demo data) with register/create/transition actions.
+- [x] **Notifications & webhooks** — `apps/dashboard` in-app notification center + webhook endpoint management UI + delivery/retry view.
+- [x] **Analytics & reporting** — `apps/admin` revenue/settlement/agent-economy dashboards with date ranges + CSV export.
 - [ ] **Real Circle SDK deepening** — `@circle-fin/developer-controlled-wallets` + `@circle-fin/adapter-viem-v2` into the DCW / viem adapters (creds-gated to run).
 
 ## 🔒 Blocked on credentials (not in the loop)

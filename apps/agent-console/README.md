@@ -54,3 +54,9 @@ pnpm --filter @settlekit/agent-console dev          # http://localhost:3008
 
 - `CITATION_PROOF_SECRET` — HMAC secret for proof signing (dev fallback provided).
 - `NEXT_PUBLIC_API_URL` — live API base (default `http://localhost:8787`).
+- `SETTLEKIT_API_KEY` — server-side Bearer credential for the live `/v1/agents`
+  and `/v1/jobs` calls. Accepts an `sk_live_…` key or the API's
+  `API_BOOTSTRAP_KEY` (which binds `DEFAULT_ORG_ID`). When unset or invalid the
+  API returns 401 and the `/agents` and `/jobs` pages degrade to the seeded
+  LocalPort demo data with a clear "demo data" notice, so offline dev still
+  works.

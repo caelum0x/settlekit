@@ -126,6 +126,16 @@ export function ErrorBanner({ error }: { error: string | null }) {
   );
 }
 
+export function DemoNotice({ message }: { message?: string }) {
+  return (
+    <div className="demo-notice" role="status">
+      <strong>Demo data.</strong>{" "}
+      {message ??
+        "The SettleKit API is unreachable, so this page is showing seeded LocalPort demo data. Start the API and set SETTLEKIT_API_KEY to load live records."}
+    </div>
+  );
+}
+
 export function DataTable<T>({
   columns,
   rows,
