@@ -1,0 +1,252 @@
+/**
+ * Copyright 2026 Circle Internet Group, Inc.  All rights reserved.
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+:root {
+  /* @link https://utopia.fyi/type/calculator?c=360,18,1.2,1140,20,1.2,5,2,&s=0.75|0.5|0.25,1.5|2|3|4|6,s-l&g=s,l,xl,12 */
+  --step--2: clamp(0.7813rem, 0.7412rem + 0.1781vi, 0.8681rem);
+  --step--1: clamp(0.9375rem, 0.8894rem + 0.2137vi, 1.0417rem);
+  --step-0: clamp(1.125rem, 1.0673rem + 0.2564vi, 1.25rem);
+  --step-1: clamp(1.35rem, 1.2808rem + 0.3077vi, 1.5rem);
+  --step-2: clamp(1.62rem, 1.5369rem + 0.3692vi, 1.8rem);
+  --step-3: clamp(1.944rem, 1.8443rem + 0.4431vi, 2.16rem);
+  --step-4: clamp(2.3328rem, 2.2132rem + 0.5317vi, 2.592rem);
+  --step-5: clamp(2.7994rem, 2.6558rem + 0.638vi, 3.1104rem);
+  --space-3xs: clamp(0.25rem, calc(0.21rem + 0.19vw), 0.31rem);
+  --space-2xs: clamp(0.5rem, calc(0.42rem + 0.37vw), 0.63rem);
+  --space-xs: clamp(0.75rem, calc(0.67rem + 0.37vw), 0.88rem);
+  --space-s: clamp(1rem, calc(0.88rem + 0.56vw), 1.19rem);
+  --space-m: clamp(1.5rem, calc(1.29rem + 0.93vw), 1.81rem);
+  --space-l: clamp(2rem, calc(1.75rem + 1.11vw), 2.38rem);
+  --space-xl: clamp(3rem, calc(2.63rem + 1.67vw), 3.56rem);
+  --space-2xl: clamp(4rem, calc(3.5rem + 2.22vw), 4.75rem);
+  --space-3xl: clamp(6rem, calc(5.25rem + 3.33vw), 7.13rem);
+
+  --border-radius: 6px;
+
+  --color-jelly: rgb(159, 114, 255);
+  --color-gumpdrop: rgb(26, 163, 255);
+  --color-apple: rgb(30, 214, 125);
+  --color-white: rgb(255, 255, 255);
+
+  --color-gumdrop-400: rgb(24, 148, 232);
+  --color-bazooka-400: rgb(227, 134, 236);
+
+  --color-licorice-75: rgb(225, 223, 232);
+  --color-licorice-100: rgb(199, 197, 209);
+
+  --color-icee-25: rgb(241, 251, 255);
+  --color-bazooka-25: rgb(254, 249, 254);
+  --color-gumdrop-25: rgb(248, 252, 255);
+  --color-apple-25: rgb(248, 255, 253);
+  --color-jelly-25: rgb(252, 250, 255);
+
+  --gradient-jelly: linear-gradient(
+    to bottom left,
+    var(--color-gumpdrop),
+    var(--color-jelly)
+  );
+  --gradient-bg-bazooka: linear-gradient(
+    to bottom left,
+    var(--color-jelly-25),
+    var(--color-bazooka-25)
+  );
+}
+
+/* CSS Resets */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+* {
+  margin: 0;
+}
+
+img,
+picture,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
+input,
+button,
+textarea,
+select {
+  font: inherit;
+}
+
+/* Shared layout styles */
+html {
+  height: 100%;
+}
+
+body {
+  height: 100%;
+  background-image: var(--gradient-bg-bazooka);
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+  font-family: -apple-system, BlinkMacSystemFont, avenir next, avenir, segoe ui,
+    helvetica neue, Adwaita Sans, Cantarell, Ubuntu, roboto, noto, helvetica,
+    arial, sans-serif;
+  line-height: 1.39;
+}
+
+main {
+  max-width: 60em;
+  margin-inline: auto;
+  display: grid;
+  gap: var(--space-s);
+  padding-inline: var(--space-s);
+  padding-block-end: var(--space-m);
+}
+
+header {
+  padding: var(--space-2xs) var(--space-s);
+  text-align: center;
+  margin-block-end: var(--space-xs);
+}
+
+h1 {
+  font-size: var(--step-1);
+}
+
+h2 {
+  font-size: var(--step-0);
+  margin-block-end: var(--space-3xs);
+}
+
+li {
+  margin-block-end: var(--space-3xs);
+}
+
+table {
+  border-collapse: collapse;
+}
+
+th,
+td {
+  border: 1px solid var(--color-licorice-100);
+  padding: var(--space-3xs);
+}
+
+th {
+  text-align: left;
+  font-size: var(--step--2);
+  width: max-content;
+}
+
+td {
+  font-family: monospace;
+  text-align: right;
+}
+
+label {
+  display: block;
+  font-size: var(--step--2);
+  font-weight: bold;
+  margin-block-end: var(--space-3xs);
+}
+
+input {
+  border-radius: var(--border-radius);
+  border: 1px solid var(--color-licorice-100);
+  padding: var(--space-3xs);
+}
+
+select {
+  border-radius: var(--border-radius);
+  border: 1px solid var(--color-licorice-100);
+  padding: var(--space-3xs);
+}
+
+button {
+  border: 0;
+  background-image: var(--gradient-jelly);
+  color: var(--color-white);
+  padding: var(--space-3xs) var(--space-2xs);
+  border-radius: var(--border-radius);
+  font-size: var(--step--2);
+  font-weight: bold;
+  cursor: pointer;
+  width: max-content;
+}
+
+.actions p {
+  font-size: var(--step--2);
+  margin-block-start: var(--space-3xs);
+}
+
+.intent form {
+  display: grid;
+  grid-template-columns: repeat(3, max-content);
+  gap: var(--space-xs);
+}
+
+.intent input[type="number"] {
+  width: 15ch;
+}
+
+.intent__recipient {
+  grid-column: span 3;
+}
+
+.intent__recipient input {
+  width: 100%;
+}
+
+dl {
+  display: grid;
+  row-gap: var(--space-3xs);
+  grid-template-columns: 2fr 5fr;
+  margin-block-start: var(--space-s);
+  font-size: var(--step--2);
+}
+
+dt {
+  font-weight: bold;
+}
+
+dd {
+  grid-column-start: 2;
+  word-break: break-all;
+}
+
+.flow hr {
+  margin-block: var(--space-xs);
+}
+
+pre {
+  background-color: var(--color-licorice-75);
+  padding: var(--space-2xs);
+  border-radius: var(--border-radius);
+  white-space: pre-wrap;
+  word-wrap: break-word;
+}
+
+@media screen and (min-width: 40em) {
+  main {
+    grid-template-columns: 5fr 4fr;
+  }
+
+  .console {
+    grid-column: span 2;
+  }
+}

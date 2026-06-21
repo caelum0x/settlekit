@@ -1,0 +1,156 @@
+<!doctype html>
+<!--
+ Copyright 2026 Circle Internet Group, Inc.  All rights reserved.
+
+ Licensed under the Apache License, Version 2.0 (the "License");
+ you may not use this file except in compliance with the License.
+ You may obtain a copy of the License at
+
+     http://www.apache.org/licenses/LICENSE-2.0
+
+ Unless required by applicable law or agreed to in writing, software
+ distributed under the License is distributed on an "AS IS" BASIS,
+ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ See the License for the specific language governing permissions and
+ limitations under the License.
+
+ SPDX-License-Identifier: Apache-2.0
+-->
+
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>CCTP Fulfiller Repayment Demo</title>
+    <meta
+      name="description"
+      content="Minimal UI for the CCTP fulfiller repayment demo."
+    />
+    <link rel="icon" href="/favicon.ico" sizes="any" />
+    <link rel="stylesheet" href="/style.css" />
+  </head>
+
+  <body>
+    <header>
+      <h1>CCTP Fulfiller Repayment Demo</h1>
+      <p>
+        A selected fulfiller pays first. CCTP settles later and repays that
+        fulfiller on the destination chain.
+      </p>
+    </header>
+
+    <main>
+      <section class="balances">
+        <h2>Balances (USDC)</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Platform</th>
+              <th>Selected fulfiller</th>
+              <th>Contractor</th>
+              <th>Repayment contract</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td id="platformBalance">-</td>
+              <td id="selectedFulfillerBalance">-</td>
+              <td id="contractorBalance">-</td>
+              <td id="repaymentContractBalance">-</td>
+            </tr>
+          </tbody>
+        </table>
+      </section>
+
+      <section class="actions">
+        <h2>Actions</h2>
+        <div class="buttons">
+          <button type="button" data-action="fulfill">Run Fulfill</button>
+          <button type="button" data-action="settle">Run Settle</button>
+          <button type="button" id="refreshButton">Refresh</button>
+        </div>
+        <p id="runState">Idle.</p>
+      </section>
+
+      <section class="intent">
+        <h2>Create Intent</h2>
+        <form id="intentForm">
+          <div class="input-wrapper intent__recipient">
+            <label for="recipientInput">Recipient</label>
+            <input name="recipient" id="recipientInput" placeholder="0x..." />
+          </div>
+          <div class="input-wrapper">
+            <label for="amountInput">Amount (USDC)</label>
+            <input type="number" name="amountUsdc" id="amountInput" value="5" />
+          </div>
+          <div class="input-wrapper">
+            <label for="maxFeeBpsInput">Max fee (bps)</label>
+            <input
+              type="number"
+              name="maxFeeBps"
+              id="maxFeeBpsInput"
+              value="20"
+            />
+          </div>
+          <div class="select-wrapper">
+            <label for="priorityInput">Priority</label>
+            <select name="priority" id="priorityInput">
+              <option value="fast">fast</option>
+              <option value="cheap">cheap</option>
+            </select>
+          </div>
+          <button>Create Intent</button>
+        </form>
+        <dl class="summary-grid">
+          <dt>Intent ID</dt>
+          <dd id="intentId">-</dd>
+          <dt>Contractor address</dt>
+          <dd id="recipient">-</dd>
+          <dt>Amount</dt>
+          <dd id="amount">-</dd>
+          <dt>Selection priority</dt>
+          <dd id="priority">-</dd>
+          <dt>Fulfiller address</dt>
+          <dd id="fulfillerAddress">-</dd>
+          <dt>Payout tx</dt>
+          <dd id="fulfillTx">-</dd>
+          <dt>Repayment setup tx</dt>
+          <dd id="repaymentRegistrationTx">-</dd>
+          <dt>CCTP burn tx</dt>
+          <dd id="sourceTx">-</dd>
+          <dt>CCTP mint tx</dt>
+          <dd id="mintTx">-</dd>
+          <dt>Fulfiller repayment tx</dt>
+          <dd id="repaymentTx">-</dd>
+        </dl>
+      </section>
+
+      <section class="flow">
+        <h2>Demo Flow</h2>
+        <ol class="flow-list">
+          <li id="stepIntent">Intent created</li>
+          <li id="stepFulfill">Fulfiller selected and payout fronted</li>
+          <li id="stepSettle">CCTP settlement started</li>
+          <li id="stepRepaid">Fulfiller repaid</li>
+        </ol>
+        <p>
+          <strong>Current status:</strong> <span id="currentStatus">-</span>
+        </p>
+        <p>
+          <strong>Selected fulfiller:</strong>
+          <span id="selectedFulfiller">-</span>
+        </p>
+        <hr />
+        <h2>Logs</h2>
+        <ul id="logsList"></ul>
+      </section>
+
+      <section class="console">
+        <h2>Command Output</h2>
+        <pre id="commandOutput">No command run yet.</pre>
+      </section>
+    </main>
+
+    <script src="./scripts.js"></script>
+  </body>
+</html>

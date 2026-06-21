@@ -1,0 +1,28 @@
+{
+  "name": "circle-cctp-fulfiller-repayment",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Prototype demonstrating CCTP repayment after a selected fulfiller fronts a user payout.",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "intent": "node --env-file=.env --import=tsx scripts/create-intent.ts",
+    "fulfill": "node --env-file=.env --import=tsx scripts/fulfill-intent.ts",
+    "settle": "node --env-file=.env --import=tsx scripts/start-settlement.ts",
+    "status": "node --env-file=.env --import=tsx scripts/print-status.ts",
+    "serve": "node --env-file=.env --import=tsx server.ts",
+    "build:contract": "forge build",
+    "typecheck": "tsc --noEmit",
+    "test:contract": "forge test"
+  },
+  "dependencies": {
+    "viem": "^2.51.3"
+  },
+  "devDependencies": {
+    "@types/node": "^25.9.1",
+    "tsx": "^4.22.3",
+    "typescript": "^6.0.3"
+  }
+}
