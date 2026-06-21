@@ -24,10 +24,8 @@ import { EscrowAgreements } from "@/components/escrow-agreements";
 import { WalletBalance } from "@/components/wallet-balance";
 import { RequestUsdcButton } from "@/components/request-usdc-button";
 import { USDCButton } from "@/components/usdc-button";
-import dynamic from "next/dynamic";
 import { WalletInformationDialog } from "@/components/wallet-information-dialog";
-
-const Transactions = dynamic(() => import('@/components/transactions').then(mod => mod.Transactions), { ssr: false })
+import { Transactions } from "@/components/transactions-dynamic";
 
 export default async function ProtectedPage() {
   const supabase = createSupabaseServerComponentClient();

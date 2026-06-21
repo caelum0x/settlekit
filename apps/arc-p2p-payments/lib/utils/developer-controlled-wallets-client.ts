@@ -16,11 +16,11 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import type { NextConfig } from "next";
+import { initiateDeveloperControlledWalletsClient } from "@circle-fin/developer-controlled-wallets";
 
-const nextConfig: NextConfig = {
-  typescript: { ignoreBuildErrors: true }, eslint: { ignoreDuringBuilds: true }, 
-  /* config options here */
-};
-
-export default nextConfig;
+// Initialize the Circle developer-controlled wallets client used by the
+// server-side API routes (e.g. wallet-set creation).
+export const circleDeveloperSdk = initiateDeveloperControlledWalletsClient({
+  apiKey: process.env.CIRCLE_API_KEY,
+  entitySecret: process.env.CIRCLE_ENTITY_SECRET,
+});

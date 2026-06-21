@@ -6,9 +6,24 @@ packages:
 # apps/arc-prediction-markets -> @uma/core pulls a git-resolved `abi-decoder`
 # transitive dep; allow exotic subdeps so the adopted app installs.
 blockExoticSubdeps: false
+# Native-addon build scripts. All adopted apps bundle for the browser/Next, so
+# none of these need their postinstall native builds (web3/ledger/solana legacy
+# deps ship JS fallbacks or prebuilds). esbuild + sharp DO build (Next image
+# optimization / bundler).
 allowBuilds:
+  bigint-buffer: false
   bufferutil: false
+  eccrypto: false
+  es5-ext: false
   esbuild: true
+  keccak: false
+  node-hid: false
+  protobufjs: false
+  secp256k1: false
   sharp: true
   unrs-resolver: false
+  usb: false
   utf-8-validate: false
+  web3: false
+  web3-bzz: false
+  web3-shh: false
