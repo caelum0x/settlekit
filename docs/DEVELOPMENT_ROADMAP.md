@@ -14,8 +14,8 @@ Convention: `[ ]` todo · `[x]` done · `[~]` in progress · 🔒 blocked-on-cre
 - [x] **Active sessions** — list + revoke; GET/DELETE /v1/auth/sessions + dashboard Security card.
 
 ## Phase 2 — Agent economy surfaces (ERC-8004 / ERC-8183 → product)
-- [ ] API + persistence for **agent identities** (`@settlekit/erc8004` Local port) — register / list / reputation.
-- [ ] API + persistence for **agent jobs** (`@settlekit/erc8183` Local port) — create / fund / submit / evaluate / settle, status timeline.
+- [x] API + persistence for **agent identities** — Pg agent_registry + /v1/agents (register/list/get/feedback), org-scoped.
+- [x] API + persistence for **agent jobs** — Pg agent_jobs + /v1/jobs (create/list/get/transition), guarded lifecycle.
 - [x] `apps/agent-console`: **Agents** page (ERC-8004 identity + reputation) and **Jobs** page (ERC-8183 lifecycle timeline), driven by the Local ports.
 
 ## Phase 3 — Creator monetization surfaces

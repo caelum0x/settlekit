@@ -6,6 +6,7 @@
  * instead of per-app in-memory seed. Document-projection codec + the default
  * org/merchant seed live alongside the stores.
  */
+export * from "./agent-economy-store.js";
 export * from "./agent-reputation-store.js";
 export * from "./agent-service-store.js";
 export * from "./agent-usage-store.js";

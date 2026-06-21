@@ -18,6 +18,7 @@ export * from "./marketplace.js";
 export * from "./file_delivery.js";
 export * from "./commerce.js";
 export * from "./auth.js";
+export * from "./agent-economy.js";
 export * from "./worker.js";
 export * from "./lepton.js";
 
@@ -118,6 +119,7 @@ import {
   authPasswordCredentials,
   authWalletNonces,
 } from "./auth.js";
+import { agentRegistry, agentJobs } from "./agent-economy.js";
 import {
   workerDeliveryQueue,
   workerWebhookJobs,
@@ -194,6 +196,8 @@ export const schema = {
   authMagicLinks,
   authPasswordCredentials,
   authWalletNonces,
+  agentRegistry,
+  agentJobs,
   workerDeliveryQueue,
   workerWebhookJobs,
   workerEmailLedger,

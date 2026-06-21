@@ -155,6 +155,12 @@ import {
   PgOrgSettingsStore,
   InMemoryOrgSettingsStore,
   type OrgSettingsStore,
+  PgAgentRegistryStore,
+  InMemoryAgentRegistryStore,
+  type AgentRegistryStore,
+  PgAgentJobStore,
+  InMemoryAgentJobStore,
+  type AgentJobStore,
 } from "@settlekit/persistence";
 import { loadConfig } from "./config/env.js";
 import { buildIntegrations } from "./config/integrations.js";
@@ -191,6 +197,8 @@ export interface AppContext {
 
   // Authentication (account/session/magic-link) for the public /v1/auth routes.
   readonly auth: AuthService;
+  readonly agentRegistry: AgentRegistryStore;
+  readonly agentJobs: AgentJobStore;
   /** HMAC secret used to sign the `sk_session` cookie. */
   readonly authCookieSecret: string;
 
@@ -425,6 +433,17 @@ export async function createContext(): Promise<AppContext> {
         : {}),
     }),
     authCookieSecret: config.authCookieSecret,
+
+    agentRegistry: pick<AgentRegistryStore>(
+      db,
+      (d) => new PgAgentRegistryStore(d),
+      () => new InMemoryAgentRegistryStore(),
+    ),
+    agentJobs: pick<AgentJobStore>(
+      db,
+      (d) => new PgAgentJobStore(d),
+      () => new InMemoryAgentJobStore(),
+    ),
 
     arcVerifier: integrations.arcVerifier,
     arc: integrations.arc,
