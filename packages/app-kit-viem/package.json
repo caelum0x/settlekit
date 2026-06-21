@@ -10,15 +10,18 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run"
   },
   "dependencies": {
-    "@settlekit/common": "workspace:*",
+    "@circle-fin/adapter-viem-v2": "^1.11.2",
     "@settlekit/app-kit": "workspace:*",
     "@settlekit/arc-chains": "workspace:*",
+    "@settlekit/common": "workspace:*",
     "viem": "^2.21.0"
   },
   "devDependencies": {

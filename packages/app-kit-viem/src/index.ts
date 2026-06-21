@@ -43,3 +43,11 @@ export { checksumAddress, encodeTransfer, toBaseUnits } from "./encode.js";
 export { ERC20_TRANSFER_ABI } from "./abi.js";
 
 export { notSupported, UNSUPPORTED_MESSAGE_SUFFIX } from "./unsupported.js";
+
+// Live App Kit signer adapters via Circle's official @circle-fin/adapter-viem-v2
+// (dynamic-imported; pair with @circle-fin/app-kit for a true on-chain send).
+export {
+  createCircleViemAdapterFromPrivateKey,
+  createCircleViemAdapterFromProvider,
+} from "./circle-adapter.js";
+export type { CircleViemAdapter } from "./circle-adapter.js";

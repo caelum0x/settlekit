@@ -3,6 +3,9 @@ export {
   DEFAULT_W3S_BASE_URL,
   SANDBOX_W3S_BASE_URL,
 } from "./client.js";
+// Real Circle DCW SDK client (@circle-fin/developer-controlled-wallets, dynamic-imported).
+export { createDcwSdkClient } from "./dcw-sdk.js";
+export type { DcwSdkClient, DcwSdkConfig } from "./dcw-sdk.js";
 export type {
   WalletsClient,
   WalletsClientConfig,

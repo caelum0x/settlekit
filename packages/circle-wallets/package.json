@@ -10,14 +10,17 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run"
   },
   "dependencies": {
-    "@settlekit/common": "workspace:*",
+    "@circle-fin/developer-controlled-wallets": "^10.6.0",
     "@settlekit/arc": "workspace:*",
+    "@settlekit/common": "workspace:*",
     "viem": "^2.21.0"
   },
   "devDependencies": {
