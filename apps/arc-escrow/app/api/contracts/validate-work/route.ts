@@ -93,6 +93,15 @@ export async function POST(request: Request) {
       );
     }
 
+    // Only the beneficiary of this agreement may submit work and trigger a fund release.
+    if (agreement.beneficiary_wallet?.profiles?.auth_user_id !== user.id) {
+      console.error("User is not the beneficiary of this agreement");
+      return NextResponse.json(
+        { error: "You are not authorized to validate work for this agreement" },
+        { status: 403 },
+      );
+    }
+
     const requirements = agreement.terms.tasks
       .map((task: any) => typeof task === "string" ? task : task.description)
       .filter(Boolean)

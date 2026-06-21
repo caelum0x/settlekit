@@ -25,7 +25,8 @@ import { CHAIN_TO_USDC_ADDRESS } from "@/lib/constants/usdc-addresses";
 function convertToSmallestUnit(amount: string): string {
   const val = parseFloat(amount);
   if (isNaN(val)) return "0";
-  return BigInt(Math.floor(val * 1_000_000)).toString();
+  // Use Math.round to avoid floating-point truncation (e.g. 0.29 * 1e6 = 289999.999…)
+  return BigInt(Math.round(val * 1_000_000)).toString();
 }
 
 export async function POST(req: NextRequest) {

@@ -28,11 +28,12 @@ const clues = [
 ];
 
 const handler = async (_req: NextRequest) => {
-  const clue = clues[Math.floor(Math.random() * clues.length)];
+  const clueIndex = Math.floor(Math.random() * clues.length);
+  const clue = clues[clueIndex];
 
   return NextResponse.json({
     clue,
-    step: Math.floor(Math.random() * clues.length) + 1,
+    step: clueIndex + 1,
     total_steps: clues.length,
     timestamp: new Date().toISOString(),
   });

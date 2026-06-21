@@ -227,9 +227,9 @@ console.log(
   `\nTarget: 1 transaction/second across ${endpoints.length} endpoints\n`,
 );
 
-// Check balance every 30 seconds and redeposit if low.
-// Runs fully async — payments continue uninterrupted during deposit.
-balanceInterval = setInterval(checkAndRedeposit, 30_000);
+// Note: the balance-check interval is started inside startPaymentLoop() below.
+// Starting it here as well would leak a second interval (its handle would be
+// overwritten by startPaymentLoop and never cleared on limit-reached).
 
 async function handleLimitReached() {
   if (spendingLimit === null) return;

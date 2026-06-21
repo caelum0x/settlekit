@@ -74,9 +74,10 @@ export function SellTab({
     const tokensSpent = parseFloat(amount);
     if (tokensSpent > 0) {
       avgPrice = received / tokensSpent;
-      const otherPrice = outcome === "yes" ? noPrice : yesPrice;
-      if (spotPrice !== undefined && spotPrice > 0 && otherPrice !== undefined && otherPrice > 0) {
-        const marginalRate = spotPrice / otherPrice;
+      // spotPrice is in cents (0-100); avgPrice is ARCT received per token (0-1).
+      // Convert the spot price to the same 0-1 scale before comparing.
+      if (spotPrice !== undefined && spotPrice > 0) {
+        const marginalRate = spotPrice / 100;
         priceImpact = Math.abs((avgPrice - marginalRate) / marginalRate) * 100;
       }
     }

@@ -169,11 +169,14 @@ export async function POST(request: Request) {
       );
     }
 
-    // Generate pair name from title (first 10 chars, uppercase, no spaces)
-    const pairName = trimmedTitle
+    // Generate pair name from title (first 10 chars, uppercase, no spaces).
+    // Fall back to a non-empty default when the title has no alphanumeric
+    // characters, otherwise the deployed token would have an empty symbol.
+    const sanitized = trimmedTitle
       .replace(/[^a-zA-Z0-9]/g, "")
       .substring(0, 10)
       .toUpperCase();
+    const pairName = sanitized.length > 0 ? sanitized : "MARKET";
 
     // Set up viem clients
     // Use the direct Arc RPC for server-side transactions. Alchemy's mempool tracker

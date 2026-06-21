@@ -142,8 +142,8 @@ export async function POST(req: NextRequest) {
 
       return {
         hash: transfer.txHash,
-        from: transfer.fromAddress,
-        to: transfer.toAddress,
+        from: transfer.fromAddress || transfer.from,
+        to: transfer.toAddress || transfer.to,
         amount: transfer.amount,
         timestamp: transfer.createDate,
         networkId: ARC_CHAIN_ID,

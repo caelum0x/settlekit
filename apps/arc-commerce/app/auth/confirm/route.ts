@@ -25,7 +25,11 @@ export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const token_hash = searchParams.get("token_hash");
   const type = searchParams.get("type") as EmailOtpType | null;
-  const next = searchParams.get("next") ?? "/";
+  const nextParam = searchParams.get("next") ?? "/";
+  // Only allow relative, same-origin redirect targets to prevent open redirects.
+  // Reject protocol-relative ("//host") and absolute ("https://host") URLs.
+  const next =
+    nextParam.startsWith("/") && !nextParam.startsWith("//") ? nextParam : "/";
 
   if (token_hash && type) {
     const supabase = await createClient();

@@ -17,6 +17,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import {
   GatewayClient,
   type SupportedChainName,
@@ -40,6 +41,14 @@ const supabase = createClient(
 );
 
 export async function POST(req: NextRequest) {
+  // This endpoint moves real funds out of the seller's gateway balance, so it
+  // must be authenticated. The proxy/middleware only guards `/` and
+  // `/dashboard/*`, not `/api/*`, so the session cookie is verified here too.
+  const cookieStore = await cookies();
+  if (cookieStore.get("session")?.value !== "authenticated") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
   const privateKey = process.env.SELLER_PRIVATE_KEY;
   if (!privateKey) {
     return NextResponse.json(
@@ -48,16 +57,39 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  const body = await req.json();
-  const { amount, destinationChain, destinationAddress } = body as {
-    amount: string;
-    destinationChain: string;
+  const body = (await req.json().catch(() => null)) as {
+    amount?: string;
+    destinationChain?: string;
     destinationAddress?: string;
-  };
+  } | null;
+
+  if (!body) {
+    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  const { amount, destinationChain, destinationAddress } = body;
 
   if (!amount || !destinationChain) {
     return NextResponse.json(
       { error: "amount and destinationChain are required" },
+      { status: 400 },
+    );
+  }
+
+  const parsedAmount = Number(amount);
+  if (!Number.isFinite(parsedAmount) || parsedAmount <= 0) {
+    return NextResponse.json(
+      { error: "amount must be a positive number" },
+      { status: 400 },
+    );
+  }
+
+  if (
+    destinationAddress !== undefined &&
+    !/^0x[0-9a-fA-F]{40}$/.test(destinationAddress)
+  ) {
+    return NextResponse.json(
+      { error: "destinationAddress must be a valid 0x-prefixed address" },
       { status: 400 },
     );
   }

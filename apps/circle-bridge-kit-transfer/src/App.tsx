@@ -121,18 +121,12 @@ export default function App() {
     try {
       const destination = chains.find((item) => item.chain === destinationChain);
 
-      // Auto-switch to destination network if it's an EVM chain
+      // Resolve the destination EVM chain id so we can switch the wallet to it
+      // when the mint step starts. We must NOT switch up front: approve + burn
+      // happen on the SOURCE chain, so switching to the destination before the
+      // bridge begins would break the burn.
       const destChainId =
         destination && !isSol(destination.chain) && "chainId" in destination ? destination.chainId : undefined;
-
-      if (destChainId) {
-        try {
-          await switchChainAsync({ chainId: destChainId });
-        } catch (error) {
-          console.warn("User rejected network switch", error);
-          return;
-        }
-      }
 
       const onBridgeEvent = async (evt: Record<string, unknown>) => {
         handleEvent(evt);

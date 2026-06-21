@@ -562,7 +562,7 @@ export function useCrossChainTransfer() {
         setCurrentStep("completed");
         break;
       } catch (err) {
-        if (err instanceof TransactionExecutionError && retries < MINT_MAX_RETRIES) {
+        if (err instanceof TransactionExecutionError && retries < MINT_MAX_RETRIES - 1) {
           retries++;
           addLog(`Retry ${retries}/${MINT_MAX_RETRIES}...`);
           await new Promise((resolve) => setTimeout(resolve, MINT_RETRY_BASE_DELAY_MS * retries));

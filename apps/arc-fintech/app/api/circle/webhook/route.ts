@@ -129,14 +129,14 @@ export async function POST(req: NextRequest) {
             .update(updateData)
             .eq("circle_transaction_id", notification.id);
 
-          const { error: standardError, count: standardCount } = await standardQuery.select("id");
+          const { error: standardError, data: standardRows } = await standardQuery.select("id");
 
           if (standardError) {
             console.error("Supabase update error (standard):", standardError);
             break;
           }
 
-          if (standardCount && standardCount > 0) {
+          if (standardRows && standardRows.length > 0) {
             updated = true;
             break;
           }
@@ -156,14 +156,14 @@ export async function POST(req: NextRequest) {
               .eq("tx_hash", txHash)
               .eq("type", "REBALANCE");
 
-            const { error: rebalanceError, count: rebalanceCount } = await rebalanceQuery.select("id");
+            const { error: rebalanceError, data: rebalanceRows } = await rebalanceQuery.select("id");
 
             if (rebalanceError) {
               console.error("Supabase update error (rebalance):", rebalanceError);
               break;
             }
 
-          if (rebalanceCount && rebalanceCount > 0) {
+          if (rebalanceRows && rebalanceRows.length > 0) {
             updated = true;
             break;
           }
