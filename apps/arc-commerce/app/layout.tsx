@@ -29,8 +29,8 @@ const defaultUrl = process.env.VERCEL_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "Arc Commerce",
-  description: "Purchase platform credits using USDC on Arc.",
+  title: "USDC Credits Checkout · SettleKit",
+  description: "Purchase platform credits with USDC on Arc using Circle developer-controlled wallets.",
 };
 
 export default function RootLayout({

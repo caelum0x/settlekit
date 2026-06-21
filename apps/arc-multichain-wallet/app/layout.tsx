@@ -27,8 +27,8 @@ const defaultUrl = process.env.VERCEL_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "Multichain Gateway Wallet",
-  description: "Demo for wallet with unified cross-chain USDC balances and transfers",
+  title: "Gateway USDC Wallet · SettleKit",
+  description: "Unified cross-chain USDC balances and transfers powered by Circle Gateway, built on SettleKit.",
 };
 
 export default function RootLayout({

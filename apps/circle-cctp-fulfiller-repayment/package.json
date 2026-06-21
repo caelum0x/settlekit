@@ -1,5 +1,5 @@
 {
-  "name": "circle-cctp-fulfiller-repayment",
+  "name": "@settlekit/cctp-fulfiller-repayment",
   "version": "0.1.0",
   "private": true,
   "type": "module",

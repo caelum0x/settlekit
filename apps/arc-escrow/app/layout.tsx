@@ -37,8 +37,9 @@ const defaultUrl = process.env.NEXT_PUBLIC_VERCEL_URL
 
 export const metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "Workflow Escrow",
-  description: "Automated escrow agent that facilitates secure transactions",
+  title: "Escrow Refund Protocol · SettleKit",
+  description:
+    "AI-validated USDC escrow on Arc testnet — contract deposit, deliverable validation, and automated release or refund, powered by SettleKit.",
 };
 
 export default async function RootLayout({

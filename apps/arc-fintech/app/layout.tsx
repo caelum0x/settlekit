@@ -27,8 +27,9 @@ const defaultUrl = process.env.VERCEL_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "arc-fintech-starter-app",
-  description: "Modern multi-chain treasury management system",
+  title: "Multi-Chain Treasury · SettleKit",
+  description:
+    "Multi-chain USDC treasury management with cross-chain bridging, powered by Circle Developer Controlled Wallets, Circle Gateway, and Bridge Kit — part of SettleKit.",
 };
 
 export default function RootLayout({

@@ -28,8 +28,9 @@ const defaultUrl = process.env.VERCEL_URL
 
 export const metadata: Metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "Arc Nanopayments Demo",
-  description: "Arc nanopayments demo application",
+  title: "USDC Nanopayments · SettleKit",
+  description:
+    "Gasless sub-cent USDC nanopayments on Arc via Circle Gateway and the x402 protocol, with a seller dashboard for monitoring payments and withdrawing earnings.",
 };
 
 const geistSans = Geist({

@@ -30,8 +30,9 @@ const defaultUrl = process.env.NEXT_PUBLIC_VERCEL_URL
 
 export const metadata = {
   metadataBase: new URL(defaultUrl),
-  title: "Arc Pay",
-  description: "Seamless, Gasless Transactions with Passkey Security and Instant Top-ups",
+  title: "P2P Payments · SettleKit",
+  description:
+    "Gasless peer-to-peer USDC payments on Arc with passkey-secured Circle wallets, powered by SettleKit.",
 };
 
 export const viewport: Viewport = {
