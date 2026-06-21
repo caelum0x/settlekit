@@ -85,6 +85,7 @@ const STATUS_TONES: Record<string, string> = {
   draft: "neutral",
   failed: "bad",
   canceled: "bad",
+  cancelled: "bad",
   revoked: "bad",
   refunded: "bad",
   expired: "bad",
