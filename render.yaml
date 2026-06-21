@@ -172,3 +172,68 @@ services:
     envVars:
       - key: NODE_VERSION
         value: "20"
+
+  # ---- Buyer portal ---------------------------------------------------------
+  - type: web
+    name: settlekit-portal
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/portal... build
+    startCommand: pnpm --filter @settlekit/portal exec next start -p $PORT
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+  # ---- Admin / risk console -------------------------------------------------
+  - type: web
+    name: settlekit-admin
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/admin... build
+    startCommand: pnpm --filter @settlekit/admin exec next start -p $PORT
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+  # ---- Agent console --------------------------------------------------------
+  - type: web
+    name: settlekit-agent-console
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/agent-console... build
+    startCommand: pnpm --filter @settlekit/agent-console exec next start -p $PORT
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+  # ---- Creator dashboard ----------------------------------------------------
+  - type: web
+    name: settlekit-creator-dashboard
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/creator-dashboard... build
+    startCommand: pnpm --filter @settlekit/creator-dashboard exec next start -p $PORT
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+
+  # ---- Stream meter ---------------------------------------------------------
+  - type: web
+    name: settlekit-stream-meter
+    runtime: node
+    plan: free
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/stream-meter... build
+    startCommand: pnpm --filter @settlekit/stream-meter exec next start -p $PORT
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
