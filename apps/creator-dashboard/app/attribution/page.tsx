@@ -1,5 +1,6 @@
 import { Card, PageHeader } from "@/components/ui";
 import { ReuseDetector } from "@/components/ReuseDetector";
+import { ProofSigner } from "@/components/ProofSigner";
 import { getCreatorContext } from "@/lib/data";
 import { formatUsdc } from "@/lib/format";
 
@@ -16,6 +17,10 @@ export default function AttributionPage() {
 
       <Card title="Try it — detect grounding in your sources">
         <ReuseDetector />
+      </Card>
+
+      <Card title="Prove & sign — issue a verifiable proof">
+        <ProofSigner />
       </Card>
 
       <Card title="Worked example">

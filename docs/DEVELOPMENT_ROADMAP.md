@@ -21,16 +21,16 @@ Convention: `[ ]` todo · `[x]` done · `[~]` in progress · 🔒 blocked-on-cre
 ## Phase 3 — Creator monetization surfaces
 - [x] `apps/creator-dashboard`: **Source detail** page — per-source earnings, citations, lineage.
 - [x] **Payout detail** page — a payout's legs + recursive split breakdown.
-- [ ] **Attribution** management — issue/verify proofs UI on top of `@settlekit/attribution`.
+- [x] **Attribution** management — Prove&sign UI (/api/prove + ProofSigner) on `@settlekit/attribution`.
 
 ## Phase 4 — Marketplace & checkout depth
 - [x] `apps/marketplace`: agent-service **detail** page + tag/search filtering.
-- [ ] `apps/checkout`: **wallet-pay** option (App Kit `send` on Arc) alongside hosted USDC.
+- [x] `apps/checkout`: **wallet-pay** option — real @circle-fin/app-kit (live) + offline LocalAppKitSdk default.
 
 ## Phase 5 — Admin & observability
 - [x] `apps/admin`: **settlements** console (status, reconcile view).
-- [ ] **Webhook delivery** log + replay UI.
-- [ ] **Risk** review queue surface.
+- [x] **Webhook delivery** log + replay UI (admin).
+- [x] **Risk** review queue surface (admin).
 
 ## 🔒 Blocked on credentials (not in the loop)
 - Live Arc settlement (faucet key + `arc-canteen`/`circle` CLI auth).

@@ -7,7 +7,7 @@
 
 import { cookies } from "next/headers";
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE, linkWalletWithToken } from "@/lib/auth";
+import { SESSION_COOKIE, linkWalletWithToken, unlinkWalletWithToken } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +46,23 @@ export async function POST(request: Request): Promise<NextResponse> {
   }
 
   const result = await linkWalletWithToken(token, { message: body.message, signature: body.signature });
+  if (!result.ok) {
+    return NextResponse.json({ data: null, error: { message: result.error } }, { status: 400 });
+  }
+  return NextResponse.json({ data: result.data, error: null });
+}
+
+export async function DELETE(request: Request): Promise<NextResponse> {
+  if (!isSameOrigin(request)) {
+    return NextResponse.json({ data: null, error: { message: "Forbidden." } }, { status: 403 });
+  }
+
+  const token = cookies().get(SESSION_COOKIE)?.value;
+  if (!token) {
+    return NextResponse.json({ data: null, error: { message: "Not signed in." } }, { status: 401 });
+  }
+
+  const result = await unlinkWalletWithToken(token);
   if (!result.ok) {
     return NextResponse.json({ data: null, error: { message: result.error } }, { status: 400 });
   }

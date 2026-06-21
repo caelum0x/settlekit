@@ -109,6 +109,31 @@ export function LinkWallet() {
     }
   }
 
+  async function onUnlink() {
+    setPending(true);
+    setNotice(null);
+    try {
+      const res = await fetch("/api/wallet/link", { method: "DELETE" });
+      const body = (await res.json().catch(() => null)) as
+        | { data?: { account?: { walletAddress?: string } }; error?: { message?: string } | string }
+        | null;
+      if (!res.ok || !body?.data) {
+        const msg =
+          body && typeof body.error === "object" && body.error?.message
+            ? body.error.message
+            : "Could not unlink wallet.";
+        setNotice({ ok: false, text: msg });
+        return;
+      }
+      setLinked(undefined);
+      setNotice({ ok: true, text: "Wallet unlinked." });
+    } catch (err) {
+      setNotice({ ok: false, text: err instanceof Error ? err.message : "Could not unlink wallet." });
+    } finally {
+      setPending(false);
+    }
+  }
+
   return (
     <div className="wallet-link">
       {linked ? (
@@ -118,9 +143,14 @@ export function LinkWallet() {
       ) : (
         <p className="muted">No wallet linked yet.</p>
       )}
-      <button type="button" className="btn" onClick={onLink} disabled={pending}>
+      <button type="button" className="btn btn-primary" onClick={onLink} disabled={pending}>
         {pending ? "Linking…" : linked ? "Link a different wallet" : "Link wallet"}
       </button>
+      {linked ? (
+        <button type="button" className="btn btn-secondary" onClick={onUnlink} disabled={pending}>
+          {pending ? "Working…" : "Unlink wallet"}
+        </button>
+      ) : null}
       {notice ? (
         <div className={`form-message ${notice.ok ? "ok" : "err"}`}>{notice.text}</div>
       ) : null}

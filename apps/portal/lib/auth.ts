@@ -268,6 +268,34 @@ export async function linkWalletWithToken(
 }
 
 /**
+ * Update the authenticated account's profile (server-side: pass the session
+ * token as bearer). Used by the /api/account route handler.
+ */
+export async function updateAccountWithToken(
+  token: string,
+  input: { displayName: string },
+): Promise<AuthResult<{ account: Account }>> {
+  return apiRequest<{ account: Account }>("/v1/auth/account", {
+    method: "PATCH",
+    headers: { authorization: `Bearer ${token}` },
+    body: JSON.stringify(input),
+  });
+}
+
+/**
+ * Unlink the wallet from the authenticated account (server-side: pass the
+ * session token as bearer). Used by the /api/wallet/link route handler.
+ */
+export async function unlinkWalletWithToken(
+  token: string,
+): Promise<AuthResult<{ account: Account }>> {
+  return apiRequest<{ account: Account }>("/v1/auth/wallet", {
+    method: "DELETE",
+    headers: { authorization: `Bearer ${token}` },
+  });
+}
+
+/**
  * Read the current session from the httpOnly cookie via the local route
  * handler, which forwards the stored token to GET /v1/auth/session.
  */
