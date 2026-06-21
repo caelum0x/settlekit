@@ -1,5 +1,5 @@
 {
-  "name": "circle-cross-chain-transfer-next",
+  "name": "@settlekit/circle-cctp-crosschain-transfer",
   "version": "0.1.0",
   "private": true,
   "scripts": {

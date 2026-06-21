@@ -1,7 +1,7 @@
 {
-  "name": "cctp-bridging-app",
-  "private": true,
+  "name": "@settlekit/circle-bridge-kit-transfer",
   "version": "0.0.1",
+  "private": true,
   "type": "module",
   "scripts": {
     "dev": "concurrently -k -n server,client \"npm run dev:server\" \"npm run dev:client\"",

@@ -1,5 +1,5 @@
 {
-  "name": "uma-prediction-market",
+  "name": "@settlekit/arc-prediction-markets",
   "version": "1.0.0",
   "private": true,
   "description": "Bitcoin prediction market built on Arc Testnet",

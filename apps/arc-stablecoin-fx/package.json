@@ -1,5 +1,5 @@
 {
-  "name": "arc-stablecoin-fx",
+  "name": "@settlekit/arc-stablecoin-fx",
   "version": "0.1.0",
   "private": true,
   "scripts": {
