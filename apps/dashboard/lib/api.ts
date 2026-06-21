@@ -371,6 +371,17 @@ export const api = {
     get: (id: string) => getItem<EscrowTask>(`/v1/escrow/tasks/${id}`),
     create: (title: string, buyerEmail: string, amount: number) =>
       post<EscrowTask>("/v1/escrow/tasks", { title, buyerEmail, amount }),
+    assign: (id: string, workerCustomerId: string) =>
+      post<EscrowTask>(`/v1/escrow/tasks/${id}/assign`, { workerCustomerId }),
+    fund: (id: string, fundingTxHash: string) =>
+      post<EscrowTask>(`/v1/escrow/tasks/${id}/fund`, { fundingTxHash }),
+    submit: (id: string, content: string) =>
+      post<EscrowTask>(`/v1/escrow/tasks/${id}/submit`, { content }),
+    approve: (id: string) => post<EscrowTask>(`/v1/escrow/tasks/${id}/approve`, {}),
+    release: (id: string, releaseTxHash: string) =>
+      post<EscrowTask>(`/v1/escrow/tasks/${id}/release`, { releaseTxHash }),
+    refund: (id: string, reason: string) =>
+      post<EscrowTask>(`/v1/escrow/tasks/${id}/refund`, { reason }),
   },
 
   // ---- Usage-based billing ----

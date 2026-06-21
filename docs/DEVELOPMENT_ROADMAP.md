@@ -39,9 +39,9 @@ Convention: `[ ]` todo · `[x]` done · `[~]` in progress · 🔒 blocked-on-cre
 - [x] **Real Circle SDK deepening** — @circle-fin/adapter-viem-v2 (live App Kit signer) + @circle-fin/developer-controlled-wallets (real DCW), dynamic-imported helpers.
 
 ## Phase 7 — Port vendored Circle sample flows into the product
-- [ ] **Escrow management** — `apps/dashboard` UI over `@settlekit/escrow` (`/v1/escrow`): create → fund → submit → release/refund (pattern from `vendor/arc-escrow`).
-- [ ] **P2P send** — `apps/portal` "send USDC" flow over `@settlekit/app-kit` (offline `LocalAppKitSdk` + documented live) (pattern from `vendor/arc-p2p-payments`).
-- [ ] **Crosschain bridge** — `apps/checkout` App Kit bridge surface over `@settlekit/app-kit` (pattern from `vendor/arc-multichain-wallet` + `vendor/circle-bridge-kit-transfer`).
+- [x] **Escrow management** — `apps/dashboard` UI over `@settlekit/escrow` (`/v1/escrow`): create → fund → submit → release/refund (pattern from `vendor/arc-escrow`).
+- [x] **P2P send** — `apps/portal` "send USDC" flow over `@settlekit/app-kit` (offline `LocalAppKitSdk` + documented live) (pattern from `vendor/arc-p2p-payments`).
+- [x] **Crosschain bridge** — `apps/checkout` App Kit bridge surface over `@settlekit/app-kit` (pattern from `vendor/arc-multichain-wallet` + `vendor/circle-bridge-kit-transfer`).
 
 ## 🔒 Blocked on credentials (not in the loop)
 - Live Arc settlement (faucet key + `arc-canteen`/`circle` CLI auth).

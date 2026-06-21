@@ -21,6 +21,7 @@ const ITEMS: NavItem[] = [
   { label: "Access", segment: "access" },
   { label: "Downloads", segment: "downloads" },
   { label: "Wallet", segment: "wallet" },
+  { label: "Send", segment: "send" },
 ];
 
 export function PortalNav({ customerId }: PortalNavProps) {

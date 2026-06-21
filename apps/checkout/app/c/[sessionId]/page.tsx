@@ -5,6 +5,7 @@ import { formatMoney, formatNetwork, formatExpiry } from "@/lib/format";
 import { OrderSummary } from "@/components/OrderSummary";
 import { PaymentForm } from "@/components/PaymentForm";
 import { WalletPay } from "@/components/WalletPay";
+import { BridgePay } from "@/components/BridgePay";
 
 export const dynamic = "force-dynamic";
 
@@ -81,6 +82,11 @@ export default async function CheckoutPage({ params }: PageProps) {
       <div className="card">
         <h2>Pay with wallet</h2>
         <WalletPay amount={session.amount.amount} payToAddress={session.payToAddress} />
+      </div>
+
+      <div className="card">
+        <h2>Pay from another chain</h2>
+        <BridgePay amount={session.amount.amount} />
       </div>
     </div>
   );
