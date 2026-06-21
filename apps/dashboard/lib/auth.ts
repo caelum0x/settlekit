@@ -253,6 +253,47 @@ export async function updateAccount(
   }
 }
 
+/** A session as shown to the account owner (no token). */
+export interface SessionSummary {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+  current: boolean;
+}
+
+/** List the authenticated account's active sessions (server-side; bearer token). */
+export function listSessions(
+  bearer: string,
+): Promise<AuthResult<{ sessions: SessionSummary[] }>> {
+  return authGet<{ sessions: SessionSummary[] }>("/v1/auth/sessions", bearer);
+}
+
+/** Revoke one of the account's sessions by id (server-side; bearer token). */
+export async function revokeSession(
+  bearer: string,
+  id: string,
+): Promise<AuthResult<{ ok: true }>> {
+  try {
+    const res = await fetch(`${API_URL}/v1/auth/sessions/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${bearer}` },
+      cache: "no-store",
+    });
+    const body = (await res.json().catch(() => null)) as
+      | { data?: { ok: true }; error?: string }
+      | null;
+    if (!res.ok) {
+      return {
+        data: null,
+        error: (body && typeof body.error === "string" && body.error) || "Could not revoke session.",
+      };
+    }
+    return { data: body && "data" in body ? (body.data ?? null) : null, error: null };
+  } catch (err) {
+    return { data: null, error: err instanceof Error ? err.message : "Network error" };
+  }
+}
+
 /** Fetch the account for a given session token. */
 export function getSession(token: string): Promise<AuthResult<{ account: Account }>> {
   return authGet<{ account: Account }>("/v1/auth/session", token);

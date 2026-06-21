@@ -98,6 +98,20 @@ export class PgAuthStore implements AuthStore {
     await this.db.delete(authSessions).where(eq(authSessions.tokenHash, tokenHash));
   }
 
+  async listSessionsByAccount(accountId: string): Promise<readonly Session[]> {
+    const rows = await this.db
+      .select({ metadata: authSessions.metadata })
+      .from(authSessions)
+      .where(eq(authSessions.accountId, accountId));
+    return rows
+      .map((r) => unpackDoc<Session>(r))
+      .filter((s): s is Session => s !== undefined);
+  }
+
+  async deleteSessionById(id: string): Promise<void> {
+    await this.db.delete(authSessions).where(eq(authSessions.id, id));
+  }
+
   // --- magic links ------------------------------------------------------
 
   async saveMagicLink(magicLink: MagicLink, tokenHash: string): Promise<void> {

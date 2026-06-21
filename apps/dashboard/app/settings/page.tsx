@@ -3,6 +3,7 @@ import { PageHeader, Card, ErrorBanner } from "@/components/ui";
 import { SimpleCreateForm } from "@/components/forms/SimpleCreateForm";
 import { LinkWallet } from "@/components/LinkWallet";
 import { EditProfile } from "@/components/EditProfile";
+import { SessionList } from "@/components/SessionList";
 import { getCurrentAccount } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
@@ -86,6 +87,12 @@ export default async function SettingsPage() {
           password.
         </p>
         <LinkWallet {...(account?.walletAddress ? { linkedAddress: account.walletAddress } : {})} />
+      </Card>
+      <Card title="Security">
+        <p className="page-desc" style={{ marginBottom: 12 }}>
+          Active sessions for your account. Revoke any you don&apos;t recognize.
+        </p>
+        {account ? <SessionList /> : <p className="page-desc">Sign in to view sessions.</p>}
       </Card>
     </>
   );

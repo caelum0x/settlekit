@@ -1,14 +1,16 @@
 import {
   err,
   generateId,
+  notFound,
   ok,
   SettleKitError,
   type Result,
 } from "@settlekit/common";
 import type { Hex } from "viem";
+import { hashToken } from "./hash.js";
 import { consumeMagicLink, issueMagicLink, type IssuedMagicLink } from "./magic-link.js";
 import { hashPassword, verifyPassword } from "./password.js";
-import { createSession, revokeSession, verifySessionToken } from "./sessions.js";
+import { createSession, isExpired, revokeSession, verifySessionToken } from "./sessions.js";
 import type { AuthStore } from "./store.js";
 import type { Account, AccountType, Session, WalletNonce } from "./types.js";
 import {
@@ -50,6 +52,15 @@ export interface RegisterWithPasswordInput {
 export interface LoginWithPasswordInput {
   email: string;
   password: string;
+}
+
+/** A session as shown to the account owner (no token). */
+export interface SessionSummary {
+  id: string;
+  createdAt: string;
+  expiresAt: string;
+  /** True for the session the listing request authenticated with. */
+  current: boolean;
 }
 
 function unauthorized(message: string): SettleKitError {
@@ -532,6 +543,52 @@ export class AuthService {
     }
     await this.store.saveAccount(next);
     return ok({ account: next });
+  }
+
+  /**
+   * List the authenticated account's active (unexpired) sessions, marking which
+   * one is the caller's current session. Plaintext tokens are never returned.
+   */
+  async listSessions(
+    token: string,
+    now: Date = new Date(),
+  ): Promise<Result<{ sessions: SessionSummary[] }, SettleKitError>> {
+    const auth = await this.authenticateSession(token, now);
+    if (!auth.ok) return err(auth.error);
+    const { account } = auth.value;
+    const current = await this.store.findSessionByHash(hashToken(token));
+    const all = await this.store.listSessionsByAccount(account.id);
+    const sessions = all
+      .filter((s) => !isExpired(s, now))
+      .map((s) => ({
+        id: s.id,
+        createdAt: s.createdAt,
+        expiresAt: s.expiresAt,
+        current: current !== undefined && s.id === current.id,
+      }))
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+    return ok({ sessions });
+  }
+
+  /**
+   * Revoke one of the authenticated account's sessions by id. Returns
+   * `not_found` if the session does not belong to the account, so a caller can
+   * never revoke another account's session.
+   */
+  async revokeSessionById(
+    token: string,
+    sessionId: string,
+    now: Date = new Date(),
+  ): Promise<Result<{ ok: true }, SettleKitError>> {
+    const auth = await this.authenticateSession(token, now);
+    if (!auth.ok) return err(auth.error);
+    const { account } = auth.value;
+    const all = await this.store.listSessionsByAccount(account.id);
+    if (!all.some((s) => s.id === sessionId)) {
+      return err(notFound("Session not found"));
+    }
+    await this.store.deleteSessionById(sessionId);
+    return ok({ ok: true as const });
   }
 
   /**

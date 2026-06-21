@@ -11,7 +11,7 @@ Convention: `[ ]` todo · `[x]` done · `[~]` in progress · 🔒 blocked-on-cre
 ## Phase 1 — Web3 account & session management
 - [x] Wallet **unlink** — `DELETE /v1/auth/wallet` + `AuthService.unlinkWallet` (guards against stranding a wallet-only login) + store index cleanup; dashboard "Unlink" button. (portal unlink button: follow-up)
 - [x] **Profile** page — view/edit `displayName`; `PATCH /v1/auth/account` + dashboard Profile card (EditProfile).
-- [ ] **Active sessions** — list + revoke individual sessions; `GET/DELETE /v1/auth/sessions`; dashboard "Security" section.
+- [x] **Active sessions** — list + revoke; GET/DELETE /v1/auth/sessions + dashboard Security card.
 
 ## Phase 2 — Agent economy surfaces (ERC-8004 / ERC-8183 → product)
 - [ ] API + persistence for **agent identities** (`@settlekit/erc8004` Local port) — register / list / reputation.

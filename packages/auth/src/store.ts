@@ -23,6 +23,10 @@ export interface AuthStore {
   findSessionByHash(tokenHash: string): Promise<Session | undefined>;
   /** Delete a session by its token hash. Idempotent. */
   deleteSession(tokenHash: string): Promise<void>;
+  /** List all sessions for an account (plaintext tokens are never returned). */
+  listSessionsByAccount(accountId: string): Promise<readonly Session[]>;
+  /** Delete a session by its id. Idempotent. */
+  deleteSessionById(id: string): Promise<void>;
 
   // --- magic links ------------------------------------------------------
   /** Persist a magic link indexed by its token hash. */
@@ -137,6 +141,21 @@ export class InMemoryAuthStore implements AuthStore {
 
   async deleteSession(tokenHash: string): Promise<void> {
     this.sessionsByHash.delete(tokenHash);
+  }
+
+  async listSessionsByAccount(accountId: string): Promise<readonly Session[]> {
+    return [...this.sessionsByHash.values()]
+      .filter((s) => s.accountId === accountId)
+      .map((s) => ({ ...s }));
+  }
+
+  async deleteSessionById(id: string): Promise<void> {
+    for (const [hash, session] of this.sessionsByHash) {
+      if (session.id === id) {
+        this.sessionsByHash.delete(hash);
+        return;
+      }
+    }
   }
 
   async saveMagicLink(magicLink: MagicLink, tokenHash: string): Promise<void> {

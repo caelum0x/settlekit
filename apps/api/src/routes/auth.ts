@@ -255,6 +255,20 @@ export function authRoutes(): Hono<AppEnv> {
     return data(c, { account: result.account });
   });
 
+  // GET /sessions -> list the authenticated account's active sessions.
+  app.get("/sessions", async (c) => {
+    const token = requireBearer(c.req.header("authorization"));
+    const result = unwrapResult(await c.get("ctx").auth.listSessions(token));
+    return data(c, { sessions: result.sessions });
+  });
+
+  // DELETE /sessions/:id -> revoke one of the account's sessions.
+  app.delete("/sessions/:id", async (c) => {
+    const token = requireBearer(c.req.header("authorization"));
+    unwrapResult(await c.get("ctx").auth.revokeSessionById(token, c.req.param("id")));
+    return data(c, { ok: true as const });
+  });
+
   // GET /session -> resolve the account for the presented session token.
   app.get("/session", async (c) => {
     const token = requireBearer(c.req.header("authorization"));
