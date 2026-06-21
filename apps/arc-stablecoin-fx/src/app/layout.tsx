@@ -4,8 +4,8 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 
 export const metadata: Metadata = {
-  title: "Arc FX",
-  description: "Onchain USD ↔ EUR FX terminal on Arc",
+  title: "Stablecoin FX · SettleKit",
+  description: "Onchain USD ↔ EUR stablecoin FX on Arc, powered by SettleKit.",
 };
 
 export default function RootLayout({

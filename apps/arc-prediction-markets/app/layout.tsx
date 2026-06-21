@@ -33,8 +33,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Arc Markets",
-  description: "Prediction markets on Arc Testnet",
+  title: "Prediction Markets · SettleKit",
+  description: "Prediction markets on Arc, powered by SettleKit.",
 };
 
 export default function RootLayout({
