@@ -32,7 +32,13 @@ import {
   computeRoyaltyDistribution,
   createSource,
 } from "@settlekit/citation-toll";
-import { detectReuse, issueCitationProof, type CitationProof, type ReuseMatch } from "@settlekit/attribution";
+import {
+  detectReuse,
+  issueCitationProof,
+  verifyCitationProof,
+  type CitationProof,
+  type ReuseMatch,
+} from "@settlekit/attribution";
 
 /* -------------------------------------------------------------------------- */
 /* Seed: creators + their citeable works                                      */
@@ -510,13 +516,22 @@ export function getPayoutDetail(settlementId: string): PayoutDetail | undefined 
 
 const PROOF_SECRET = process.env.CITATION_PROOF_SECRET ?? "dev-citation-proof-secret";
 
-/** Run reuse detection for arbitrary text against the demo source corpus. */
-export function detectGroundingForText(text: string): {
+/** Reuse detection report mapped to display titles + the citation toll quote. */
+interface GroundingResult {
   grounded: boolean;
   matches: (ReuseMatch & { title: string })[];
   quoteUsdc: string;
-} {
-  const { registry } = buildRegistry();
+  /** The raw matched source ids, in detection order — feeds proof issuance. */
+  sourceIds: string[];
+}
+
+/**
+ * Shared core: run `detectReuse` over the demo corpus and resolve each match to
+ * its source title, plus compute the citation toll quote as the sum of every
+ * matched source's price. Used by the detect route, the worked example, and the
+ * live proof flow so they cannot drift apart.
+ */
+function groundText(registry: InMemorySourceRegistry, text: string): GroundingResult {
   const candidates = registry.all().map((s) => ({
     id: s.id,
     text: [s.title, s.summary, s.body].join(". "),
@@ -524,14 +539,105 @@ export function detectGroundingForText(text: string): {
   }));
   const report = detectReuse(text, candidates);
   const titleById = new Map(registry.all().map((s) => [s.id, s.title]));
-  const matches = report.matches.map((m) => ({ ...m, title: titleById.get(m.sourceId) ?? m.sourceId }));
+  const matches = report.matches.map((m) => ({
+    ...m,
+    title: titleById.get(m.sourceId) ?? m.sourceId,
+  }));
   const quote = sum(
     report.matches.map((m) => {
       const s = registry.get(m.sourceId);
       return s !== undefined ? money(s.priceUsdc) : money("0");
     }),
   );
-  return { grounded: report.grounded, matches, quoteUsdc: quote.amount };
+  return {
+    grounded: report.grounded,
+    matches,
+    quoteUsdc: quote.amount,
+    sourceIds: report.matches.map((m) => m.sourceId),
+  };
+}
+
+/** Run reuse detection for arbitrary text against the demo source corpus. */
+export function detectGroundingForText(text: string): {
+  grounded: boolean;
+  matches: (ReuseMatch & { title: string })[];
+  quoteUsdc: string;
+} {
+  const { registry } = buildRegistry();
+  const { grounded, matches, quoteUsdc } = groundText(registry, text);
+  return { grounded, matches, quoteUsdc };
+}
+
+/** A signed proof reduced to the public, serializable fields the UI renders. */
+export interface SerializableProof {
+  agent: string;
+  accessId: string;
+  sourceIds: string[];
+  amountUsdc?: string;
+  issuedAt: string;
+  expiresAt?: string;
+  signature: string;
+}
+
+/** The result of verifying a proof, reduced from a `Result` to plain fields. */
+export interface ProofVerification {
+  valid: boolean;
+  claimAgent?: string;
+  expiresAt?: string;
+  error?: string;
+}
+
+export interface ProveGroundingResult {
+  grounded: boolean;
+  matches: (ReuseMatch & { title: string })[];
+  quoteUsdc: string;
+  proof: SerializableProof;
+  verification: ProofVerification;
+}
+
+/**
+ * Detect grounding for arbitrary text, then issue a real signed
+ * proof-of-citation for the matched sources and verify it with the same secret
+ * and clock. The secret never leaves the server — only the proof's public
+ * fields and the verification outcome are returned. Deterministic except for
+ * the proof `nonce`/`signature`, which `issueCitationProof` randomizes per call.
+ */
+export function proveGroundingForText(text: string): ProveGroundingResult {
+  const { registry } = buildRegistry();
+  const { grounded, matches, quoteUsdc, sourceIds } = groundText(registry, text);
+
+  const issued = issueCitationProof(
+    {
+      agent: "agent_research_demo",
+      sourceIds,
+      accessId: "acc_live_1",
+      amountUsdc: quoteUsdc,
+      ttlSeconds: 3600,
+    },
+    PROOF_SECRET,
+    CLOCK,
+  );
+
+  const verified = verifyCitationProof(issued, PROOF_SECRET, CLOCK);
+  const verification: ProofVerification = isOk(verified)
+    ? {
+        valid: true,
+        claimAgent: verified.value.agent,
+        ...(verified.value.expiresAt !== undefined ? { expiresAt: verified.value.expiresAt } : {}),
+      }
+    : { valid: false, error: verified.error.message };
+
+  const proof: SerializableProof = {
+    agent: issued.agent,
+    accessId: issued.accessId,
+    sourceIds: [...issued.sourceIds],
+    ...(issued.amountUsdc !== undefined ? { amountUsdc: issued.amountUsdc } : {}),
+    issuedAt: issued.issuedAt,
+    ...(issued.expiresAt !== undefined ? { expiresAt: issued.expiresAt } : {}),
+    signature: issued.signature,
+  };
+
+  return { grounded, matches, quoteUsdc, proof, verification };
 }
 
 function buildAttributionExample(registry: InMemorySourceRegistry): AttributionExample {
@@ -539,33 +645,19 @@ function buildAttributionExample(registry: InMemorySourceRegistry): AttributionE
     "Royalties should follow a work through every hand that made it, and when settlement is " +
     "sub-cent and gas-free a citation can pay its source automatically.";
 
-  const candidates = registry.all().map((s) => ({
-    id: s.id,
-    text: [s.title, s.summary, s.body].join(". "),
-    wallet: s.authorWallet,
-  }));
-  const report = detectReuse(answer, candidates);
-
-  const titleById = new Map(registry.all().map((s) => [s.id, s.title]));
-  const matches = report.matches.map((m) => ({ ...m, title: titleById.get(m.sourceId) ?? m.sourceId }));
-  const quote = sum(
-    report.matches.map((m) => {
-      const s = registry.get(m.sourceId);
-      return s !== undefined ? money(s.priceUsdc) : money("0");
-    }),
-  );
+  const { matches, quoteUsdc, sourceIds } = groundText(registry, answer);
 
   const proof = issueCitationProof(
     {
       agent: "agent_research_demo",
-      sourceIds: report.matches.map((m) => m.sourceId),
+      sourceIds,
       accessId: "acc_demo_1",
-      amountUsdc: quote.amount,
+      amountUsdc: quoteUsdc,
       ttlSeconds: 3600,
     },
     PROOF_SECRET,
     CLOCK,
   );
 
-  return { answer, matches, quoteUsdc: quote.amount, proof };
+  return { answer, matches, quoteUsdc, proof };
 }

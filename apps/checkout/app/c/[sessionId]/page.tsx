@@ -4,6 +4,7 @@ import { getCheckoutSession, ApiClientError } from "@/lib/api";
 import { formatMoney, formatNetwork, formatExpiry } from "@/lib/format";
 import { OrderSummary } from "@/components/OrderSummary";
 import { PaymentForm } from "@/components/PaymentForm";
+import { WalletPay } from "@/components/WalletPay";
 
 export const dynamic = "force-dynamic";
 
@@ -75,6 +76,11 @@ export default async function CheckoutPage({ params }: PageProps) {
           requiredFields={session.requiredFields}
           initialValues={session.collectedFields}
         />
+      </div>
+
+      <div className="card">
+        <h2>Pay with wallet</h2>
+        <WalletPay amount={session.amount.amount} payToAddress={session.payToAddress} />
       </div>
     </div>
   );
