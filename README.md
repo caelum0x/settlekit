@@ -17,6 +17,20 @@ Create product → Set price → Buyer pays → Access delivered
 
 ---
 
+## Demo
+
+<p align="center">
+  <a href="https://github.com/caelum0x/settlekit/releases/download/demo-2026-06-22/settlekit-demo.mp4">
+    <img src="https://github.com/caelum0x/settlekit/releases/download/demo-2026-06-22/settlekit-demo.gif" alt="SettleKit product walkthrough" width="900">
+  </a>
+</p>
+
+<p align="center">
+  <a href="https://github.com/caelum0x/settlekit/releases/download/demo-2026-06-22/settlekit-demo.mp4"><b>▶ Watch the full-quality video (MP4)</b></a>
+</p>
+
+---
+
 ## Live deployment
 
 SettleKit is live — API on Render, frontends on Vercel:
