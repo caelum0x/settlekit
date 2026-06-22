@@ -16,11 +16,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { WalletInformationDialog } from "@/components/wallet-information-dialog";
 import { WalletBalance } from "@/components/wallet-balance";
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, User, BarChart3 } from "lucide-react";
 import { signOutAction } from "@/app/actions";
 
 interface Props {

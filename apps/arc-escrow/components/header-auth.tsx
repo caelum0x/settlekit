@@ -78,6 +78,12 @@ export default async function AuthButton() {
       <Button variant={"ghost"}>
         <Link href="/dashboard">Dashboard</Link>
       </Button>
+      <Button variant={"ghost"}>
+        <Link href="/dashboard/agreements">Agreements</Link>
+      </Button>
+      <Button variant={"ghost"}>
+        <Link href="/dashboard/settings">Settings</Link>
+      </Button>
       <form action={signOutAction}>
         <Button type="submit" variant={"outline"}>
           Sign out

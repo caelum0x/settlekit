@@ -16,34 +16,42 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-"use client";
-
-import { WalletStatusCard } from "@/components/wallet/wallet-status-card";
-import { PurchaseCreditsCard } from "@/components/wallet/purchase-credits-card";
+import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
 import { TransactionHistory } from "@/components/transaction-history-table";
 import { DashboardNav } from "@/components/dashboard-nav";
 
-export function UserDashboard() {
+export const metadata: Metadata = {
+  title: "Transactions · SettleKit",
+  description: "Full history of your USDC credit purchases on Arc.",
+};
+
+export default async function TransactionsPage() {
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+    error,
+  } = await supabase.auth.getUser();
+
+  if (error || !user) {
+    redirect("/auth/login");
+  }
+
   return (
     <div className="flex-1 w-full flex flex-col gap-8 items-start">
-      {/* Page Header */}
       <div className="w-full space-y-6">
         <div>
-          <h1 className="text-3xl font-bold tracking-tight">Dashboard</h1>
+          <h1 className="text-3xl font-bold tracking-tight">Transactions</h1>
           <p className="text-muted-foreground mt-2">
-            Connect your wallet to purchase credits and view your history.
+            The full history of your USDC credit purchases. Filter by date and
+            sort any column.
           </p>
         </div>
         <DashboardNav />
       </div>
 
-      {/* Scalable Grid Layout for Cards */}
-      <div className="w-full grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <WalletStatusCard />
-        <PurchaseCreditsCard />
-      </div>
-
-      {/* Section for the Transaction History Table */}
       <div className="w-full">
         <TransactionHistory />
       </div>

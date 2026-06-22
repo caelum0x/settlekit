@@ -22,6 +22,87 @@ import { encodedRedirect } from "@/lib/utils/utils";
 import { createClient } from "@/lib/utils/supabase/server";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
+import { revalidatePath } from "next/cache";
+
+export const updateProfileAction = async (formData: FormData) => {
+  const fullName = (formData.get("full_name") as string | null)?.trim() ?? "";
+  const username = (formData.get("username") as string | null)?.trim() ?? "";
+  const companyName =
+    (formData.get("company_name") as string | null)?.trim() ?? "";
+
+  const supabase = await createClient();
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return redirect("/sign-in");
+  }
+
+  if (!fullName) {
+    return encodedRedirect(
+      "error",
+      "/dashboard/profile",
+      "Display name is required",
+    );
+  }
+
+  // Usernames must be unique, alphanumeric/underscore, 3-30 chars.
+  if (username && !/^[a-zA-Z0-9_]{3,30}$/.test(username)) {
+    return encodedRedirect(
+      "error",
+      "/dashboard/profile",
+      "Username must be 3-30 characters: letters, numbers, or underscores",
+    );
+  }
+
+  // Guard against username collisions with other users.
+  if (username) {
+    const { data: existing } = await supabase
+      .from("profiles")
+      .select("auth_user_id")
+      .eq("username", username)
+      .neq("auth_user_id", user.id)
+      .maybeSingle();
+
+    if (existing) {
+      return encodedRedirect(
+        "error",
+        "/dashboard/profile",
+        "That username is already taken",
+      );
+    }
+  }
+
+  const { error } = await supabase
+    .from("profiles")
+    .update({
+      name: fullName,
+      full_name: fullName,
+      username: username || null,
+      company_name: companyName || null,
+    })
+    .eq("auth_user_id", user.id);
+
+  if (error) {
+    console.error("Error updating profile:", error.message);
+    return encodedRedirect(
+      "error",
+      "/dashboard/profile",
+      "Could not update profile",
+    );
+  }
+
+  revalidatePath("/dashboard/profile");
+  revalidatePath("/dashboard");
+
+  return encodedRedirect(
+    "success",
+    "/dashboard/profile",
+    "Profile updated successfully",
+  );
+};
 
 export const signInAction = async (formData: FormData) => {
   const email = formData.get("email") as string;

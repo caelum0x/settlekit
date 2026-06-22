@@ -19,6 +19,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
+import Link from "next/link";
 import {
   Card,
   CardContent,
@@ -296,20 +297,21 @@ export function TransactionHistory() {
                       <SortIcon />
                     </Button>
                   </TableHead>
+                  <TableHead className="text-right">Details</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {loading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
-                      <TableCell colSpan={6}>
+                      <TableCell colSpan={7}>
                         <Skeleton className="h-8 w-full" />
                       </TableCell>
                     </TableRow>
                   ))
                 ) : error ? (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-red-500">
+                    <TableCell colSpan={7} className="text-center text-red-500">
                       Error: {error}
                     </TableCell>
                   </TableRow>
@@ -369,11 +371,16 @@ export function TransactionHistory() {
                       <TableCell className="text-sm">
                         {new Date(tx.created_at).toLocaleString()}
                       </TableCell>
+                      <TableCell className="text-right">
+                        <Button asChild variant="ghost" size="sm" className="h-8">
+                          <Link href={`/dashboard/history/${tx.id}`}>View</Link>
+                        </Button>
+                      </TableCell>
                     </TableRow>
                   ))
                 ) : (
                   <TableRow>
-                    <TableCell colSpan={6} className="text-center text-muted-foreground">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
                       No transactions found.
                     </TableCell>
                   </TableRow>

@@ -19,6 +19,7 @@
 import { logout } from "@/app/actions";
 import { Button } from "@/components/ui/button";
 import { TopBarGatewayControls } from "@/components/dashboard/top-bar-gateway-controls";
+import { DashboardNav } from "@/components/dashboard/dashboard-nav";
 import { LogOut } from "lucide-react";
 
 export default function DashboardLayout({
@@ -38,6 +39,7 @@ export default function DashboardLayout({
           </form>
         </div>
       </header>
+      <DashboardNav />
       <main className="flex-1 p-6">{children}</main>
     </div>
   );

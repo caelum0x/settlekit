@@ -266,9 +266,13 @@ export default function Transaction() {
           </div>
         </details>
 
-        {/* External link to ArcScan */}
-        {transaction.txHash && (
-          <div className="pt-2 space-y-2">
+        {/* Receipt + ArcScan actions */}
+        <div className="pt-2 space-y-2">
+          <Link href={`/dashboard/transaction/${id}/receipt`} className="block">
+            <Button className="w-full py-2 text-sm">View receipt</Button>
+          </Link>
+
+          {transaction.txHash && (
             <Link
               href={`https://testnet.arcscan.app/tx/${transaction.txHash}`}
               target="_blank"
@@ -279,8 +283,8 @@ export default function Transaction() {
                 View on ArcScan
               </Button>
             </Link>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   );
