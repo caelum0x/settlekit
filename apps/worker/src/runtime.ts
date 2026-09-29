@@ -55,6 +55,7 @@ import {
   leptonSettlementReconcileJob,
   leptonPayoutSweepJob,
   leptonStreamRefundJob,
+  operatorTickJob,
   type JobContext,
 } from "./jobs/index.js";
 
@@ -258,6 +259,7 @@ export function buildRuntime(deps: RuntimeDeps): WorkerRuntime {
     { job: leptonSettlementReconcileJob, intervalMs: intervals.payoutReconcileMs },
     { job: leptonPayoutSweepJob, intervalMs: intervals.payoutReconcileMs },
     { job: leptonStreamRefundJob, intervalMs: intervals.payoutReconcileMs },
+    { job: operatorTickJob, intervalMs: intervals.payoutReconcileMs }, // no-op unless the operator vault is configured
   ];
 
   const scheduler = new Scheduler(scheduled, ctx, logger);

@@ -135,3 +135,12 @@ export function loadOperatorConfig(env: Env, fallbackOrgId: string): OperatorCon
     ...(x402 ? { x402 } : {}),
   };
 }
+
+/**
+ * The operator only runs against a real vault, or in an explicitly requested
+ * simulation (OPERATOR_SIMULATION=1), so a production process can never
+ * record simulated executions by accident.
+ */
+export function operatorEnabled(env: Env): boolean {
+  return Boolean(env.OPERATOR_VAULT_ADDRESS?.trim()) || env.OPERATOR_SIMULATION === "1";
+}

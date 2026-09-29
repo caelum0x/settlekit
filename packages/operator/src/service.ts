@@ -138,6 +138,8 @@ export class OperatorService {
       const result = e.vaultEscalationId !== undefined && this.deps.owner
         ? await this.ownerVaultCall(() => (this.deps.owner as OwnerExecutor).expire(e.vaultEscalationId as number))
         : ({ status: "denied" } as ExecutionResult);
+      const subject = e.proposal.action.kind === "escalate" ? e.proposal.action.subject : e.proposal.action;
+      await this.resolveBill(orgId, subject, "rejected");
       const trace = { name: "owner_result", input: { escalationId: e.id }, output: result };
       const outcome = result.status === "failed" || result.status === "blocked_on_chain" ? "failed" : "denied";
       out.push(await this.record({ ...draft, outcome, toolCalls: [...draft.toolCalls, trace], ...this.txOf([result]), anchorHash: await this.anchorFor(e, draft) }, started));

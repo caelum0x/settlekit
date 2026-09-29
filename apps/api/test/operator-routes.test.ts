@@ -155,3 +155,21 @@ describe("operator routes", () => {
     expect((await call(s.app, "GET", "/v1/public/operator/verify/nope", undefined, null)).status).toBe(404);
   });
 });
+
+describe("operator routes without configuration", () => {
+  it("answers 503 instead of silently simulating", async () => {
+    const saved = { vault: process.env.OPERATOR_VAULT_ADDRESS, sim: process.env.OPERATOR_SIMULATION };
+    delete process.env.OPERATOR_VAULT_ADDRESS;
+    delete process.env.OPERATOR_SIMULATION;
+    try {
+      const app = new Hono<AppEnv>();
+      app.route("/", operatorRoutes());
+      app.onError((err, c) => error(c, err));
+      const res = await app.request("/v1/public/operator/proof");
+      expect(res.status).toBe(503);
+    } finally {
+      if (saved.vault !== undefined) process.env.OPERATOR_VAULT_ADDRESS = saved.vault;
+      if (saved.sim !== undefined) process.env.OPERATOR_SIMULATION = saved.sim;
+    }
+  });
+});

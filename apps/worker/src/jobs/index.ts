@@ -17,6 +17,7 @@ export { payoutReconcileJob } from "./payout-reconcile-job.js";
 export { leptonSettlementReconcileJob } from "./lepton-settlement-reconcile-job.js";
 export { leptonPayoutSweepJob } from "./lepton-payout-sweep-job.js";
 export { leptonStreamRefundJob } from "./lepton-stream-refund-job.js";
+export { operatorTickJob, createOperatorTickJob } from "./operator-tick-job.js";
 
 import type { Job } from "./types.js";
 import { deliveryRunnerJob } from "./delivery-runner-job.js";
