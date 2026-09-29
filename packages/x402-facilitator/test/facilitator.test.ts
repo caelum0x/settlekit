@@ -215,8 +215,16 @@ describe("verify", () => {
     const payment = await signPayment(requirementsFor(HYPEREVM, "900000"));
     const requirements = requirementsFor(HYPEREVM, ONE_USDC);
     const result = await facilitator.verify({ ...payment, accepted: requirements }, requirements);
-    expect(result.isValid).toBe(false);
-    expect(result.invalidReason).toMatch(/value/);
+    expect(result).toMatchObject({ isValid: false, invalidReason: REASONS.amountInvalid });
+  });
+
+  it("refuses to settle an authorization worth more than the requirements", async () => {
+    const { facilitator, fake } = setup();
+    const payment = await signPayment(requirementsFor(HYPEREVM, "50000000"));
+    const requirements = requirementsFor(HYPEREVM, ONE_USDC);
+    const result = await facilitator.settle({ ...payment, accepted: requirements }, requirements);
+    expect(result).toMatchObject({ success: false, errorReason: REASONS.amountInvalid });
+    expect(fake.writes).toHaveLength(0);
   });
 
   it("rejects amounts above the per-settlement cap", async () => {

@@ -144,8 +144,11 @@ export function checkPolicy(
   if (required === undefined || required === 0n) {
     return fail(REASONS.amountInvalid, "requirements amount must be a positive integer", auth.from);
   }
+  if (auth.value !== required) {
+    return fail(REASONS.amountInvalid, "authorization value must equal the requirements amount", auth.from);
+  }
   const max = config.maxAmountFor(asset.caip2);
-  if (required > max || auth.value > max) {
+  if (required > max) {
     return fail(REASONS.amountExceedsLimit, `amount exceeds the per-settlement cap ${max}`, auth.from);
   }
   return { ok: true, payment: { asset, method: auth.method, from: auth.from, nonce: auth.nonce, value: auth.value } };

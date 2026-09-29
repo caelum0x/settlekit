@@ -48,8 +48,8 @@ type ChargeFn = (options: Record<string, unknown>) => (request: Request) => Prom
   { status: 402; challenge: Response } | { status: 200; withReceipt: (response?: Response) => Response }
 >;
 
-function chargeOf(instance: unknown): ChargeFn {
-  return (instance as Record<string, ChargeFn>)[CHARGE_KEY] as ChargeFn;
+function chargeOf(instance: unknown): ChargeFn | undefined {
+  return (instance as Record<string, ChargeFn | undefined>)[CHARGE_KEY];
 }
 
 /** Mount under `/v1/mpp`. */
@@ -63,6 +63,8 @@ export function mppTempoRoutes(runtime: AgentPaymentsRuntime | null): Hono<AppEn
 
   const config = { methods: [mpp.charge], secretKey: mpp.secretKey, realm: mpp.realm };
   const core = Mppx.create(config);
+  const buyCharge = chargeOf(core);
+  if (!buyCharge) throw new Error("mppx did not expose the tempo/charge intent on the server instance");
   const honoMppx = MppxHono.create(config);
   const researchCharge = (honoMppx as unknown as Record<string, (options: Record<string, unknown>) => MiddlewareHandler>)[CHARGE_KEY];
   if (!researchCharge) throw new Error("mppx did not expose the tempo/charge intent");
@@ -79,7 +81,7 @@ export function mppTempoRoutes(runtime: AgentPaymentsRuntime | null): Hono<AppEn
       const ctx = c.get("ctx");
       const buyer = await readBuyer(c.req.raw);
       const purchase = await resolvePurchasable(ctx, c.req.param("productId"), buyer);
-      const result = await chargeOf(core)({
+      const result = await buyCharge({
         amount: purchase.price.amount,
         description: `SettleKit: ${purchase.product.name}`,
         externalId: purchase.product.id,

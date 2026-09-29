@@ -14,6 +14,7 @@
  * partially_failed and can be retried via POST /v1/delivery-runs/:id/retry.
  */
 import {
+  conflict,
   generateId,
   money,
   toIso,
@@ -156,6 +157,22 @@ async function runDelivery(
   };
 }
 
+/**
+ * Persist the payment. A concurrent request for the same tx hash that won the
+ * race (Postgres unique index on tx_hash) surfaces as 409, never a second delivery.
+ */
+async function savePaymentOnce(ctx: AppContext, payment: Payment): Promise<Payment> {
+  try {
+    return await ctx.payments.save(payment);
+  } catch (err) {
+    const winner = payment.txHash ? await ctx.payments.findByTxHash(payment.txHash) : null;
+    if (winner && winner.id !== payment.id) {
+      throw conflict("transaction hash already used by another payment", { txHash: payment.txHash, paymentId: winner.id });
+    }
+    throw err;
+  }
+}
+
 /** Record, entitle and deliver a settled agent purchase. Throws 409 on a reused tx hash. */
 export async function fulfilAgentPurchase(ctx: AppContext, input: AgentPurchaseInput): Promise<AgentPurchaseResult> {
   const txHash = requireTxHash(input.network, input.txHash);
@@ -172,7 +189,7 @@ export async function fulfilAgentPurchase(ctx: AppContext, input: AgentPurchaseI
     txHash,
   });
   // The facilitator / MPP verifier already waited for the settlement receipt.
-  const payment = await ctx.payments.save(confirmPayment(pending, txHash, 1, 1));
+  const payment = await savePaymentOnce(ctx, confirmPayment(pending, txHash, 1, 1));
   const entitlement = await ctx.entitlements.grantFromPayment({
     payment,
     product: input.product,

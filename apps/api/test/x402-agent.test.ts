@@ -260,6 +260,37 @@ describe("POST /v1/x402/products/:productId/buy", () => {
     expect(readPaymentResponse(res)).toMatchObject({ success: true });
   });
 
+  it("turns a lost race on the tx-hash unique index into 409 without a second delivery", async () => {
+    const { local, runtime } = fakeRuntime();
+    process.env.API_BOOTSTRAP_KEY = BOOTSTRAP;
+    const base = await createContext();
+    let stale = false;
+    const payments = Object.create(base.payments) as AppContext["payments"];
+    payments.findByTxHash = async (txHash) => {
+      if (stale) {
+        stale = false; // a concurrent request has not committed yet when we check
+        return null;
+      }
+      return base.payments.findByTxHash(txHash);
+    };
+    payments.save = async (payment) => {
+      const existing = payment.txHash ? await base.payments.findByTxHash(payment.txHash) : null;
+      if (existing && existing.id !== payment.id) throw new Error('duplicate key value violates unique constraint "payments_tx_hash_unique_idx"');
+      return base.payments.save(payment);
+    };
+    const ctx = { ...base, payments, agentPayments: runtime };
+    const app = createApp(ctx);
+    const appFetch = ((input: RequestInfo | URL, init?: RequestInit) => app.request(new Request(input, init))) as typeof fetch;
+    const pay = createSpecX402Fetch({ fetch: appFetch, evmSigner: agent, preferNetworks: ["eip155:999"], maxAtomicPerPayment: "100000000" });
+    const productId = await publishedProduct(app);
+    local.script.tx = `0x${"88".repeat(32)}`;
+    expect((await pay(`${ORIGIN}/v1/x402/products/${productId}/buy`, { method: "POST" })).status).toBe(201);
+    stale = true;
+    const raced = await pay(`${ORIGIN}/v1/x402/products/${productId}/buy`, { method: "POST" });
+    expect(raced.status).toBe(409);
+    expect(await ctx.deliveryRuns.list()).toHaveLength(1);
+  });
+
   it("records nothing when settlement fails", async () => {
     const { local, runtime } = fakeRuntime();
     const { app, ctx, pay } = await harness(runtime);
