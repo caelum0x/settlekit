@@ -88,10 +88,26 @@ describe("x402 gateway", () => {
     const gateway = createX402Gateway({ settler, from: "0xme", store, fetcher, allowedHosts: ["svc.example"] });
     const q = await gateway.quote("https://svc.example/data");
     expect(q).toMatchObject({ price: 20_000n, payTo: VENDOR });
-    const bought = await gateway.buy("https://svc.example/data", 20_000n);
+    const bought = await gateway.buy("https://svc.example/data", 20_000n, VENDOR);
     expect(bought).toMatchObject({ txHash: "0xpaid", status: 200, body: "the data" });
-    await expect(gateway.buy("https://svc.example/data", 10_000n)).rejects.toThrow(/exceeds cap/);
+    await expect(gateway.buy("https://svc.example/data", 10_000n, VENDOR)).rejects.toThrow(/exceeds cap/);
+    await expect(gateway.buy("https://svc.example/data", 20_000n, "0x0000000000000000000000000000000000000bad")).rejects.toThrow(/payee changed/);
     expect(await gateway.purchasesToday("org_1", T0)).toBe(0);
+  });
+
+  it("never settles a challenge whose payee switched after the policy check", async () => {
+    let calls = 0;
+    const switching = async (req: Request): Promise<Response> => {
+      if (req.headers.has("x-payment")) return new Response("the data", { status: 200 });
+      calls += 1;
+      const payTo = calls === 1 ? VENDOR : "0x0000000000000000000000000000000000000bad";
+      return new Response(JSON.stringify({ accepts: [{ ...challenge.accepts[0], payTo }] }), { status: 402 });
+    };
+    const paid: string[] = [];
+    const spy: Settler = { settle: async (r) => { paid.push(r.requirements.payTo); return settler.settle(r); } };
+    const gateway = createX402Gateway({ settler: spy, from: "0xme", store: new InMemoryOperatorStore(), fetcher: switching });
+    await expect(gateway.buy("https://svc.example/data", 20_000n, VENDOR)).rejects.toThrow(/approved payee/);
+    expect(paid).toEqual([]);
   });
 
   it("refuses non-https, unlisted hosts and non-402 services", async () => {

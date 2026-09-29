@@ -9,7 +9,7 @@
  */
 import type { Proposal } from "./actions.js";
 import type { EscalationQueue } from "./escalation.js";
-import { executeProposal, VaultError, type OperatorExecutor, type PayResult, type TxResult } from "./executor.js";
+import { executeProposal, VaultError, VaultTxError, type OperatorExecutor, type PayResult, type TxResult } from "./executor.js";
 import type { ExecutionResult } from "./trace.js";
 
 export interface ExecutionContext {
@@ -45,6 +45,7 @@ async function sendToVault(ctx: ExecutionContext, p: Proposal): Promise<Executio
     tx = await executeProposal(ctx.executor, ctx.anchorHash, p);
   } catch (error) {
     if (error instanceof VaultError) return { status: "blocked_on_chain", error: error.code };
+    if (error instanceof VaultTxError) return { status: "failed", txHash: error.txHash, error: errorText(error) };
     return { status: "failed", error: errorText(error) };
   }
   if (!tx) return { status: "deferred" };

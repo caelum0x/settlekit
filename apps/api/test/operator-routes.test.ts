@@ -151,7 +151,9 @@ describe("operator routes", () => {
     expect(proof.status).toBe(200);
     expect(proof.json.data).toMatchObject({ orgs: 1, usdcIn: expect.stringMatching(/^2000/), executor: "local-simulation", decisions: { total: 1, executed: 1 } });
     const verify = await call(s.app, "GET", `/v1/public/operator/verify/${decision.id}`, undefined, null);
-    expect(verify.json.data).toMatchObject({ valid: true, commitment: "match", chain: { valid: true }, onChain: "not_configured" });
+    // Local simulation: the log verifies, but a decision that moved money is not
+    // reported valid without an on-chain anchor check.
+    expect(verify.json.data).toMatchObject({ valid: false, commitment: "match", chain: { valid: true }, onChain: "not_configured" });
     expect((await call(s.app, "GET", "/v1/public/operator/verify/nope", undefined, null)).status).toBe(404);
   });
 });

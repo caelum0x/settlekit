@@ -35,6 +35,25 @@ export class X402Error extends Error {
 
 const DAY_MS = 86_400_000;
 
+/**
+ * payAndFetch re-reads the 402 challenge before settling; the settler only
+ * pays if that challenge still names the approved payee and price cap.
+ */
+function pinnedSettler(inner: Settler, payTo: string, maxPrice: bigint): Settler {
+  return {
+    async settle(request) {
+      const { requirements } = request;
+      if (requirements.payTo.toLowerCase() !== payTo.toLowerCase()) {
+        throw new X402Error(`refusing to pay ${requirements.payTo}: approved payee is ${payTo}`);
+      }
+      if (parseUsdc(requirements.amount) > maxPrice) {
+        throw new X402Error(`refusing to pay ${requirements.amount} USDC: cap is ${formatUsdc(maxPrice)}`);
+      }
+      return inner.settle(request);
+    },
+  };
+}
+
 export function createX402Gateway(options: X402GatewayOptions): X402Gateway {
   const fetcher: RequestFetcher = options.fetcher ?? ((request) => fetch(request));
   const maxBody = options.maxBodyChars ?? 4000;
@@ -73,12 +92,13 @@ export function createX402Gateway(options: X402GatewayOptions): X402Gateway {
     };
   }
 
-  async function buy(raw: string, maxPrice: bigint): Promise<X402Purchase> {
+  async function buy(raw: string, maxPrice: bigint, payTo: string): Promise<X402Purchase> {
     const q = await quote(raw);
     if (q.price > maxPrice) throw new X402Error(`price ${formatUsdc(q.price)} exceeds cap ${formatUsdc(maxPrice)}`);
+    if (q.payTo.toLowerCase() !== payTo.toLowerCase()) throw new X402Error(`service payee changed from ${payTo} to ${q.payTo}`);
     const result = await payAndFetch(q.url, {
       fetcher,
-      settler: options.settler,
+      settler: pinnedSettler(options.settler, payTo, maxPrice),
       from: options.from,
       maxPriceUsdc: formatUsdc(maxPrice),
     });

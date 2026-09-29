@@ -34,6 +34,14 @@ export interface OperatorStore {
 
   /** Orgs that have at least one decision, escalation, bill or policy. */
   listOrgIds(): Promise<readonly string[]>;
+
+  /**
+   * Atomically claim a key (an event id, an escalation resolution) before
+   * money can move. Returns false when another handler (any process) holds it.
+   */
+  claim(orgId: string, key: string, at: string): Promise<boolean>;
+  /** Release a claim when handling failed before anything was executed. */
+  release(orgId: string, key: string): Promise<void>;
   getPolicy(orgId: string): Promise<OperatorPolicy | null>;
   savePolicy(orgId: string, policy: OperatorPolicy): Promise<OperatorPolicy>;
 }
@@ -58,6 +66,7 @@ export class InMemoryOperatorStore implements OperatorStore {
   private escalations: ReadonlyMap<string, Escalation> = new Map();
   private bills: ReadonlyMap<string, Bill> = new Map();
   private policies: ReadonlyMap<string, OperatorPolicy> = new Map();
+  private claims: ReadonlySet<string> = new Set();
 
   async appendDecision(record: DecisionRecord): Promise<DecisionRecord> {
     assertLinks(await this.headDecision(record.orgId), record);
@@ -134,5 +143,17 @@ export class InMemoryOperatorStore implements OperatorStore {
     const stored = Object.freeze({ ...policy, allowlist: [...policy.allowlist] });
     this.policies = new Map([...this.policies, [orgId, stored]]);
     return stored;
+  }
+
+  async claim(orgId: string, key: string): Promise<boolean> {
+    const id = `${orgId}:${key}`;
+    if (this.claims.has(id)) return false;
+    this.claims = new Set([...this.claims, id]);
+    return true;
+  }
+
+  async release(orgId: string, key: string): Promise<void> {
+    const id = `${orgId}:${key}`;
+    this.claims = new Set([...this.claims].filter((c) => c !== id));
   }
 }

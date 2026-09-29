@@ -76,6 +76,22 @@ export class VaultError extends Error {
 }
 
 /**
+ * A vault transaction was broadcast but did not confirm successfully
+ * (reverted, or the receipt could not be read). Carries the txHash so the
+ * decision log still records the transaction for reconciliation.
+ */
+export class VaultTxError extends Error {
+  constructor(
+    readonly txHash: string,
+    readonly kind: "reverted" | "unconfirmed",
+    detail: string,
+  ) {
+    super(`vault transaction ${txHash} ${kind}: ${detail}`);
+    this.name = "VaultTxError";
+  }
+}
+
+/**
  * Execute an executable proposal (allocate / payout / refund / yield moves).
  * Returns null for non-executable kinds (escalate, decline, defer), for
  * denied verdicts, and for off-chain escalations (those wait for a human in

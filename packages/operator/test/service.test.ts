@@ -2,8 +2,9 @@ import { describe, expect, it } from "vitest";
 import type { X402Gateway } from "../src/context.js";
 import { ClaudeOperator, HeuristicEngine, OperatorAgent } from "../src/engine.js";
 import { ESCALATION_TTL_MS } from "../src/escalation.js";
+import { VaultTxError } from "../src/executor.js";
 import { createStoreHistory } from "../src/history.js";
-import { OperatorServiceError } from "../src/service.js";
+import { DuplicateEventError, OperatorServiceError } from "../src/service.js";
 import { recordExecutions, recordX402Spends } from "../src/trace.js";
 import { POLICY, STRANGER, T0, VENDOR } from "./fixtures.js";
 import { REASONING, billDue, harness, revenue, scriptedAnthropic, usdc } from "./harness.js";
@@ -71,6 +72,49 @@ describe("OperatorService escalations", () => {
     expect(approval.outcome).toBe("failed");
     expect(recordExecutions(approval)[0]?.result).toEqual({ status: "blocked_on_chain", error: "NotAllowlisted" });
     expect((await h.store.getEscalation("org_1", e!.id))?.status).toBe("pending");
+  });
+});
+
+describe("exactly-once handling", () => {
+  it("claims each event once and releases the claim when deciding fails", async () => {
+    let fail = true;
+    const flaky = {
+      name: "flaky",
+      decide: async (...args: Parameters<HeuristicEngine["decide"]>) => {
+        if (fail) throw new Error("engine down");
+        return new HeuristicEngine().decide(...args);
+      },
+    };
+    const h = harness({ engine: flaky, deposit: usdc(100) });
+    await expect(h.service.handle(revenue(usdc(100)))).rejects.toThrow(/engine down/);
+    fail = false;
+    const record = await h.service.handle(revenue(usdc(100)));
+    expect(record.outcome).toBe("executed");
+    await expect(h.service.handle(revenue(usdc(100)))).rejects.toBeInstanceOf(DuplicateEventError);
+    expect(h.vault.anchors.filter((a) => a.action === "ALLOCATE")).toHaveLength(1);
+  });
+
+  it("resolves an escalation once even when approvals race", async () => {
+    const h = harness({ engine: new HeuristicEngine(), deposit: usdc(2000) });
+    await h.vault.allocate(`0x${"7".repeat(64)}`, ALLOCATED);
+    await h.service.handle(billDue("bill_race", VENDOR, usdc(600)));
+    const [e] = await h.store.listEscalations("org_1", "pending");
+    const results = await Promise.allSettled([h.service.approve("org_1", e!.id, "a"), h.service.approve("org_1", e!.id, "b")]);
+    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+    expect(h.vault.anchors.filter((a) => a.action === "APPROVE")).toHaveLength(1);
+  });
+
+  it("keeps the txHash of a broadcast transaction whose receipt is unavailable", async () => {
+    const h = harness({ engine: new HeuristicEngine(), deposit: usdc(100) });
+    const original = h.vault.allocate.bind(h.vault);
+    h.vault.allocate = async () => {
+      throw new VaultTxError("0xbroadcast", "unconfirmed", "rpc timeout");
+    };
+    const record = await h.service.handle(revenue(usdc(100)));
+    expect(record.outcome).toBe("failed");
+    expect(record.txHash).toBe("0xbroadcast");
+    expect(recordExecutions(record)[0]?.result).toMatchObject({ status: "failed", txHash: "0xbroadcast" });
+    h.vault.allocate = original;
   });
 });
 

@@ -6,6 +6,7 @@
  *      the original decision's hash, which must match that decision);
  *   3. for every transaction, fetch the Arc receipt (via `@settlekit/arc`)
  *      and require a `DecisionAnchored(anchorHash, action)` log from the vault.
+ * A decision with transactions is never reported valid unless step 3 ran.
  */
 import type { ArcTransactionReceipt, Hex } from "@settlekit/arc";
 import { hexToString, keccak256, toBytes } from "viem";
@@ -96,7 +97,8 @@ export async function verifyDecision(store: OperatorStore, record: DecisionRecor
   const onChain = receipts && record.anchorHash
     ? await Promise.all(txs.map((tx) => checkTx(tx, record.anchorHash as string, { ...options, receipts })))
     : "not_configured";
-  const onChainOk = onChain === "not_configured" || onChain.every((c) => c.status === "anchored");
+  // A decision that moved money is only valid once its anchors were checked on Arc.
+  const onChainOk = txs.length === 0 || (onChain !== "not_configured" && onChain.every((c) => c.status === "anchored"));
   return {
     decisionId: record.id,
     orgId: record.orgId,

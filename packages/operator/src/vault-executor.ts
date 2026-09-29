@@ -12,6 +12,7 @@ import { decodeEventLog } from "viem";
 import { toVaultAmounts } from "./allocation.js";
 import {
   VaultError,
+  VaultTxError,
   type OperatorExecutor,
   type OwnerExecutor,
   type PayResult,
@@ -137,8 +138,13 @@ export class VaultExecutor implements OperatorExecutor, OwnerExecutor, VaultStat
       throw new Error(`OperatorVault.${call.functionName} simulation failed: ${name ?? (error instanceof Error ? error.message : String(error))}`);
     }
     const { txHash } = await transport.send(call);
-    const receipt = await client.waitForTransactionReceipt({ hash: txHash });
-    if (receipt.status !== "success") throw new Error(`OperatorVault.${call.functionName} reverted in ${txHash}`);
+    let receipt: VaultReceipt;
+    try {
+      receipt = await client.waitForTransactionReceipt({ hash: txHash });
+    } catch (error) {
+      throw new VaultTxError(txHash, "unconfirmed", error instanceof Error ? error.message : String(error));
+    }
+    if (receipt.status !== "success") throw new VaultTxError(txHash, "reverted", `OperatorVault.${call.functionName}`);
     return { txHash, receipt };
   }
 

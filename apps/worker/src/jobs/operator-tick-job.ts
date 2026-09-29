@@ -17,6 +17,7 @@ import {
   BILL_DUE_WINDOW_MS,
   billDueEvent,
   createOperatorRuntime,
+  DuplicateEventError,
   findDecisionByEventRef,
   operatorEnabled,
   parseUsdc,
@@ -98,6 +99,10 @@ async function handleAll(ctx: JobContext, rt: OperatorRuntime, events: readonly 
       ctx.logger.info("operator decision", { eventId: event.id, decisionId: record.id, outcome: record.outcome, txHash: record.txHash });
       tally = add(tally, { processed: 1, failed: 0 });
     } catch (error) {
+      if (error instanceof DuplicateEventError) {
+        ctx.logger.info("operator event already claimed elsewhere", { eventId: event.id });
+        continue;
+      }
       ctx.logger.error("operator event failed", { eventId: event.id, error: errorMessage(error) });
       tally = add(tally, { processed: 0, failed: 1 });
     }
@@ -126,14 +131,17 @@ export function createOperatorTickJob(provider: RuntimeProvider): Job {
 }
 
 let shared: OperatorRuntime | null = null;
+/** The current run's context; the shared runtime reads its clock and logger. */
+let current: JobContext | null = null;
 
 /** Env-built runtime, created once; null when the operator is not enabled. */
 function envRuntime(ctx: JobContext): OperatorRuntime | null {
   if (!operatorEnabled(process.env)) return null;
+  current = ctx;
   if (!shared) {
     shared = createOperatorRuntime(process.env, DEFAULT_ORG_ID, {
-      now: ctx.now,
-      onError: (context, error) => ctx.logger.error("operator", { context, error: errorMessage(error) }),
+      now: () => (current ? current.now() : new Date()),
+      onError: (context, error) => current?.logger.error("operator", { context, error: errorMessage(error) }),
     });
   }
   return shared;

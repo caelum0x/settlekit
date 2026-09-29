@@ -21,7 +21,7 @@ export interface SqlClient {
   unsafe(query: string, params?: unknown[]): Promise<ReadonlyArray<Record<string, unknown>>>;
 }
 
-export const OPERATOR_TABLES = ["operator_decisions", "operator_escalations", "operator_bills", "operator_policies"] as const;
+export const OPERATOR_TABLES = ["operator_decisions", "operator_escalations", "operator_bills", "operator_policies", "operator_claims"] as const;
 
 export const OPERATOR_SCHEMA_SQL: readonly string[] = [
   `CREATE TABLE IF NOT EXISTS operator_decisions (
@@ -54,6 +54,11 @@ export const OPERATOR_SCHEMA_SQL: readonly string[] = [
     org_id text NOT NULL,
     updated_at timestamptz NOT NULL,
     metadata jsonb NOT NULL
+  )`,
+  `CREATE TABLE IF NOT EXISTS operator_claims (
+    id text PRIMARY KEY,
+    org_id text NOT NULL,
+    claimed_at timestamptz NOT NULL
   )`,
 ];
 
@@ -200,5 +205,18 @@ export class PgOperatorStore implements OperatorStore {
       [orgId, orgId, new Date().toISOString(), toMetadata(policy)],
     );
     return policy;
+  }
+
+  async claim(orgId: string, key: string, at: string): Promise<boolean> {
+    const rows = await this.query(
+      `INSERT INTO operator_claims (id, org_id, claimed_at) VALUES ($1, $2, $3)
+       ON CONFLICT (id) DO NOTHING RETURNING id`,
+      [`${orgId}:${key}`, orgId, at],
+    );
+    return rows.length === 1;
+  }
+
+  async release(orgId: string, key: string): Promise<void> {
+    await this.query(`DELETE FROM operator_claims WHERE org_id = $1 AND id = $2`, [orgId, `${orgId}:${key}`]);
   }
 }

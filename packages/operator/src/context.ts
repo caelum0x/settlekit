@@ -64,7 +64,11 @@ export interface X402Purchase {
 
 export interface X402Gateway {
   quote(url: string): Promise<X402Quote>;
-  buy(url: string, maxPrice: bigint): Promise<X402Purchase>;
+  /**
+   * Pay for `url` only if the challenge still names `payTo` (the address the
+   * policy approved) and costs at most `maxPrice`.
+   */
+  buy(url: string, maxPrice: bigint, payTo: string): Promise<X402Purchase>;
   purchasesToday(orgId: string, now: Date): Promise<number>;
 }
 

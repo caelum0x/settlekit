@@ -16,7 +16,7 @@ import { chainDecision, commitmentHash, digest, type DecisionInput, type Decisio
 import { isExpired, type Escalation, type EscalationQueue } from "./escalation.js";
 import { aggregateOutcome, carryOut } from "./execution.js";
 import type { OperatorEvent } from "./events.js";
-import type { OperatorExecutor, OwnerExecutor } from "./executor.js";
+import { VaultError, VaultTxError, type OperatorExecutor, type OwnerExecutor } from "./executor.js";
 import { ChainConflictError, type OperatorStore } from "./store.js";
 import { eventTrace, executeTrace, type ExecutionResult } from "./trace.js";
 
@@ -32,6 +32,14 @@ export interface OperatorServiceDeps {
   readonly x402?: X402Gateway;
   readonly now?: () => Date;
   readonly newId?: (prefix: string) => string;
+}
+
+/** The event was already claimed by another handler (possibly another process). */
+export class DuplicateEventError extends Error {
+  constructor(readonly eventId: string) {
+    super(`event ${eventId} was already handled or is being handled`);
+    this.name = "DuplicateEventError";
+  }
 }
 
 export class OperatorServiceError extends Error {
@@ -78,8 +86,16 @@ export class OperatorService {
   /** Handle an event with a specific engine (e.g. deterministic intake rules). */
   async handleWith(event: OperatorEvent, engine: DecisionEngine): Promise<DecisionRecord> {
     const started = this.now();
-    const ctx = await this.engineContext(event.orgId, started);
-    const decision = await engine.decide(event, ctx);
+    const key = `event:${event.id}`;
+    if (!(await this.deps.store.claim(event.orgId, key, started.toISOString()))) throw new DuplicateEventError(event.id);
+    let decision: EngineDecision;
+    try {
+      decision = await engine.decide(event, await this.engineContext(event.orgId, started));
+    } catch (error) {
+      // Nothing was executed yet, so the event may be retried.
+      await this.deps.store.release(event.orgId, key);
+      throw error;
+    }
     const draft = this.draft(event, decision, started);
     const anchorHash = commitmentHash(draft);
     const results = await this.execute(event.orgId, draft.id, anchorHash, decision.proposals);
@@ -89,6 +105,36 @@ export class OperatorService {
 
   /** Owner approves an escalation: executes it (vault approve or payout) and records it. */
   async approve(orgId: string, escalationId: string, by: string): Promise<DecisionRecord> {
+    return this.resolving(orgId, escalationId, () => this.approveClaimed(orgId, escalationId, by));
+  }
+
+  /** Owner rejects an escalation; a vault-held escalation is released on-chain. */
+  async reject(orgId: string, escalationId: string, by: string, reason: string): Promise<DecisionRecord> {
+    return this.resolving(orgId, escalationId, () => this.rejectClaimed(orgId, escalationId, by, reason));
+  }
+
+  /**
+   * One resolution per escalation across processes. The claim is released
+   * when the attempt moved nothing (failed without a transaction), so the
+   * owner can retry; otherwise it is kept for good.
+   */
+  private async resolving(orgId: string, escalationId: string, work: () => Promise<DecisionRecord>): Promise<DecisionRecord> {
+    await this.pending(orgId, escalationId);
+    const key = `resolve:${escalationId}`;
+    if (!(await this.deps.store.claim(orgId, key, this.now().toISOString()))) {
+      throw new OperatorServiceError(`escalation ${escalationId} is already being resolved`);
+    }
+    try {
+      const record = await work();
+      if (record.outcome === "failed" && !record.txHash) await this.deps.store.release(orgId, key);
+      return record;
+    } catch (error) {
+      await this.deps.store.release(orgId, key);
+      throw error;
+    }
+  }
+
+  private async approveClaimed(orgId: string, escalationId: string, by: string): Promise<DecisionRecord> {
     const escalation = await this.pending(orgId, escalationId);
     const started = this.now();
     const subject = escalation.proposal.action.kind === "escalate" ? escalation.proposal.action.subject : escalation.proposal.action;
@@ -110,8 +156,7 @@ export class OperatorService {
     return this.record({ ...draft, toolCalls: [...draft.toolCalls, ...trace], outcome: aggregateOutcome([result]), ...this.txOf([result]), anchorHash }, started);
   }
 
-  /** Owner rejects an escalation; a vault-held escalation is released on-chain. */
-  async reject(orgId: string, escalationId: string, by: string, reason: string): Promise<DecisionRecord> {
+  private async rejectClaimed(orgId: string, escalationId: string, by: string, reason: string): Promise<DecisionRecord> {
     const escalation = await this.pending(orgId, escalationId);
     const started = this.now();
     const draft = this.ownerDraft(orgId, escalation, "reject", by, `Owner ${by} rejected escalation ${escalation.id}: ${reason}`, started);
@@ -228,8 +273,8 @@ export class OperatorService {
       const tx = await call();
       return { status: "executed", txHash: tx.txHash };
     } catch (error) {
-      const code = (error as { code?: unknown }).code;
-      if (error instanceof Error && error.name === "VaultError" && typeof code === "string") return { status: "blocked_on_chain", error: code };
+      if (error instanceof VaultError) return { status: "blocked_on_chain", error: error.code };
+      if (error instanceof VaultTxError) return { status: "failed", txHash: error.txHash, error: error.message };
       return { status: "failed", error: error instanceof Error ? error.message : String(error) };
     }
   }

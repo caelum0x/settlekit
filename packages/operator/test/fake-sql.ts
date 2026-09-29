@@ -27,6 +27,12 @@ export class FakeSql implements SqlClient {
     }
     if (q.startsWith("INSERT INTO")) return this.insert(q, params);
     if (q.startsWith("SELECT")) return this.select(q, params);
+    if (q.startsWith("DELETE FROM")) {
+      const table = /DELETE FROM (\w+)/.exec(q)?.[1] ?? "";
+      const rows = this.rows(table);
+      this.tables.set(table, rows.filter((r) => !(r.org_id === params[0] && r.id === params[1])));
+      return [];
+    }
     throw new Error(`FakeSql cannot run: ${q}`);
   }
 
@@ -44,6 +50,7 @@ export class FakeSql implements SqlClient {
     const existing = rows.findIndex((r) => r.id === row.id);
     if (existing >= 0) {
       if (!q.includes("ON CONFLICT")) throw new Error("duplicate key value violates unique constraint");
+      if (q.includes("DO NOTHING")) return [];
       rows[existing] = { ...rows[existing], ...row };
       return [];
     }
@@ -51,7 +58,7 @@ export class FakeSql implements SqlClient {
       throw new Error("duplicate key value violates unique constraint operator_decisions_org_id_seq_key");
     }
     rows.push(row);
-    return [];
+    return q.includes("RETURNING id") ? [{ id: row.id }] : [];
   }
 
   private select(q: string, params: unknown[]): Row[] {

@@ -164,7 +164,7 @@ export async function buyX402(s: ToolSession, input: Reasoning & { readonly url:
     accept(s, { kind: "escalate", reason: `x402 purchase needs approval: ${verdict.reasons.join(", ")}` }, input, verdict);
     return { status: "accepted_pending_owner_approval", reasons: verdict.reasons };
   }
-  const bought = await gateway.buy(input.url, quote.price);
+  const bought = await gateway.buy(input.url, quote.price, quote.payTo);
   s.countX402Purchase();
   s.record(X402_TRACE, { url: input.url, rationale: input.rationale }, {
     status: "purchased",
