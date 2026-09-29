@@ -169,6 +169,36 @@ describe("POST /v1/x402/products/:productId/buy", () => {
     expect(customer?.walletAddress).toBe(agent.address);
   });
 
+  it("delivers a GitHub repo invite to the login the agent supplied", async () => {
+    const { runtime } = fakeRuntime();
+    const { app, ctx, pay } = await harness(runtime);
+    const productId = await publishedProduct(app, { type: "github_repo_access", deliveryMode: "github_invite" });
+    const product = await ctx.products.findById(productId);
+    await ctx.products.save({ ...(product as NonNullable<typeof product>), metadata: { repoId: "settlekit/agent-kit" } });
+    await ctx.githubInstallations.save({
+      id: "ghi_1",
+      organizationId: product?.organizationId as string,
+      installationId: 4242,
+      accountLogin: "settlekit",
+      accountType: "Organization",
+      createdAt: new Date().toISOString(),
+    });
+    const res = await pay("eip155:4663")(`${ORIGIN}/v1/x402/products/${productId}/buy`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ githubUsername: "octo-agent" }),
+    });
+    expect(res.status).toBe(201);
+    const body = (await res.json()).data;
+    expect(body.payment.network).toBe("robinhood");
+    expect(body.settlement.asset).toBe("USDG");
+    expect(body.delivery.artifacts[0]).toMatchObject({
+      type: "github_invite",
+      status: "succeeded",
+      output: { repoOwner: "settlekit", repoName: "agent-kit" },
+    });
+  });
+
   it("answers 409 for a settlement whose transaction already backs a payment, delivering once", async () => {
     const { local, runtime } = fakeRuntime();
     const { app, ctx, pay } = await harness(runtime);

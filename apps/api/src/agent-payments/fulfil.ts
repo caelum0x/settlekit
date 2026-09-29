@@ -98,6 +98,20 @@ async function resolveCustomer(ctx: AppContext, input: AgentPurchaseInput): Prom
   return ctx.customers.save(customer);
 }
 
+/**
+ * The GitHub App installation for GitHub actions: the product's pinned
+ * `metadata.githubInstallationId`, else the org's connected installation,
+ * else GITHUB_APP_INSTALLATION_ID.
+ */
+async function githubInstallationFor(ctx: AppContext, product: Product): Promise<number | undefined> {
+  const pinned = product.metadata?.githubInstallationId;
+  if (typeof pinned === "number" && Number.isInteger(pinned) && pinned > 0) return pinned;
+  const [installation] = await ctx.githubInstallations.list((entry) => entry.organizationId === product.organizationId);
+  if (installation) return installation.installationId;
+  const fromEnv = Number(process.env.GITHUB_APP_INSTALLATION_ID);
+  return Number.isInteger(fromEnv) && fromEnv > 0 ? fromEnv : undefined;
+}
+
 async function runDelivery(
   ctx: AppContext,
   input: AgentPurchaseInput,
@@ -113,12 +127,15 @@ async function runDelivery(
     actions,
     createdAt: toIso(new Date()),
   };
+  const needsGithub = actions.some((action) => action.type === "github_invite" || action.type === "github_team_add");
+  const githubInstallationId = needsGithub ? await githubInstallationFor(ctx, input.product) : undefined;
   const deliveryCtx: DeliveryContext = {
     organizationId: payment.organizationId,
     customerId: payment.customerId,
     productId: input.product.id,
     paymentId: payment.id,
     entitlementId: entitlement.id,
+    ...(githubInstallationId !== undefined ? { githubInstallationId } : {}),
     ...(input.buyer.githubUsername ? { githubUsername: input.buyer.githubUsername } : {}),
     ...(input.buyer.discordUserId ? { discordUserId: input.buyer.discordUserId } : {}),
     ...(input.buyer.email ? { customerEmail: input.buyer.email } : {}),
