@@ -102,6 +102,7 @@ describe("verifyZcashTransparent", () => {
     expect(await verifyZcashTransparent(explorer, { ...base, minConfirmations: 500 })).toMatchObject({
       status: "pending",
       confirmations: 163,
+      found: true,
     });
     const recorded = fixture<{ data: Record<string, { transaction: { block_id: number } }> }>("blockchair-tx.json");
     const mempool = structuredClone(recorded);
@@ -109,8 +110,12 @@ describe("verifyZcashTransparent", () => {
     expect(await verifyZcashTransparent(recordedExplorer(mempool).explorer, base)).toMatchObject({
       status: "pending",
       reason: expect.stringMatching(/mempool/),
+      found: true,
     });
-    expect(await verifyZcashTransparent(explorer, { ...base, txid: "ab".repeat(32) })).toMatchObject({ status: "pending" });
+    expect(await verifyZcashTransparent(explorer, { ...base, txid: "ab".repeat(32) })).toMatchObject({
+      status: "pending",
+      found: false,
+    });
   });
 
   it("rejects payments mined before the session and flags late ones for review", async () => {

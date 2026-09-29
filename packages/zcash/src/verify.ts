@@ -35,12 +35,19 @@ export interface VerifyZcashParams {
 
 export type ZcashVerification =
   | { status: "confirmed"; confirmations: number; receivedZats: bigint }
-  | { status: "pending"; reason: string; retryLater: boolean; confirmations: number }
+  | {
+      status: "pending";
+      reason: string;
+      retryLater: boolean;
+      confirmations: number;
+      /** True once the tx is known and pays the session (mempool / awaiting confirmations). */
+      found: boolean;
+    }
   | { status: "rejected"; reason: string }
   | { status: "late"; reason: string; confirmations: number; receivedZats: bigint };
 
-function pending(reason: string, retryLater = false, confirmations = 0): ZcashVerification {
-  return { status: "pending", reason, retryLater, confirmations };
+function pending(reason: string, retryLater = false, confirmations = 0, found = false): ZcashVerification {
+  return { status: "pending", reason, retryLater, confirmations, found };
 }
 
 /** Verify `params.txid` through `explorer`. Never throws for chain states. */
@@ -70,11 +77,11 @@ export async function verifyZcashTransparent(
   if (params.payer !== undefined && !tx.inputAddresses.includes(params.payer)) {
     return { status: "rejected", reason: "transaction was not sent from the declared payer address" };
   }
-  if (tx.blockHeight === null || tx.blockTime === null) return pending("transaction is in the mempool", true);
+  if (tx.blockHeight === null || tx.blockTime === null) return pending("transaction is in the mempool", true, 0, true);
 
   const minConfirmations = params.minConfirmations ?? DEFAULT_ZCASH_MIN_CONFIRMATIONS;
   if (tx.confirmations < minConfirmations) {
-    return pending(`awaiting confirmations: ${tx.confirmations} < ${minConfirmations}`, true, tx.confirmations);
+    return pending(`awaiting confirmations: ${tx.confirmations} < ${minConfirmations}`, true, tx.confirmations, true);
   }
   if (tx.blockTime.getTime() < params.notBefore.getTime() - NOT_BEFORE_SKEW_MS) {
     return { status: "rejected", reason: "transaction was mined before the checkout session was created" };
