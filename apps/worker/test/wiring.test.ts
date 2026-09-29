@@ -144,7 +144,10 @@ function createInMemoryWebhookSender(): HttpSender & { requests: WebhookRequest[
   };
 }
 
-/** Arc RPC double returning a successful USDC transfer receipt. */
+/** The merchant payout wallet the checkout session asks buyers to pay. */
+const MERCHANT_PAY_TO = "0x3333333333333333333333333333333333333333" as Hex;
+
+/** Arc RPC double returning a successful USDC transfer receipt to the merchant. */
 function createArcRpc(config: WorkerConfig, fromAddr: Hex, amountBase: bigint): ArcRpc {
   const transferTopic = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" as Hex;
   const pad = (hex: string): Hex => `0x${hex.replace(/^0x/, "").padStart(64, "0")}` as Hex;
@@ -157,7 +160,7 @@ function createArcRpc(config: WorkerConfig, fromAddr: Hex, amountBase: bigint): 
     logs: [
       {
         address: config.arc.usdcAddress,
-        topics: [transferTopic, pad(fromAddr), pad(config.arc.usdcAddress)],
+        topics: [transferTopic, pad(fromAddr), pad(MERCHANT_PAY_TO)],
         data: pad(amountBase.toString(16)),
         logIndex: 0,
       },
@@ -265,6 +268,20 @@ describe("worker delivery-clients wiring", () => {
   it("confirms a payment via the Arc client and enqueues its delivery", async () => {
     const { ctx, stores, config } = setup();
     const now = new Date();
+
+    await stores.upsertCheckoutSession({
+      id: "cs_1",
+      organizationId: "org_1",
+      merchantId: "mch_1",
+      lineItems: [],
+      amount: money("1.00", "USDC"),
+      status: "open",
+      payToAddress: MERCHANT_PAY_TO,
+      network: "arc",
+      expiresAt: toIso(new Date(now.getTime() + 86_400_000)),
+      collectedFields: {},
+      createdAt: toIso(now),
+    });
 
     const payment = await stores.upsertPayment({
       id: "pay_confirm",

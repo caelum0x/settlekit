@@ -2,65 +2,61 @@
  * Payment confirmation poller.
  *
  * For every pending payment that carries an on-chain transaction hash, this job
- * uses the real {@link ArcClient} to verify the USDC transfer landed and to read
- * the current confirmation count. Once the configured minimum confirmations are
- * met it advances the payment via `@settlekit/payments` `confirmPayment` and, if
- * the payment has a queued delivery run, flips that run to runnable so the
- * delivery job picks it up on its next tick.
+ * loads the payment's checkout session and verifies the transfer on the
+ * payment's own network against the session's payTo address (see
+ * ./payment-verification.ts): Arc via the real {@link ArcClient}, Solana via
+ * `@settlekit/solana`. Networks the worker cannot verify stay pending (fail
+ * closed). Once verified it advances the payment via `@settlekit/payments`
+ * `confirmPayment` and, if the payment has a queued delivery run, flips that
+ * run to runnable so the delivery job picks it up on its next tick.
  */
 
 import { confirmPayment } from "@settlekit/payments";
-import type { Hex } from "@settlekit/arc";
 import { errorMessage } from "../logger.js";
+import { verifyPaymentOnChain } from "./payment-verification.js";
 import type { Job, JobContext, JobResult } from "./types.js";
-
-function isHex(value: string | undefined): value is Hex {
-  return typeof value === "string" && /^0x[a-fA-F0-9]+$/.test(value);
-}
 
 export const paymentConfirmJob: Job = {
   name: "payment-confirm",
   async run(ctx: JobContext): Promise<JobResult> {
     const pending = await ctx.stores.pendingPayments();
-    const minConfirmations = ctx.config.arc.minConfirmations;
     let processed = 0;
     let failed = 0;
 
     for (const payment of pending) {
-      if (!isHex(payment.txHash)) {
+      const txHash = payment.txHash;
+      if (txHash === undefined || txHash.length === 0) {
         // Not yet observed on-chain; nothing to verify this tick.
         continue;
       }
 
       try {
-        const verification = await ctx.arc.verifyUsdcTransfer({
-          txHash: payment.txHash,
-          to: ctx.config.arc.usdcAddress,
-          minAmount: payment.amount,
-        });
-
-        if (!verification.confirmed) {
-          ctx.logger.debug("payment transfer not yet confirmed on-chain", {
+        const session = await ctx.stores.getCheckoutSession(payment.checkoutSessionId);
+        if (!session) {
+          // Without the session there is no trusted payTo to verify against.
+          ctx.logger.warn("payment has no checkout session; cannot verify", {
             paymentId: payment.id,
-            confirmations: verification.confirmations,
+            checkoutSessionId: payment.checkoutSessionId,
           });
           continue;
         }
 
-        if (verification.confirmations < minConfirmations) {
-          ctx.logger.debug("payment awaiting confirmations", {
+        const verification = await verifyPaymentOnChain(ctx, payment, txHash, session);
+        if (verification.status !== "confirmed") {
+          ctx.logger.debug("payment not confirmed on-chain", {
             paymentId: payment.id,
-            confirmations: verification.confirmations,
-            required: minConfirmations,
+            network: payment.network,
+            status: verification.status,
+            reason: verification.reason,
           });
           continue;
         }
 
         const confirmed = confirmPayment(
           payment,
-          payment.txHash,
+          txHash,
           verification.confirmations,
-          minConfirmations,
+          verification.minConfirmations,
           ctx.now(),
         );
         await ctx.stores.upsertPayment(confirmed);

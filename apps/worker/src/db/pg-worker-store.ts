@@ -17,6 +17,7 @@ import {
   unpackDoc,
   unpackDocs,
   type Database,
+  checkoutSessions,
   payments,
   subscriptions,
   entitlements,
@@ -33,6 +34,7 @@ import {
 } from "@settlekit/database";
 import { generateSecret } from "@settlekit/common";
 import type {
+  CheckoutSession,
   Customer,
   DiscordRoleGrant,
   Entitlement,
@@ -109,6 +111,15 @@ export class PgWorkerStore implements WorkerStore {
   async getPayment(id: string): Promise<Payment | undefined> {
     const rows = await this.db.select({ metadata: payments.metadata }).from(payments).where(eq(payments.id, id)).limit(1);
     return unpackDoc<Payment>(rows[0]) ?? undefined;
+  }
+
+  async getCheckoutSession(id: string): Promise<CheckoutSession | undefined> {
+    const rows = await this.db
+      .select({ metadata: checkoutSessions.metadata })
+      .from(checkoutSessions)
+      .where(eq(checkoutSessions.id, id))
+      .limit(1);
+    return unpackDoc<CheckoutSession>(rows[0]) ?? undefined;
   }
 
   async pendingPayments(): Promise<Payment[]> {
