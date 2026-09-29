@@ -1,5 +1,5 @@
-// Sidebar navigation model. Lists every section from plan §16 plus the
-// §27 integration sections, grouped for the merchant dashboard.
+// Sidebar navigation model. The first group is the everyday workspace (kept
+// short on purpose); everything else lives under "More tools".
 
 export interface NavItem {
   label: string;
@@ -9,59 +9,43 @@ export interface NavItem {
 export interface NavGroup {
   title: string;
   items: NavItem[];
+  /** Collapsed by default. */
+  collapsed?: boolean;
 }
 
 export const NAV_GROUPS: NavGroup[] = [
   {
-    title: "Overview",
+    title: "Workspace",
     items: [
-      { label: "Dashboard", href: "/" },
-      { label: "Analytics", href: "/analytics" },
+      { label: "Home", href: "/" },
+      { label: "Payments", href: "/payments" },
+      { label: "Products", href: "/products" },
+      { label: "Customers", href: "/customers" },
+      { label: "Balances", href: "/payouts" },
+      { label: "Settings", href: "/settings" },
     ],
   },
   {
-    title: "Commerce",
+    title: "More tools",
+    collapsed: true,
     items: [
-      { label: "Products", href: "/products" },
-      { label: "Bundles", href: "/bundles" },
-      { label: "Coupons", href: "/coupons" },
-      { label: "Invoices", href: "/invoices" },
-      { label: "Payments", href: "/payments" },
-      { label: "Refunds", href: "/refunds" },
-      { label: "Dunning", href: "/dunning" },
-      { label: "Disputes", href: "/disputes" },
-      { label: "Payouts", href: "/payouts" },
-      { label: "Customers", href: "/customers" },
+      { label: "Setup guide", href: "/onboarding" },
+      { label: "Analytics", href: "/analytics" },
       { label: "Subscriptions", href: "/subscriptions" },
       { label: "Entitlements", href: "/entitlements" },
-    ],
-  },
-  {
-    title: "Access delivery",
-    items: [
-      { label: "License Keys", href: "/license-keys" },
-      { label: "API Keys", href: "/api-keys" },
+      { label: "Refunds", href: "/refunds" },
+      { label: "Disputes", href: "/disputes" },
+      { label: "Invoices", href: "/invoices" },
+      { label: "Coupons", href: "/coupons" },
+      { label: "Bundles", href: "/bundles" },
+      { label: "License keys", href: "/license-keys" },
+      { label: "API keys", href: "/api-keys" },
       { label: "Files", href: "/files" },
-      { label: "Delivery", href: "/delivery/runs" },
-    ],
-  },
-  {
-    title: "Integrations",
-    items: [
-      { label: "GitHub Access", href: "/github" },
-      { label: "Discord Access", href: "/discord" },
-      { label: "SaaS Plans", href: "/saas/plans" },
-      { label: "Agent Services", href: "/agent-services" },
-      { label: "Marketplace", href: "/marketplace" },
-      { label: "Usage & Credits", href: "/usage" },
-      { label: "Escrow", href: "/escrow/tasks" },
-    ],
-  },
-  {
-    title: "Platform",
-    items: [
+      { label: "Delivery runs", href: "/delivery/runs" },
+      { label: "GitHub access", href: "/github" },
+      { label: "Discord access", href: "/discord" },
+      { label: "Agent services", href: "/agent-services" },
       { label: "Webhooks", href: "/webhooks" },
-      { label: "Settings", href: "/settings" },
     ],
   },
 ];

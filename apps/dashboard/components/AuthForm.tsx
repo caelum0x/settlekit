@@ -55,7 +55,8 @@ export function AuthForm({ mode }: AuthFormProps) {
   /** On a successful auth call: persist the cookie and go to the dashboard. */
   async function completeAuth(session: AuthSession) {
     await persistSession(session.sessionToken);
-    router.push("/");
+    // New sellers go straight into the guided setup.
+    router.push(isSignup ? "/onboarding" : "/");
     router.refresh();
   }
 

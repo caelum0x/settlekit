@@ -1,90 +1,70 @@
+import Link from "next/link";
 import { api } from "@/lib/api";
+import { merchantApi } from "@/lib/merchant-api";
 import { PageHeader, Card, ErrorBanner } from "@/components/ui";
-import { SimpleCreateForm } from "@/components/forms/SimpleCreateForm";
 import { LinkWallet } from "@/components/LinkWallet";
 import { EditProfile } from "@/components/EditProfile";
 import { SessionList } from "@/components/SessionList";
+import { NetworkAddressForm } from "@/components/NetworkAddressForm";
 import { getCurrentAccount } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-async function saveSettings(values: Record<string, string>): Promise<string | null> {
-  "use server";
-  const { error } = await api.settings.update({
-    orgName: values.orgName,
-    supportEmail: values.supportEmail,
-    payoutCurrency: values.payoutCurrency,
-    defaultRail:
-      values.defaultRail === "arc" || values.defaultRail === "x402"
-        ? values.defaultRail
-        : "circle",
-  });
-  return error;
-}
-
 export default async function SettingsPage() {
-  const settings = await api.settings.get();
-  const account = await getCurrentAccount();
+  const [profile, hooks, keys, account] = await Promise.all([
+    merchantApi.profile(),
+    api.webhooks.list(),
+    api.apiKeys.list(),
+    getCurrentAccount(),
+  ]);
   return (
     <>
-      <PageHeader
-        title="Settings"
-        description="Organization profile, payout currency, and default settlement rail."
-      />
-      <ErrorBanner error={null} />
-      <Card title="Organization">
-        <dl className="detail-grid" style={{ marginBottom: 18 }}>
-          <dt>Webhook secret</dt>
-          <dd className="mono">
-            {settings.webhookSecret
-              ? `${settings.webhookSecret.slice(0, 8)}••••••••`
-              : "Not set"}
-          </dd>
-          <dt>Current rail</dt>
-          <dd>{settings.defaultRail}</dd>
-        </dl>
-        <SimpleCreateForm
-          submitLabel="Save settings"
-          successMessage="Settings saved."
-          action={saveSettings}
-          fields={[
-            { name: "orgName", label: "Organization name", required: true, placeholder: settings.orgName },
-            { name: "supportEmail", label: "Support email", type: "email", placeholder: settings.supportEmail || "support@example.com" },
-            {
-              name: "payoutCurrency",
-              label: "Payout currency",
-              options: [
-                { value: "USDC", label: "USDC" },
-                { value: "USD", label: "USD" },
-                { value: "EUR", label: "EUR" },
-              ],
-            },
-            {
-              name: "defaultRail",
-              label: "Default settlement rail",
-              options: [
-                { value: "circle", label: "Circle" },
-                { value: "arc", label: "Arc" },
-                { value: "x402", label: "x402" },
-              ],
-            },
-          ]}
-        />
+      <PageHeader title="Settings" description="Where you get paid, how your systems hear about payments, and your account." />
+      <ErrorBanner error={profile.error} />
+
+      <Card title="Networks and receiving addresses">
+        <p className="page-desc" style={{ marginBottom: 16 }}>
+          New checkouts use these addresses immediately. Existing open checkouts keep the address they were created
+          with.
+        </p>
+        {profile.data ? (
+          <NetworkAddressForm networks={profile.data.networks} profile={profile.data.profile} askBusiness submitLabel="Save" />
+        ) : null}
       </Card>
+
+      <Card title="Webhooks">
+        <p className="page-desc" style={{ marginBottom: 12 }}>
+          {hooks.data.length === 0
+            ? "No endpoints yet. Add one to receive payment.confirmed and access events on your server."
+            : `${hooks.data.length} endpoint${hooks.data.length === 1 ? "" : "s"}: ${hooks.data.map((h) => h.url).join(", ")}`}
+        </p>
+        <Link href="/webhooks" className="btn">
+          Manage webhooks
+        </Link>
+      </Card>
+
+      <Card title="API keys">
+        <p className="page-desc" style={{ marginBottom: 12 }}>
+          {keys.data.length === 0
+            ? "No API keys yet. Create one to verify access from your app or create checkouts from your backend."
+            : `${keys.data.length} key${keys.data.length === 1 ? "" : "s"}: ${keys.data.map((k) => k.name).join(", ")}`}
+        </p>
+        <Link href="/api-keys" className="btn">
+          Manage API keys
+        </Link>
+      </Card>
+
       <Card title="Profile">
         {account ? (
-          <EditProfile
-            email={account.email}
-            {...(account.displayName ? { displayName: account.displayName } : {})}
-          />
+          <EditProfile email={account.email} {...(account.displayName ? { displayName: account.displayName } : {})} />
         ) : (
           <p className="page-desc">Sign in to edit your profile.</p>
         )}
       </Card>
-      <Card title="Wallet">
+      <Card title="Sign-in wallet">
         <p className="page-desc" style={{ marginBottom: 12 }}>
-          Link a web3 wallet to sign in with Ethereum (SIWE) instead of a
-          password.
+          Link a wallet to sign in with Ethereum (SIWE) instead of a password. This is separate from your receiving
+          addresses.
         </p>
         <LinkWallet {...(account?.walletAddress ? { linkedAddress: account.walletAddress } : {})} />
       </Card>

@@ -1,164 +1,99 @@
 import Link from "next/link";
-import { api } from "@/lib/api";
-import {
-  formatMoney,
-  formatNumber,
-  formatDate,
-  formatRelative,
-} from "@/lib/format";
-import {
-  PageHeader,
-  StatGrid,
-  StatCard,
-  Card,
-  DataTable,
-  StatusBadge,
-  EmptyState,
-  ErrorBanner,
-} from "@/components/ui";
-import { OnboardingChecklist } from "@/components/OnboardingChecklist";
+import { merchantApi } from "@/lib/merchant-api";
+import { formatDateTime } from "@/lib/format";
+import { formatUsd } from "@/lib/merchant-types";
+import { PageHeader, StatGrid, StatCard, Card, DataTable, StatusBadge, EmptyState, ErrorBanner } from "@/components/ui";
+import { NetworkChip, SourceTag } from "@/components/NetworkBadge";
+import { ShareLink } from "@/components/ShareLink";
 
 export const dynamic = "force-dynamic";
 
-export default async function DashboardPage() {
-  const [summary, payments, subscriptions, runs, onboarding] = await Promise.all([
-    api.analytics.summary(),
-    api.payments.list(),
-    api.subscriptions.list(),
-    api.delivery.runs(),
-    api.onboarding.status(),
+export default async function HomePage() {
+  const [overview, payments, profile] = await Promise.all([
+    merchantApi.overview(),
+    merchantApi.payments(),
+    merchantApi.profile(),
   ]);
-
-  const recentPayments = payments.data.slice(0, 6);
-  const expiringSubs = subscriptions.data
-    .filter((s) => s.status === "active" || s.status === "trialing")
-    .slice(0, 6);
-  const failedRuns = runs.data.filter((r) => r.status === "failed").slice(0, 6);
+  const o = overview.data;
+  const recent = (payments.data ?? []).slice(0, 8);
+  const networkName = new Map((profile.data?.networks ?? []).map((n) => [n.network as string, n.name]));
+  const byNetwork = Object.entries(o?.byNetwork ?? {}).sort((a, b) => b[1].volumeUsd - a[1].volumeUsd);
 
   return (
     <>
       <PageHeader
-        title="Dashboard"
-        description="Revenue, customers, active access, expiring subscriptions, and delivery health."
+        title="Home"
+        description="Payments across every network you accept, and the links that bring them in."
         action={
           <Link href="/products/new" className="btn btn-primary">
-            + Create Product
+            New product
           </Link>
         }
       />
+      <ErrorBanner error={overview.error} />
 
-      <ErrorBanner error={payments.error} />
-
-      {onboarding && !onboarding.complete ? (
-        <OnboardingChecklist status={onboarding} />
+      {o && (!o.onboarded || o.productCount === 0) ? (
+        <section className="card callout">
+          <h2 className="card-title">Finish setting up</h2>
+          <p className="page-desc">
+            {o.onboarded
+              ? "Create your first product to get a checkout link."
+              : "Add the wallets you want to be paid into, then create your first product."}
+          </p>
+          <div className="builder-actions" style={{ justifyContent: "flex-start" }}>
+            <Link href="/onboarding" className="btn btn-primary">
+              Continue setup
+            </Link>
+          </div>
+        </section>
       ) : null}
 
       <StatGrid>
-        <StatCard
-          label="Revenue"
-          value={formatMoney(summary.revenue)}
-          hint={`MRR ${formatMoney(summary.mrr)}`}
-          tone="good"
-        />
-        <StatCard
-          label="Customers"
-          value={formatNumber(summary.customers)}
-          hint="Lifetime accounts"
-        />
-        <StatCard
-          label="Active access"
-          value={formatNumber(summary.activeAccess)}
-          hint="Live entitlements"
-        />
-        <StatCard
-          label="Expiring subs"
-          value={formatNumber(summary.expiringSubscriptions)}
-          hint="Renewing soon"
-          tone="warn"
-        />
-        <StatCard
-          label="Failed deliveries"
-          value={formatNumber(summary.failedDeliveries)}
-          hint="Need attention"
-          tone={summary.failedDeliveries > 0 ? "bad" : "good"}
-        />
+        <StatCard label="Volume" value={formatUsd(o?.volumeUsd ?? 0)} hint="Confirmed payments" tone="good" />
+        <StatCard label="Payments" value={String(o?.paymentCount ?? 0)} hint="Verified on-chain" />
+        <StatCard label="Products" value={String(o?.productCount ?? 0)} hint="With reusable links" />
+        <StatCard label="Networks" value={String(o?.acceptedNetworks.length ?? 0)} hint="Accepted" />
       </StatGrid>
+
+      {o?.firstProduct?.slug ? (
+        <Card title={`Checkout link: ${o.firstProduct.name}`}>
+          <ShareLink slug={o.firstProduct.slug} productName={o.firstProduct.name} priceUsd={o.firstProduct.priceUsd} showEmbed={false} />
+        </Card>
+      ) : null}
+
+      {byNetwork.length > 0 ? (
+        <Card title="Volume by network">
+          <div className="bar-list">
+            {byNetwork.map(([network, v]) => {
+              const max = byNetwork[0]![1].volumeUsd || 1;
+              return (
+                <div className="bar-row" key={network}>
+                  <span className="bar-label">{networkName.get(network) ?? network}</span>
+                  <span className="bar-track">
+                    <span className="bar-fill" style={{ width: `${Math.max(3, (v.volumeUsd / max) * 100)}%` }} />
+                  </span>
+                  <span className="bar-value">
+                    {formatUsd(v.volumeUsd)} · {v.count}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      ) : null}
 
       <Card title="Recent payments">
         <DataTable
-          rows={recentPayments}
+          rows={recent}
           getKey={(p) => p.id}
-          empty={
-            <EmptyState
-              title="No payments yet"
-              message="Once buyers pay in USDC, transactions appear here in real time."
-            />
-          }
+          empty={<EmptyState title="No payments yet" message="Share your checkout link; payments show up here as soon as they are verified." />}
           columns={[
-            { header: "Customer", cell: (p) => p.customerEmail },
-            { header: "Rail", cell: (p) => <span className="tag">{p.rail}</span> },
-            { header: "Status", cell: (p) => <StatusBadge status={p.status} /> },
-            { header: "Date", cell: (p) => formatDate(p.createdAt) },
-            {
-              header: "Amount",
-              align: "right",
-              cell: (p) => formatMoney(p.amount),
-            },
-          ]}
-        />
-      </Card>
-
-      <Card title="Expiring subscriptions">
-        <DataTable
-          rows={expiringSubs}
-          getKey={(s) => s.id}
-          empty={
-            <EmptyState
-              title="No active subscriptions"
-              message="Recurring SaaS plans and renewals will be tracked here."
-            />
-          }
-          columns={[
-            { header: "Customer", cell: (s) => s.customerEmail },
-            { header: "Plan", cell: (s) => s.planName },
-            { header: "Status", cell: (s) => <StatusBadge status={s.status} /> },
-            {
-              header: "Renews",
-              cell: (s) => formatRelative(s.currentPeriodEnd),
-            },
-            {
-              header: "Amount",
-              align: "right",
-              cell: (s) => formatMoney(s.amount),
-            },
-          ]}
-        />
-      </Card>
-
-      <Card title="Failed deliveries">
-        <DataTable
-          rows={failedRuns}
-          getKey={(r) => r.id}
-          empty={
-            <EmptyState
-              title="All deliveries healthy"
-              message="Failed access-grant runs (GitHub invites, license keys, webhooks) show up here for retry."
-            />
-          }
-          columns={[
-            { header: "Product", cell: (r) => r.productName },
-            { header: "Customer", cell: (r) => r.customerEmail },
-            { header: "Action", cell: (r) => <span className="tag">{r.action}</span> },
-            { header: "Attempts", cell: (r) => formatNumber(r.attempts) },
-            {
-              header: "",
-              align: "right",
-              cell: () => (
-                <Link href="/delivery/runs" className="muted">
-                  View runs →
-                </Link>
-              ),
-            },
+            { header: "Product", cell: (p) => <Link className="link" href={`/payments/${p.id}`}>{p.products.map((x) => x.name).join(", ") || "Payment"}</Link> },
+            { header: "Network", cell: (p) => <NetworkChip name={p.networkName} asset={p.asset} env={p.env} /> },
+            { header: "Source", cell: (p) => <SourceTag source={p.source} /> },
+            { header: "Status", cell: (p) => <StatusBadge status={p.status === "confirmed" ? "paid" : p.status} /> },
+            { header: "Date", cell: (p) => formatDateTime(p.confirmedAt ?? p.createdAt) },
+            { header: "Amount", align: "right", cell: (p) => formatUsd(p.amountUsd) },
           ]}
         />
       </Card>

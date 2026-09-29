@@ -1,47 +1,55 @@
-import { api } from "@/lib/api";
-import { formatMoney, formatDate, formatNumber } from "@/lib/format";
-import {
-  PageHeader,
-  Card,
-  DataTable,
-  EmptyState,
-  ErrorBanner,
-} from "@/components/ui";
+import { merchantApi } from "@/lib/merchant-api";
+import { formatDate, humanize } from "@/lib/format";
+import { formatUsd, shortHash } from "@/lib/merchant-types";
+import { PageHeader, Card, DataTable, StatusBadge, EmptyState, ErrorBanner } from "@/components/ui";
 
 export const dynamic = "force-dynamic";
 
 export default async function CustomersPage() {
-  const customers = await api.customers.list();
+  const [customers, products] = await Promise.all([merchantApi.customers(), merchantApi.products()]);
+  const productName = new Map((products.data ?? []).map((p) => [p.id, p.name]));
   return (
     <>
-      <PageHeader
-        title="Customers"
-        description="People and agents who have purchased access to your products."
-      />
+      <PageHeader title="Customers" description="Everyone who paid, what they spent, and the access they hold." />
       <ErrorBanner error={customers.error} />
       <Card>
         <DataTable
-          rows={customers.data}
+          rows={customers.data ?? []}
           getKey={(c) => c.id}
-          empty={
-            <EmptyState
-              title="No customers yet"
-              message="Buyers are created automatically on first purchase and tracked here."
-            />
-          }
+          empty={<EmptyState title="No customers yet" message="Buyers appear here after their first verified payment." />}
           columns={[
-            { header: "Email", cell: (c) => c.email },
-            { header: "Name", cell: (c) => c.name ?? "—" },
             {
-              header: "Active access",
-              cell: (c) => formatNumber(c.activeEntitlements),
+              header: "Customer",
+              cell: (c) => (
+                <div>
+                  <div>{c.email ?? (c.wallet ? <span className="mono">{shortHash(c.wallet)}</span> : <span className="dim">Anonymous</span>)}</div>
+                  <div className="dim small">
+                    {[c.githubUsername ? `GitHub @${c.githubUsername}` : null, c.discordUserId ? `Discord ${c.discordUserId}` : null]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </div>
+                </div>
+              ),
             },
-            { header: "Since", cell: (c) => formatDate(c.createdAt) },
+            { header: "Networks", cell: (c) => c.networks.join(", ") || "—" },
             {
-              header: "Lifetime value",
-              align: "right",
-              cell: (c) => formatMoney(c.lifetimeValue),
+              header: "Access",
+              cell: (c) =>
+                c.entitlements.length === 0 ? (
+                  <span className="dim">None</span>
+                ) : (
+                  <div className="tag-list">
+                    {c.entitlements.map((e) => (
+                      <span key={e.id} className="access-pill" title={humanize(e.entitlementType)}>
+                        {productName.get(e.productId) ?? humanize(e.entitlementType)} <StatusBadge status={e.status} />
+                      </span>
+                    ))}
+                  </div>
+                ),
             },
+            { header: "Payments", cell: (c) => String(c.payments) },
+            { header: "Last paid", cell: (c) => formatDate(c.lastPaid) },
+            { header: "Spent", align: "right", cell: (c) => formatUsd(c.spentUsd) },
           ]}
         />
       </Card>

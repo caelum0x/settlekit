@@ -1,139 +1,76 @@
-import { api } from "@/lib/api";
-import { formatMoneyDecimal, formatDate, humanize } from "@/lib/format";
-import {
-  PageHeader,
-  Card,
-  StatGrid,
-  StatCard,
-  DataTable,
-  StatusBadge,
-  EmptyState,
-  ErrorBanner,
-} from "@/components/ui";
-import { SimpleCreateForm } from "@/components/forms/SimpleCreateForm";
-import type { Payout } from "@/lib/types";
-
-/** Render a take-rate like "2.5% + 0.30" from a basis-points + fixed schedule. */
-function formatRate(bps: number, fixed: string): string {
-  return `${(bps / 100).toString()}% + ${fixed}`;
-}
+import Link from "next/link";
+import { merchantApi } from "@/lib/merchant-api";
+import { shortHash } from "@/lib/merchant-types";
+import { PageHeader, Card, DataTable, EmptyState, ErrorBanner } from "@/components/ui";
+import { NetworkBadge } from "@/components/NetworkBadge";
 
 export const dynamic = "force-dynamic";
 
-type PayoutNetwork = "arc" | "base" | "ethereum";
-
-const NETWORKS: PayoutNetwork[] = ["arc", "base", "ethereum"];
-
-function isNetwork(value: string): value is PayoutNetwork {
-  return (NETWORKS as string[]).includes(value);
-}
-
-async function createPayout(values: Record<string, string>): Promise<string | null> {
-  "use server";
-  const networkRaw = (values.network ?? "arc").trim();
-  const network: PayoutNetwork = isNetwork(networkRaw) ? networkRaw : "arc";
-  const { error } = await api.payouts.create({
-    organizationId: (values.organizationId ?? "").trim(),
-    walletAddress: (values.walletAddress ?? "").trim(),
-    amount: (values.amount ?? "").trim(),
-    network,
-  });
-  return error;
+function amount(value: string | null): string {
+  if (value === null) return "—";
+  const n = Number(value);
+  return Number.isNaN(n) ? value : n.toLocaleString("en-US", { maximumFractionDigits: 6 });
 }
 
 export default async function PayoutsPage() {
-  const [payouts, balance] = await Promise.all([
-    api.payouts.list(),
-    api.payouts.balance(),
-  ]);
+  const [balances, profile] = await Promise.all([merchantApi.balances(), merchantApi.profile()]);
+  const names = new Map((profile.data?.networks ?? []).map((n) => [n.network as string, n.name]));
+  const rows = balances.data ?? [];
   return (
     <>
       <PageHeader
-        title="Payouts"
-        description="On-chain settlements to your wallet. Your available balance is your gross USDC volume minus the platform fee and prior payouts."
+        title="Balances"
+        description="Buyers pay straight into your wallets, so there is nothing to withdraw: this is what each receiving address holds right now, read live from each chain."
       />
-      <ErrorBanner error={payouts.error} />
-
-      {balance ? (
-        <StatGrid>
-          <StatCard
-            label="Available to withdraw"
-            value={formatMoneyDecimal(balance.available)}
-            hint="Net of platform fee + prior payouts"
-            tone="good"
-          />
-          <StatCard
-            label="Gross volume"
-            value={formatMoneyDecimal(balance.grossVolume)}
-            hint="Lifetime confirmed payments"
-          />
-          <StatCard
-            label="Platform fee"
-            value={formatMoneyDecimal(balance.platformFees)}
-            hint={`Take-rate ${formatRate(balance.feeSchedule.bps, balance.feeSchedule.fixed)}`}
-            tone="warn"
-          />
-          <StatCard
-            label="Net earnings"
-            value={formatMoneyDecimal(balance.netToMerchant)}
-            hint="Gross minus platform fee"
-          />
-        </StatGrid>
-      ) : null}
-      <Card title="Payouts">
-        <DataTable<Payout>
-          rows={payouts.data}
-          getKey={(p) => p.id}
+      <ErrorBanner error={balances.error} />
+      <Card>
+        <DataTable
+          rows={rows}
+          getKey={(b) => b.network}
           empty={
             <EmptyState
-              title="No payouts yet"
-              message="Create a pending payout below, then mark it paid once the on-chain transfer confirms."
+              title="No receiving addresses"
+              message="Add the wallets you want to be paid into."
+              action={
+                <Link href="/settings" className="btn btn-primary">
+                  Add addresses
+                </Link>
+              }
             />
           }
           columns={[
-            { header: "ID", cell: (p) => <span className="mono">{p.id}</span> },
-            { header: "Organization", cell: (p) => <span className="mono">{p.organizationId}</span> },
-            { header: "Wallet", cell: (p) => <span className="mono">{p.walletAddress}</span> },
-            { header: "Network", cell: (p) => humanize(p.network) },
-            { header: "Status", cell: (p) => <StatusBadge status={p.status} /> },
-            { header: "Created", cell: (p) => formatDate(p.createdAt) },
-            { header: "Amount", align: "right", cell: (p) => formatMoneyDecimal(p.amount) },
+            {
+              header: "Network",
+              cell: (b) => (
+                <span>
+                  {names.get(b.network) ?? b.network} <NetworkBadge env={b.env} />
+                </span>
+              ),
+            },
+            {
+              header: "Address",
+              cell: (b) =>
+                b.addressUrl ? (
+                  <a className="link mono" href={b.addressUrl} target="_blank" rel="noreferrer">
+                    {shortHash(b.address, 8, 6)}
+                  </a>
+                ) : (
+                  <span className="mono">{shortHash(b.address, 8, 6)}</span>
+                ),
+            },
+            { header: "Asset", cell: (b) => b.asset },
+            {
+              header: "Status",
+              cell: (b) => (b.error ? <span className="field-error">Could not read: {b.error}</span> : <span className="dim">Live</span>),
+            },
+            { header: "Balance", align: "right", cell: (b) => `${amount(b.balance)} ${b.balance === null ? "" : b.asset}` },
           ]}
         />
       </Card>
-      <Card title="Create payout">
-        <SimpleCreateForm
-          submitLabel="Create payout"
-          successMessage="Payout created."
-          action={createPayout}
-          fields={[
-            { name: "organizationId", label: "Organization ID", required: true, placeholder: "org_…" },
-            {
-              name: "walletAddress",
-              label: "Wallet address",
-              required: true,
-              placeholder: "0x…",
-            },
-            {
-              name: "amount",
-              label: "Amount (USDC)",
-              required: true,
-              placeholder: "100.00",
-              hint: "Decimal USDC. Must not exceed available balance.",
-            },
-            {
-              name: "network",
-              label: "Network",
-              required: true,
-              options: [
-                { value: "arc", label: "Arc" },
-                { value: "base", label: "Base" },
-                { value: "ethereum", label: "Ethereum" },
-              ],
-            },
-          ]}
-        />
-      </Card>
+      <p className="dim small">
+        EVM balances are the stablecoin shown (USDC, USDG on Robinhood Chain, USDC.e on Tempo); HyperCore shows withdrawable
+        USDC; Zcash shows transparent ZEC (mainnet only).
+      </p>
     </>
   );
 }

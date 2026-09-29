@@ -1,63 +1,45 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { api } from "@/lib/api";
-import { formatMoney, formatDate, humanize } from "@/lib/format";
+import { merchantApi } from "@/lib/merchant-api";
 import { PageHeader, Card, StatusBadge, ErrorBanner } from "@/components/ui";
+import { ProductForm } from "@/components/ProductForm";
+import { ShareLink } from "@/components/ShareLink";
+import { ProductStatusToggle } from "@/components/ProductStatusToggle";
 
 export const dynamic = "force-dynamic";
 
-export default async function ProductDetailPage({
-  params,
-}: {
-  params: { id: string };
-}) {
-  const { data: product, error } = await api.products.get(params.id);
-
-  if (!product && !error) notFound();
+export default async function ProductDetailPage({ params }: { params: { id: string } }) {
+  const [result, profile] = await Promise.all([merchantApi.product(params.id), merchantApi.profile()]);
+  if (!result.data && result.error?.includes("404")) notFound();
+  const product = result.data;
+  const accepted = (profile.data?.networks ?? []).filter((n) => n.accepted);
 
   return (
     <>
       <div className="breadcrumb">
-        <Link href="/products">Products</Link> / {params.id}
+        <Link href="/products">Products</Link> / {product?.name ?? params.id}
       </div>
       <PageHeader
         title={product?.name ?? "Product"}
-        description="Configuration and access-delivery wiring for this product."
-        action={
-          <Link href="/products" className="btn">
-            ← Back to products
-          </Link>
-        }
+        description="Edit the price, delivery and networks. The checkout link stays the same."
+        action={product ? <StatusBadge status={product.status} /> : null}
       />
-      <ErrorBanner error={error} />
+      <ErrorBanner error={result.error} />
       {product ? (
-        <Card>
-          <dl className="detail-grid">
-            <dt>Product ID</dt>
-            <dd className="mono">{product.id}</dd>
-            <dt>Status</dt>
-            <dd>
-              <StatusBadge status={product.status} />
-            </dd>
-            <dt>What it sells</dt>
-            <dd>{humanize(product.sellType)}</dd>
-            <dt>Charge model</dt>
-            <dd>{humanize(product.chargeModel)}</dd>
-            <dt>After payment</dt>
-            <dd>{humanize(product.deliveryAction)}</dd>
-            <dt>Price</dt>
-            <dd>{formatMoney(product.price)}</dd>
-            <dt>Created</dt>
-            <dd>{formatDate(product.createdAt)}</dd>
-          </dl>
-        </Card>
-      ) : (
-        <Card>
-          <p className="muted">
-            Product <code>{params.id}</code> could not be loaded from the API.
-          </p>
-        </Card>
-      )}
+        <>
+          {product.slug && product.status === "active" ? (
+            <Card title="Share">
+              <ShareLink slug={product.slug} productName={product.name} priceUsd={product.priceUsd} />
+            </Card>
+          ) : null}
+          <Card title="Product">
+            <ProductForm networks={accepted} product={product} />
+          </Card>
+          <Card title="Availability">
+            <ProductStatusToggle product={product} networks={accepted} />
+          </Card>
+        </>
+      ) : null}
     </>
   );
 }
