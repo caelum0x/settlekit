@@ -45,7 +45,7 @@ Each `DecisionRecord` (event, model, inputs digest, tool trace, policy verdict, 
 
 ## Repository map (Tameion delta)
 
-- `contracts/src/OperatorVault.sol`, `contracts/test/OperatorVault.t.sol` (48 forge tests), `contracts/script/DeployOperator.s.sol`
+- `contracts/src/OperatorVault.sol`, `contracts/test/OperatorVault.t.sol` (21 forge tests), `contracts/script/DeployOperator.s.sol`
 - `packages/operator` (`@settlekit/operator`): policy, allocation, decision log, Claude agent and tools, heuristic engine, vault executor over Circle DCW or viem, escalations, bills, notifier, proof, verify, state, Pg and in-memory stores
 - `apps/api/src/routes/operator.ts`: `/v1/operator/{events,decisions,bills,escalations,state,policy}` and public `/v1/public/operator/{proof,verify/:id}`
 - `apps/worker/src/jobs/operator-tick-job.ts`: confirmed vault payments become `revenue.received`, due bills become `bill.due`, a daily `tick` runs, and stale escalations expire
