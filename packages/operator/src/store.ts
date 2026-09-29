@@ -8,6 +8,7 @@
  */
 import { GENESIS_HASH, type DecisionRecord } from "./decision-log.js";
 import type { Escalation, EscalationStatus } from "./escalation.js";
+import type { OperatorPolicy } from "./policy.js";
 import type { Bill } from "./types.js";
 
 export interface ListDecisionsOptions {
@@ -30,6 +31,11 @@ export interface OperatorStore {
   saveBill(bill: Bill): Promise<Bill>;
   getBill(orgId: string, id: string): Promise<Bill | null>;
   listBills(orgId: string, status?: Bill["status"]): Promise<readonly Bill[]>;
+
+  /** Orgs that have at least one decision, escalation, bill or policy. */
+  listOrgIds(): Promise<readonly string[]>;
+  getPolicy(orgId: string): Promise<OperatorPolicy | null>;
+  savePolicy(orgId: string, policy: OperatorPolicy): Promise<OperatorPolicy>;
 }
 
 export class ChainConflictError extends Error {
@@ -51,6 +57,7 @@ export class InMemoryOperatorStore implements OperatorStore {
   private decisions: readonly DecisionRecord[] = [];
   private escalations: ReadonlyMap<string, Escalation> = new Map();
   private bills: ReadonlyMap<string, Bill> = new Map();
+  private policies: ReadonlyMap<string, OperatorPolicy> = new Map();
 
   async appendDecision(record: DecisionRecord): Promise<DecisionRecord> {
     assertLinks(await this.headDecision(record.orgId), record);
@@ -107,5 +114,25 @@ export class InMemoryOperatorStore implements OperatorStore {
     return [...this.bills.values()]
       .filter((b) => b.orgId === orgId && (status === undefined || b.status === status))
       .sort((a, b) => a.dueAt.localeCompare(b.dueAt));
+  }
+
+  async listOrgIds(): Promise<readonly string[]> {
+    const ids = [
+      ...this.decisions.map((d) => d.orgId),
+      ...[...this.escalations.values()].map((e) => e.orgId),
+      ...[...this.bills.values()].map((b) => b.orgId),
+      ...this.policies.keys(),
+    ];
+    return [...new Set(ids)].sort();
+  }
+
+  async getPolicy(orgId: string): Promise<OperatorPolicy | null> {
+    return this.policies.get(orgId) ?? null;
+  }
+
+  async savePolicy(orgId: string, policy: OperatorPolicy): Promise<OperatorPolicy> {
+    const stored = Object.freeze({ ...policy, allowlist: [...policy.allowlist] });
+    this.policies = new Map([...this.policies, [orgId, stored]]);
+    return stored;
   }
 }

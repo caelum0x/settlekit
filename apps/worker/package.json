@@ -31,6 +31,7 @@
     "@settlekit/github": "workspace:*",
     "@settlekit/license-keys": "workspace:*",
     "@settlekit/notifications": "workspace:*",
+    "@settlekit/operator": "workspace:*",
     "@settlekit/payments": "workspace:*",
     "@settlekit/payouts": "workspace:*",
     "@settlekit/persistence": "workspace:*",

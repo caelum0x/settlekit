@@ -28,6 +28,7 @@
     "@settlekit/agent-economy": "workspace:*",
     "@settlekit/agent-services": "workspace:*",
     "@settlekit/oss-fund": "workspace:*",
+    "@settlekit/operator": "workspace:*",
     "@settlekit/api-keys": "workspace:*",
     "@settlekit/citation-toll": "workspace:*",
     "@settlekit/arc": "workspace:*",

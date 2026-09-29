@@ -13,6 +13,7 @@ import type { DecisionRecord } from "./decision-log.js";
 import type { Escalation, EscalationStatus } from "./escalation.js";
 import { fromJsonValue, toJsonValue } from "./json.js";
 import { assertLinks, type ListDecisionsOptions, type OperatorStore } from "./store.js";
+import type { OperatorPolicy } from "./policy.js";
 import type { Bill } from "./types.js";
 
 /** Minimal SQL surface; postgres.js `sql` satisfies it via `sql.unsafe`. */
@@ -20,7 +21,7 @@ export interface SqlClient {
   unsafe(query: string, params?: unknown[]): Promise<ReadonlyArray<Record<string, unknown>>>;
 }
 
-export const OPERATOR_TABLES = ["operator_decisions", "operator_escalations", "operator_bills"] as const;
+export const OPERATOR_TABLES = ["operator_decisions", "operator_escalations", "operator_bills", "operator_policies"] as const;
 
 export const OPERATOR_SCHEMA_SQL: readonly string[] = [
   `CREATE TABLE IF NOT EXISTS operator_decisions (
@@ -48,6 +49,12 @@ export const OPERATOR_SCHEMA_SQL: readonly string[] = [
     metadata jsonb NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS operator_bills_org_status ON operator_bills (org_id, status)`,
+  `CREATE TABLE IF NOT EXISTS operator_policies (
+    id text PRIMARY KEY,
+    org_id text NOT NULL,
+    updated_at timestamptz NOT NULL,
+    metadata jsonb NOT NULL
+  )`,
 ];
 
 function toMetadata(entity: unknown): string {
@@ -168,5 +175,30 @@ export class PgOperatorStore implements OperatorStore {
         )
       : await this.query(`SELECT metadata FROM operator_bills WHERE org_id = $1 ORDER BY due_at ASC`, [orgId]);
     return fromRows<Bill>(rows);
+  }
+
+  async listOrgIds(): Promise<readonly string[]> {
+    const rows = await this.query(
+      `SELECT DISTINCT org_id FROM (
+         SELECT org_id FROM operator_decisions UNION SELECT org_id FROM operator_escalations
+         UNION SELECT org_id FROM operator_bills UNION SELECT org_id FROM operator_policies
+       ) AS orgs ORDER BY org_id ASC`,
+    );
+    return rows.map((r) => String(r.org_id));
+  }
+
+  async getPolicy(orgId: string): Promise<OperatorPolicy | null> {
+    const rows = await this.query(`SELECT metadata FROM operator_policies WHERE org_id = $1 AND id = $2`, [orgId, orgId]);
+    return rows[0] ? fromRow<OperatorPolicy>(rows[0]) : null;
+  }
+
+  async savePolicy(orgId: string, policy: OperatorPolicy): Promise<OperatorPolicy> {
+    await this.query(
+      `INSERT INTO operator_policies (id, org_id, updated_at, metadata)
+       VALUES ($1, $2, $3, $4::jsonb)
+       ON CONFLICT (id) DO UPDATE SET updated_at = EXCLUDED.updated_at, metadata = EXCLUDED.metadata`,
+      [orgId, orgId, new Date().toISOString(), toMetadata(policy)],
+    );
+    return policy;
   }
 }

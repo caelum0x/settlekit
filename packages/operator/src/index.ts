@@ -16,3 +16,15 @@ export { LocalExecutor, type LocalExecutorOptions, type LocalEscalation, type Lo
 export * from "./escalation.js";
 export * from "./store.js";
 export * from "./pg-store.js";
+export * from "./usdc.js";
+export * from "./context.js";
+export * from "./trace.js";
+export * from "./history.js";
+export * from "./screening.js";
+export * from "./x402.js";
+export { ToolSession, MAX_PROPOSALS_PER_EVENT } from "./tool-session.js";
+export { buildOperatorTools, OPERATOR_TOOL_NAMES } from "./tools.js";
+export { OPERATOR_SYSTEM_PROMPT, eventMessage } from "./prompts.js";
+export * from "./engine.js";
+export * from "./execution.js";
+export * from "./service.js";

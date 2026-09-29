@@ -37,7 +37,45 @@ export interface DecisionInput {
   readonly confidence: number;
   readonly outcome: DecisionOutcome;
   readonly txHash?: string;
+  /** Every vault transaction the decision produced (txHash is the first). */
+  readonly txHashes?: readonly string[];
+  /**
+   * The bytes32 anchored on-chain in `DecisionAnchored`: {@link commitmentHash}
+   * of the decision's reasoning, computed before execution.
+   */
+  readonly anchorHash?: string;
+  /** Model token usage and USD cost, when an LLM made the decision. */
+  readonly usage?: DecisionUsage;
+  /** Wall-clock milliseconds from event receipt to recorded decision. */
+  readonly latencyMs?: number;
   readonly createdAt: string;
+}
+
+export interface DecisionUsage {
+  readonly inputTokens: number;
+  readonly outputTokens: number;
+  readonly costUsd: number;
+}
+
+/** Tool-trace entries appended after execution; excluded from the commitment. */
+export const POST_EXECUTION_TRACES: ReadonlySet<string> = new Set(["execute", "owner_result"]);
+
+/** Fields that are only known after execution; excluded from the commitment. */
+const POST_EXECUTION_FIELDS = ["outcome", "txHash", "txHashes", "anchorHash", "latencyMs"] as const;
+
+/**
+ * Pre-execution commitment of a decision: sha256 over everything the agent
+ * decided (event, model, inputs, tool trace, verdict, rationale, alternatives,
+ * confidence) but not the execution results. This is what the vault anchors,
+ * so the on-chain log proves the reasoning existed before the money moved.
+ * It does not depend on chain position, so a record can be re-linked onto a
+ * new head without invalidating its anchor.
+ */
+export function commitmentHash(input: DecisionInput): string {
+  const excluded: ReadonlySet<string> = new Set(POST_EXECUTION_FIELDS);
+  const body = Object.fromEntries(Object.entries(input).filter(([key]) => !excluded.has(key)));
+  const toolCalls = input.toolCalls.filter((c) => !POST_EXECUTION_TRACES.has(c.name));
+  return digest({ ...body, toolCalls });
 }
 
 export interface DecisionRecord extends DecisionInput {

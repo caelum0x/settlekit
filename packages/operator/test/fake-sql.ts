@@ -55,6 +55,10 @@ export class FakeSql implements SqlClient {
   }
 
   private select(q: string, params: unknown[]): Row[] {
+    if (q.startsWith("SELECT DISTINCT org_id")) {
+      const ids = [...this.tables.values()].flatMap((rows) => rows.map((r) => String(r.org_id)));
+      return [...new Set(ids)].sort().map((org_id) => ({ org_id }));
+    }
     const table = /FROM (\w+)/.exec(q)?.[1] ?? "";
     let rows = this.rows(table).filter((r) => r.org_id === params[0]);
     if (/AND id = \$2/.test(q)) rows = rows.filter((r) => r.id === params[1]);

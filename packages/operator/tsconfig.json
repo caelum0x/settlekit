@@ -4,15 +4,48 @@
     "rootDir": "./src",
     "outDir": "./dist",
     "composite": true,
-    "types": ["node"]
+    "types": [
+      "node"
+    ]
   },
   "references": [
-    { "path": "../common" },
-    { "path": "../compliance" },
-    { "path": "../database" },
-    { "path": "../risk" },
-    { "path": "../treasury" }
+    {
+      "path": "../arc"
+    },
+    {
+      "path": "../circle-wallets"
+    },
+    {
+      "path": "../common"
+    },
+    {
+      "path": "../compliance"
+    },
+    {
+      "path": "../database"
+    },
+    {
+      "path": "../notifications"
+    },
+    {
+      "path": "../risk"
+    },
+    {
+      "path": "../treasury"
+    },
+    {
+      "path": "../x402"
+    },
+    {
+      "path": "../x402-client"
+    }
   ],
-  "include": ["src/**/*"],
-  "exclude": ["dist", "node_modules", "**/*.test.ts"]
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "**/*.test.ts"
+  ]
 }
