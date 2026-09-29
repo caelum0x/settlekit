@@ -241,3 +241,37 @@ describe("withSettleKitPayment", () => {
     expect(body.reason).toBeDefined();
   });
 });
+
+describe("parsePaymentHeader (solana)", () => {
+  const SOLANA_SIG =
+    "5VERv8NMvzbJMEkV8xnrLkEaWRtSz9CosKDYjCJjBRnbJLgp8uirBgmQpjKhoR4tjF3ZpRzrFmBV6UjKdiSZkQUW";
+  const SOLANA_FROM = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
+
+  function headerRequest(proof: Record<string, unknown>): Request {
+    return new Request("https://api.example.com/secret", {
+      headers: { "X-Payment": Buffer.from(JSON.stringify(proof)).toString("base64") },
+    });
+  }
+
+  it("accepts a base58 signature proof on the solana network", () => {
+    const parsed = parsePaymentHeader(
+      headerRequest({ txHash: SOLANA_SIG, from: SOLANA_FROM, amount: "0.01", network: "solana", nonce: "n" }),
+    );
+    expect(parsed.ok).toBe(true);
+    if (parsed.ok) expect(parsed.value?.network).toBe("solana");
+  });
+
+  it("rejects a 0x hash claimed as a solana payment", () => {
+    const parsed = parsePaymentHeader(
+      headerRequest({ txHash: `0x${"ab".repeat(32)}`, from: SOLANA_FROM, amount: "0.01", network: "solana", nonce: "n" }),
+    );
+    expect(parsed.ok).toBe(false);
+  });
+
+  it("rejects a non-base58 payer on the solana network", () => {
+    const parsed = parsePaymentHeader(
+      headerRequest({ txHash: SOLANA_SIG, from: "0xBuyerWallet", amount: "0.01", network: "solana", nonce: "n" }),
+    );
+    expect(parsed.ok).toBe(false);
+  });
+});

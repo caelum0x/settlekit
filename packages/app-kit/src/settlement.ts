@@ -11,7 +11,7 @@
  * are recorded as a `failed` receipt and never retried.
  */
 
-import { type Money, type PaymentNetwork, money, toIso } from "@settlekit/common";
+import { type Money, type PaymentNetwork, money, toIso, validationError } from "@settlekit/common";
 import {
   type IdempotencyStore,
   InMemoryIdempotencyStore,
@@ -24,15 +24,21 @@ import {
 import type { ArcPaymentClient } from "./client.js";
 import type { SupportedChain } from "./types.js";
 
+/**
+ * Network → App Kit chain routing. Partial: App Kit is EVM-only, so non-EVM
+ * networks (Solana) have no chain and settle through their own provider.
+ */
+type ChainMap = Readonly<Partial<Record<PaymentNetwork, SupportedChain>>>;
+
 /** Map each payment network to its testnet App Kit chain. */
-const TESTNET_CHAINS: Readonly<Record<PaymentNetwork, SupportedChain>> = {
+const TESTNET_CHAINS: ChainMap = {
   arc: "Arc_Testnet",
   base: "Base_Sepolia",
   ethereum: "Ethereum_Sepolia",
 };
 
 /** Map each payment network to its mainnet App Kit chain. */
-const MAINNET_CHAINS: Readonly<Record<PaymentNetwork, SupportedChain>> = {
+const MAINNET_CHAINS: ChainMap = {
   arc: "Arc_Mainnet",
   base: "Base",
   ethereum: "Ethereum",
@@ -48,7 +54,7 @@ export interface ArcSettlementProviderConfig<A> {
    * Network → chain mapping. "testnet" (default) or "mainnet" select a built-in
    * map; pass a record for custom routing.
    */
-  chains?: "testnet" | "mainnet" | Readonly<Record<PaymentNetwork, SupportedChain>>;
+  chains?: "testnet" | "mainnet" | ChainMap;
   /** Idempotency store; defaults to an in-memory store. */
   idempotency?: IdempotencyStore;
 }
@@ -57,7 +63,7 @@ export class ArcSettlementProvider<A> implements SettlementProvider {
   readonly name = "circle" as const;
   private readonly client: ArcPaymentClient<A>;
   private readonly adapter: A;
-  private readonly chains: Readonly<Record<PaymentNetwork, SupportedChain>>;
+  private readonly chains: ChainMap;
   private readonly idempotency: IdempotencyStore;
 
   constructor(config: ArcSettlementProviderConfig<A>) {
@@ -74,12 +80,18 @@ export class ArcSettlementProvider<A> implements SettlementProvider {
   }
 
   async settle(request: SettlementRequest): Promise<SettlementReceipt> {
+    const chain = this.chains[request.network];
+    if (chain === undefined) {
+      throw validationError(`App Kit has no chain for network "${request.network}"`, {
+        network: request.network,
+      });
+    }
     return withIdempotency(this.idempotency, request, "circle", async () => {
       const now = toIso(new Date());
       const amount: Money = money(request.amountUsdc);
       const result = await this.client.send({
         adapter: this.adapter,
-        chain: this.chains[request.network],
+        chain,
         to: request.to,
         amount: request.amountUsdc,
       });

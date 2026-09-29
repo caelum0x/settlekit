@@ -8,11 +8,15 @@
 import { err, ok, type Result } from "@settlekit/common";
 import { PAYMENT_HEADER, type PaymentProof, type X402Network } from "./types.js";
 
-const VALID_NETWORKS: ReadonlyArray<X402Network> = ["arc", "base", "ethereum"];
+const VALID_NETWORKS: ReadonlyArray<X402Network> = ["solana", "arc", "base", "ethereum"];
 
 function isX402Network(value: unknown): value is X402Network {
   return typeof value === "string" && (VALID_NETWORKS as readonly string[]).includes(value);
 }
+
+/** Base58 alphabet (no 0, O, I, l). */
+const BASE58_SIGNATURE_RE = /^[1-9A-HJ-NP-Za-km-z]{64,88}$/;
+const BASE58_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === "string" && value.length > 0;
@@ -55,6 +59,16 @@ export function parsePaymentProof(value: unknown): Result<PaymentProof, string> 
   }
   if (!isNonEmptyString(record["nonce"])) {
     return err('payment proof "nonce" is required');
+  }
+  // Solana proofs carry a base58 transaction signature and payer address; a
+  // 0x hash here is never a valid Solana payment, so reject it up front.
+  if (record["network"] === "solana") {
+    if (!BASE58_SIGNATURE_RE.test(record["txHash"])) {
+      return err('payment proof "txHash" must be a base58 Solana signature');
+    }
+    if (!BASE58_ADDRESS_RE.test(record["from"])) {
+      return err('payment proof "from" must be a base58 Solana address');
+    }
   }
 
   return ok({

@@ -13,7 +13,7 @@ import type { Currency } from "@settlekit/common";
  * the wider SettleKit `PaymentNetwork` union but x402 only meaningfully supports
  * USDC-capable networks.
  */
-export type X402Network = "arc" | "base" | "ethereum";
+export type X402Network = "solana" | "arc" | "base" | "ethereum";
 
 /** The payment scheme advertised in the requirements document. */
 export const X402_SCHEME = "x402" as const;

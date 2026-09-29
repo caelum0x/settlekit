@@ -161,6 +161,7 @@ interface ExplorerConfig {
 }
 
 const BLOCK_EXPLORERS: Record<PaymentNetwork, ExplorerConfig> = {
+  solana: { txPath: (hash) => `https://solscan.io/tx/${hash}` },
   base: { txPath: (hash) => `https://basescan.org/tx/${hash}` },
   ethereum: { txPath: (hash) => `https://etherscan.io/tx/${hash}` },
   // Arc is Circle's settlement network; route to Circle's explorer.

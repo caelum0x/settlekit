@@ -1,6 +1,6 @@
 import type { Money } from "../money.js";
 
-export type PaymentNetwork = "arc" | "base" | "ethereum";
+export type PaymentNetwork = "solana" | "base" | "arc" | "ethereum";
 
 export type CheckoutSessionStatus = "open" | "completed" | "expired" | "canceled";
 
@@ -22,6 +22,11 @@ export interface CheckoutSession {
   /** Address the buyer must pay to (merchant payout wallet or gateway). */
   payToAddress: string;
   network: PaymentNetwork;
+  /**
+   * Solana Pay reference (base58 32-byte key) the payment transaction must
+   * include, binding the on-chain transfer to this session. Solana only.
+   */
+  paymentReference?: string;
   successUrl?: string;
   cancelUrl?: string;
   /** ISO timestamp after which the session can no longer be paid. */
