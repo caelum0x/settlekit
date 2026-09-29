@@ -71,6 +71,13 @@
       "when": 1782000300000,
       "tag": "0009_payments_tx_hash_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1782000400000,
+      "tag": "0010_onchain_billing",
+      "breakpoints": true
     }
   ]
 }

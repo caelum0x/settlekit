@@ -6,6 +6,7 @@
     "composite": true
   },
   "references": [
+    { "path": "../onchain-billing" },
     { "path": "../common" },
     { "path": "../database" },
     { "path": "../settlement-core" },

@@ -26,3 +26,4 @@ export * from "./charge-engine.js";
 export * from "./refund-dispatch.js";
 export * from "./subscription-service.js";
 export * from "./runtime.js";
+export * from "./access-hooks.js";

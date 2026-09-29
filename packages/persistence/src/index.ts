@@ -50,3 +50,4 @@ export * from "./subscription-repository.js";
 export * from "./wallet-fleet-store.js";
 export * from "./webhook-endpoints-store.js";
 export * from "./webhook-events-store.js";
+export * from "./onchain-billing-store.js";

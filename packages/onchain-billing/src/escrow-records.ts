@@ -42,6 +42,8 @@ export interface EscrowPaymentRecord {
   id: string;
   organizationId: string;
   customerId?: string;
+  /** Checkout session recording this purchase (core Payments reference it). */
+  checkoutSessionId?: string;
   chainId: number;
   paymentInfo: PaymentInfoJson;
   paymentInfoHash: string;
@@ -61,6 +63,7 @@ export interface CreateEscrowIntentInput {
   id: string;
   organizationId: string;
   customerId?: string;
+  checkoutSessionId?: string;
   payer: Hex;
   receiver: Hex;
   token: Hex;
@@ -127,6 +130,7 @@ export class EscrowPaymentService {
       id: input.id,
       organizationId: input.organizationId,
       ...(input.customerId ? { customerId: input.customerId } : {}),
+      ...(input.checkoutSessionId ? { checkoutSessionId: input.checkoutSessionId } : {}),
       chainId: this.client.chainId,
       paymentInfo: paymentInfoToJson(info),
       paymentInfoHash: this.client.hash(info),
