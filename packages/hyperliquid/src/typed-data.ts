@@ -30,8 +30,12 @@ export const USD_SEND_TYPES = {
   ],
 } as const;
 
-/** The exact action object Hyperliquid's /exchange expects (key order matters). */
-export interface UsdSendAction {
+/**
+ * The exact action object Hyperliquid's /exchange expects (key order matters).
+ * A type alias (not an interface) so it also satisfies the SDK's
+ * index-signature action parameter.
+ */
+export type UsdSendAction = {
   type: "usdSend";
   signatureChainId: Hex;
   hyperliquidChain: HyperliquidChain;
@@ -41,7 +45,7 @@ export interface UsdSendAction {
   amount: string;
   /** Nonce: unix ms, also the replay guard. */
   time: number;
-}
+};
 
 export interface Signature {
   r: Hex;
