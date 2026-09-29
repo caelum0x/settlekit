@@ -416,6 +416,13 @@ async function settleFill(
   } catch (error) {
     if (!isCheckoutError(error)) throw error;
     if (error.code === "payment_pending") return routeStatusView(session, route, deps.verify, "confirming", error.message);
+    if (error.code === "duplicate_tx") {
+      // Recorded concurrently for THIS session (e.g. by the worker's route watcher): settle on the next poll.
+      const owner = await deps.backend.payments.findByTxHash(hash);
+      if (owner?.checkoutSessionId === session.id) {
+        return routeStatusView(session, route, deps.verify, "confirming", "Finalizing the verified payment.");
+      }
+    }
     if (error.code === "verification_failed" || error.code === "duplicate_tx" || error.code === "malformed_tx") {
       console.warn(`[checkout] route fill ${hash} for session ${session.id} did not verify: ${error.message}`);
       return routeStatusView(
