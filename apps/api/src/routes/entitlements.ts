@@ -12,16 +12,28 @@ import { notFound, type Entitlement } from "@settlekit/common";
 import type { AppEnv } from "../context.js";
 import { data } from "../http/respond.js";
 import { parseBody, validate } from "../http/validate.js";
-import { requireOwned, scopeToOrg } from "../http/tenant.js";
+import { requireOrg, requireOwned, scopeToOrg } from "../http/tenant.js";
 
 const verifySchema = z
   .object({
-    customerId: z.string().min(1),
+    customerId: z.string().min(1).optional(),
+    /** Check by the buyer's checkout email instead of a customer id. */
+    email: z.string().email().optional(),
     productId: z.string().optional(),
     feature: z.string().optional(),
     requiredCredits: z.number().int().positive().optional(),
   })
-  .strict();
+  .strict()
+  .refine((b) => b.customerId !== undefined || b.email !== undefined, { message: "customerId or email is required" });
+
+/** Customer ids of the caller's org to check: the given id, or every customer with the email. */
+async function customerIdsFor(c: Context<AppEnv>, input: { customerId?: string | undefined; email?: string | undefined }): Promise<string[]> {
+  if (input.customerId) return [input.customerId];
+  const org = requireOrg(c);
+  const email = (input.email ?? "").toLowerCase();
+  const matches = await c.get("ctx").customers.list((cu) => cu.organizationId === org && cu.email.toLowerCase() === email);
+  return matches.map((cu) => cu.id);
+}
 
 const spendSchema = z.object({
   customerId: z.string().min(1),
@@ -40,20 +52,30 @@ export function entitlementRoutes(): Hono<AppEnv> {
   app.get("/", async (c) => {
     const ctx = c.get("ctx");
     const customerId = c.req.query("customerId");
-    if (!customerId) throw notFound("customerId query param is required");
+    const email = c.req.query("email");
+    if (!customerId && !email) throw notFound("customerId or email query param is required");
     const activeOnly = c.req.query("activeOnly") === "true";
     const productId = c.req.query("productId");
-    const list = await ctx.entitlementRepo.listByCustomer(customerId, {
-      activeOnly,
-      ...(productId !== undefined ? { productId } : {}),
-    });
-    return data(c, scopeToOrg(c, list));
+    const lists = await Promise.all(
+      (await customerIdsFor(c, { customerId, email })).map((id) =>
+        ctx.entitlementRepo.listByCustomer(id, { activeOnly, ...(productId !== undefined ? { productId } : {}) }),
+      ),
+    );
+    return data(c, scopeToOrg(c, lists.flat()));
   });
 
-  // Verify access (feature / credits / product).
+  // Verify access (feature / credits / product), scoped to the caller's org.
   app.post("/verify", async (c) => {
     const body = await parseBody(c, verifySchema);
-    const result = await c.get("ctx").entitlements.verify(body);
+    const org = requireOrg(c);
+    const { customerId: _id, email: _email, ...check } = body;
+    let result: { allowed: boolean; reason?: string } = { allowed: false, reason: "no_active_entitlement" };
+    for (const id of await customerIdsFor(c, body)) {
+      const attempt = await c.get("ctx").entitlements.verify({ ...check, customerId: id });
+      const owned = !attempt.entitlement || attempt.entitlement.organizationId === org;
+      if (attempt.allowed && owned) return data(c, attempt);
+      if (owned) result = attempt;
+    }
     return data(c, result);
   });
 

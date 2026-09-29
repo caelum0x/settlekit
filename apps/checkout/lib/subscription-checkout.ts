@@ -55,6 +55,8 @@ export interface SubscriptionOffer {
   methods: MethodOption[];
   /** Solana cluster the wallet signs on (Solana sessions). */
   solanaCluster: "mainnet" | "devnet";
+  /** Seller's https return URL, shown after subscribing. */
+  returnUrl: string | null;
   /** Already subscribed from this checkout. */
   existing: { status: OnchainSubscriptionRecord["status"]; manageUrl: string } | null;
 }
@@ -119,6 +121,15 @@ export function recurringInterval(resolved: ResolvedSession): Interval | null {
   return price.interval === "monthly" || price.interval === "yearly" ? price.interval : null;
 }
 
+function returnUrlOf(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).protocol === "https:" ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 function capFor(amount: string, periods: number): string {
   return multiplyMoney(money(amount), periods).amount;
 }
@@ -164,6 +175,7 @@ export async function getSubscriptionOffer(sessionId: string): Promise<Subscript
     networkName: describeNetwork(session.network).name,
     methods: [],
     solanaCluster: configuredSolanaCluster(),
+    returnUrl: returnUrlOf(session.successUrl),
     existing: null,
   };
   if (!billingConfigured()) return { ...base, reason: "Subscriptions are not enabled on this checkout yet." };

@@ -37,7 +37,8 @@ export default async function SuccessPage({ params }: PageProps) {
 
   // The receipt amount is the authoritative settled total.
   const total = receipt.amount;
-  const buyerEntries = Object.entries(receipt.buyer);
+  const INTERNAL_FIELDS = new Set(["subscribeIntentId", "onchainSubscriptionId", "periodIndex"]);
+  const buyerEntries = Object.entries(receipt.buyer).filter(([key]) => !INTERNAL_FIELDS.has(key));
 
   return (
     <div>
@@ -109,9 +110,15 @@ export default async function SuccessPage({ params }: PageProps) {
       </div>
 
       <div className="center">
-        <Link className="link" href="/">
-          Back to checkout
-        </Link>
+        {receipt.returnUrl ? (
+          <a className="btn btn-primary" href={receipt.returnUrl}>
+            Continue to {new URL(receipt.returnUrl).host}
+          </a>
+        ) : (
+          <Link className="link" href="/">
+            Back to checkout
+          </Link>
+        )}
       </div>
     </div>
   );

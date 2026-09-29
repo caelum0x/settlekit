@@ -6,6 +6,7 @@ const navItems = [
   { href: internalLinks.proof, label: "Live payments" },
   { href: internalLinks.useCases, label: "Use cases" },
   { href: internalLinks.pricing, label: "Pricing" },
+  { href: internalLinks.integrate, label: "Integrate" },
   { href: links.docs, label: "Docs", external: true },
 ];
 

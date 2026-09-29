@@ -290,8 +290,27 @@ function webhookContext(session: CheckoutSession): PaymentContext {
   };
 }
 
+/** Save the buyer (email + delivery ids) so the seller's app can check access by email. */
+async function recordCustomer(backend: CheckoutBackend, session: CheckoutSession, payment: Payment): Promise<void> {
+  const fields = session.collectedFields;
+  if (!backend.customers || !fields.email) return;
+  try {
+    const existing = await backend.customers.findById(payment.customerId);
+    await backend.customers.save({
+      ...(existing ?? { id: payment.customerId, organizationId: payment.organizationId, metadata: {}, createdAt: new Date().toISOString() }),
+      email: fields.email,
+      ...(fields.githubUsername ? { githubUsername: fields.githubUsername } : {}),
+      ...(fields.discordUserId ? { discordUserId: fields.discordUserId } : {}),
+      ...(session.payerAddress ? { walletAddress: session.payerAddress } : {}),
+    });
+  } catch (error) {
+    console.error(`[checkout] could not record customer for payment ${payment.id}:`, error);
+  }
+}
+
 /** Run fulfillment for a newly confirmed payment; never fails the payment. */
 async function fulfillOnce(deps: StoreDeps, session: CheckoutSession, payment: Payment): Promise<void> {
+  await recordCustomer(deps.backend, session, payment);
   await emitWebhookSafely(deps.backend.webhooks, paymentConfirmedWebhook(payment, webhookContext(session)));
   const productId = session.lineItems[0]?.productId;
   const product = productId ? await deps.backend.findProduct(productId) : undefined;

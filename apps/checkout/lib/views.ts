@@ -99,6 +99,16 @@ export function buildSessionView(
   };
 }
 
+/** Only https return URLs are offered to buyers. */
+export function sellerReturnUrl(url: string | undefined): string | null {
+  if (!url) return null;
+  try {
+    return new URL(url).protocol === "https:" ? url : null;
+  } catch {
+    return null;
+  }
+}
+
 /** What the buyer paid on-chain, in the settlement asset. */
 function settledLabel(resolved: ResolvedSession, payment: Payment, asset: string): string {
   const quote = resolved.session.settlementQuote;
@@ -133,5 +143,6 @@ export function buildReceiptView(
     lines: buildLines(resolved),
     buyer: resolved.session.collectedFields,
     access,
+    returnUrl: sellerReturnUrl(resolved.session.successUrl),
   };
 }

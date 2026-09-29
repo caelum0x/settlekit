@@ -1458,3 +1458,43 @@ h4 {
     grid-template-columns: 1fr;
   }
 }
+
+/* =========================================================================
+   Docs — integration guide
+   ========================================================================= */
+.doc-body {
+  max-width: 860px;
+}
+.doc-section {
+  padding-top: 24px;
+  padding-bottom: 24px;
+}
+.doc-body p {
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+.doc-code {
+  background: var(--paper-edge);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius);
+  padding: 16px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--ink);
+  margin: 12px 0 18px;
+}
+.doc-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 12px 0 18px;
+  font-size: 14px;
+}
+.doc-table th,
+.doc-table td {
+  text-align: left;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--rule);
+  vertical-align: top;
+}

@@ -286,6 +286,11 @@ export function SubscribePay({ sessionId, requiredFields, initialValues }: Subsc
           <a className="btn btn-primary" href={result.manageUrl}>
             Manage subscription
           </a>
+          {offer.returnUrl ? (
+            <a className="btn" href={offer.returnUrl}>
+              Continue to {new URL(offer.returnUrl).host}
+            </a>
+          ) : null}
         </div>
         <p className="muted" style={{ marginTop: 8 }}>
           Bookmark the manage page: it shows the next charge and lets you cancel any time.

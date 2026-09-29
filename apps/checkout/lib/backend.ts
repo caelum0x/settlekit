@@ -31,9 +31,10 @@ import {
   PgPriceStore,
   PgWebhookOutbox,
   PgDiscordRoleGrantStore,
+  PgCustomerStore,
   type WebhookOutbox,
 } from "@settlekit/persistence";
-import type { CheckoutSession, DeliveryAction, DiscordRoleGrant, Price, Product } from "@settlekit/common";
+import type { CheckoutSession, Customer, DeliveryAction, DiscordRoleGrant, Price, Product } from "@settlekit/common";
 import { createReference } from "@settlekit/solana";
 import { deriveDeliveryAction } from "./delivery-action";
 import { seedCatalog } from "./seed";
@@ -49,6 +50,8 @@ export interface CheckoutBackend {
    * shared with the API; in-process mutex when absent).
    */
   readonly tagLock?: TagLock;
+  /** Buyer records (Postgres mode) so sellers can check access by email. */
+  readonly customers?: { findById(id: string): Promise<Customer | null>; save(customer: Customer): Promise<Customer> };
   /** Granted Discord roles (Postgres mode), read by the worker's access-sync. */
   readonly discordGrants?: { save(grant: DiscordRoleGrant): Promise<DiscordRoleGrant> };
   /** Seller webhook outbox (Postgres mode only; the worker delivers). */
@@ -88,6 +91,7 @@ function createPostgresBackend(databaseUrl: string): CheckoutBackend {
     tagLock: { withLock: (key, fn) => withAdvisoryLock(db, `zcash-tag:${key}`, fn) },
     webhooks: new PgWebhookOutbox(db),
     discordGrants: new PgDiscordRoleGrantStore(db),
+    customers: new PgCustomerStore(db),
     persistent: true,
     async findProduct(id) {
       return (await products.findById(id)) ?? undefined;

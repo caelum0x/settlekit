@@ -112,6 +112,8 @@ export interface ReceiptView {
   lines: OrderLine[];
   buyer: Record<string, string>;
   access: DeliveredAccess[];
+  /** The seller's https return URL (payment links opened with successUrl). */
+  returnUrl: string | null;
 }
 
 /** Request body for POST confirm. */
