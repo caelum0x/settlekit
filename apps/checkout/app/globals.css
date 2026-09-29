@@ -388,3 +388,100 @@ a.link:hover {
 .session-link:hover {
   border-color: var(--accent);
 }
+
+/* Solana Pay */
+.solana-grid {
+  display: grid;
+  grid-template-columns: 200px 1fr;
+  gap: 20px;
+  align-items: start;
+}
+
+@media (max-width: 560px) {
+  .solana-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.solana-qr {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px;
+  line-height: 0;
+}
+
+.solana-qr svg {
+  width: 100%;
+  height: auto;
+}
+
+.solana-wallets {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.solana-note {
+  font-size: 13px;
+  margin: 0;
+}
+
+.wallet-btn {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  font-size: 14px;
+  text-align: left;
+}
+
+.wallet-btn img {
+  border-radius: 4px;
+}
+
+.solana-waiting {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-top: 4px;
+}
+
+.pulse {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulse {
+    animation: none;
+  }
+}
+
+.solana-paid-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.access-pending {
+  color: var(--warn);
+  font-weight: 600;
+}

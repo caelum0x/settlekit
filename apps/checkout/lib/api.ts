@@ -13,6 +13,9 @@ import type {
   CheckoutSessionView,
   ConfirmPaymentRequest,
   ReceiptView,
+  SolanaPayUrlResponse,
+  SolanaStatusResponse,
+  SolanaTxResponse,
 } from "./types";
 
 export class ApiClientError extends Error {
@@ -122,4 +125,35 @@ export function expireCheckoutSession(
     `/api/v1/checkout-sessions/${encodeURIComponent(sessionId)}/expire`,
     { method: "POST" },
   );
+}
+
+function solanaPath(sessionId: string, leaf: "pay-url" | "tx" | "status"): string {
+  return `/api/v1/checkout-sessions/${encodeURIComponent(sessionId)}/solana/${leaf}`;
+}
+
+/** Save buyer fields and get the Solana Pay request (QR + reference) for a session. */
+export function requestSolanaPayUrl(
+  sessionId: string,
+  fields: Record<string, string>,
+): Promise<SolanaPayUrlResponse> {
+  return request<SolanaPayUrlResponse>(solanaPath(sessionId, "pay-url"), {
+    method: "POST",
+    body: JSON.stringify({ fields }),
+  });
+}
+
+/** Ask the server to build the unsigned USDC payment tx for `account`. */
+export function requestSolanaTransaction(
+  sessionId: string,
+  account: string,
+): Promise<SolanaTxResponse> {
+  return request<SolanaTxResponse>(solanaPath(sessionId, "tx"), {
+    method: "POST",
+    body: JSON.stringify({ account }),
+  });
+}
+
+/** Poll whether the session's Solana payment has landed (confirms it if so). */
+export function getSolanaStatus(sessionId: string): Promise<SolanaStatusResponse> {
+  return request<SolanaStatusResponse>(solanaPath(sessionId, "status"));
 }

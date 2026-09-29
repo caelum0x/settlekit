@@ -6,6 +6,7 @@ import { OrderSummary } from "@/components/OrderSummary";
 import { PaymentForm } from "@/components/PaymentForm";
 import { WalletPay } from "@/components/WalletPay";
 import { BridgePay } from "@/components/BridgePay";
+import { SolanaPay } from "@/components/SolanaPay";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +41,10 @@ export default async function CheckoutPage({ params }: PageProps) {
     redirect(`/c/${sessionId}/expired`);
   }
 
+  // Solana sessions pay through Solana Pay (QR or wallet); the Arc-specific
+  // wallet and bridge options only apply to EVM sessions.
+  const isSolana = session.network === "solana";
+
   return (
     <div>
       <div className="card">
@@ -69,25 +74,38 @@ export default async function CheckoutPage({ params }: PageProps) {
           </div>
         </div>
 
-        <PaymentForm
-          sessionId={session.id}
-          amountLabel={formatMoney(session.amount)}
-          payToAddress={session.payToAddress}
-          network={session.network}
-          requiredFields={session.requiredFields}
-          initialValues={session.collectedFields}
-        />
+        {isSolana ? (
+          <SolanaPay
+            sessionId={session.id}
+            amountLabel={formatMoney(session.amount)}
+            requiredFields={session.requiredFields}
+            initialValues={session.collectedFields}
+          />
+        ) : (
+          <PaymentForm
+            sessionId={session.id}
+            amountLabel={formatMoney(session.amount)}
+            payToAddress={session.payToAddress}
+            network={session.network}
+            requiredFields={session.requiredFields}
+            initialValues={session.collectedFields}
+          />
+        )}
       </div>
 
-      <div className="card">
-        <h2>Pay with wallet</h2>
-        <WalletPay amount={session.amount.amount} payToAddress={session.payToAddress} />
-      </div>
+      {isSolana ? null : (
+        <>
+          <div className="card">
+            <h2>Pay with wallet</h2>
+            <WalletPay amount={session.amount.amount} payToAddress={session.payToAddress} />
+          </div>
 
-      <div className="card">
-        <h2>Pay from another chain</h2>
-        <BridgePay amount={session.amount.amount} />
-      </div>
+          <div className="card">
+            <h2>Pay from another chain</h2>
+            <BridgePay amount={session.amount.amount} />
+          </div>
+        </>
+      )}
     </div>
   );
 }
