@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "SettleKit hosted USDC checkout — order summary, buyer identity collection, payment confirmation, receipt + delivered access.",
+  "description": "SettleKit hosted USDC checkout \u2014 order summary, buyer identity collection, payment confirmation, receipt + delivered access.",
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -17,6 +17,7 @@
     "@settlekit/api-keys": "workspace:*",
     "@settlekit/app-kit": "workspace:*",
     "@settlekit/arc": "workspace:*",
+    "@settlekit/chains": "workspace:*",
     "@settlekit/common": "workspace:*",
     "@settlekit/database": "workspace:*",
     "@settlekit/discord": "workspace:*",
@@ -27,11 +28,13 @@
     "@settlekit/payments": "workspace:*",
     "@settlekit/persistence": "workspace:*",
     "@settlekit/solana": "workspace:*",
+    "@settlekit/zcash": "workspace:*",
     "@wallet-standard/app": "^1.1.0",
     "next": "^14.2.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
-    "uqr": "^0.1.3"
+    "uqr": "^0.1.3",
+    "viem": "^2.21.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

@@ -38,6 +38,11 @@ function loadArcConfig(): ArcVerifyConfig | null {
   };
 }
 
+/** Whether the legacy Arc settings (ARC_RPC_URL + ARC_USDC_ADDRESS) are present. */
+export function legacyArcConfigured(env: Readonly<Record<string, string | undefined>> = process.env): boolean {
+  return Boolean(env.ARC_RPC_URL?.trim() && env.ARC_USDC_ADDRESS?.trim());
+}
+
 /** Outcome of an on-chain verification attempt. */
 export interface OnChainVerification {
   ok: boolean;
@@ -47,6 +52,15 @@ export interface OnChainVerification {
   minConfirmations: number;
   /** Why verification failed, when `ok` is false. */
   reason?: string;
+  /** Not final yet (unmined, too few confirmations, RPC/explorer down): retry later. */
+  pending?: boolean;
+  /**
+   * The transaction was found and pays this session; only depth is missing.
+   * The checkout may claim the tx hash so the worker can finish confirming.
+   */
+  claimable?: boolean;
+  /** Paid after the locked quote expired (Zcash): hold for manual review. */
+  late?: boolean;
 }
 
 /** A well-formed Arc transaction hash (0x + 64 hex). */

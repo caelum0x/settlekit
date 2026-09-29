@@ -13,7 +13,12 @@ export type CheckoutErrorCode =
   | "missing_reference"
   | "fields_incomplete"
   | "session_not_payable"
-  | "invalid_request";
+  | "invalid_request"
+  | "network_not_accepted"
+  | "payment_pending"
+  | "payment_under_review"
+  | "quote_unavailable"
+  | "forbidden_origin";
 
 const STATUS: Readonly<Record<CheckoutErrorCode, number>> = {
   session_not_found: 404,
@@ -25,6 +30,14 @@ const STATUS: Readonly<Record<CheckoutErrorCode, number>> = {
   fields_incomplete: 422,
   session_not_payable: 409,
   invalid_request: 400,
+  network_not_accepted: 422,
+  // The transaction exists but is not final yet (unmined, too few
+  // confirmations, explorer throttled): poll again.
+  payment_pending: 425,
+  // Paid after the quote expired: a human reviews it before access is granted.
+  payment_under_review: 409,
+  quote_unavailable: 502,
+  forbidden_origin: 403,
 };
 
 export class CheckoutError extends Error {
@@ -56,8 +69,11 @@ export function isUniqueViolation(error: unknown): boolean {
   return false;
 }
 
-/** Map any thrown value to a JSON-able `{ status, error }` for a route reply. */
-export function toRouteError(error: unknown, fallback: string): { status: number; error: string } {
-  if (isCheckoutError(error)) return { status: error.status, error: error.message };
+/** Map any thrown value to a JSON-able `{ status, error, code? }` for a route reply. */
+export function toRouteError(
+  error: unknown,
+  fallback: string,
+): { status: number; error: string; code?: CheckoutErrorCode } {
+  if (isCheckoutError(error)) return { status: error.status, error: error.message, code: error.code };
   return { status: 500, error: fallback };
 }

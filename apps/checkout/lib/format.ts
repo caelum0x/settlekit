@@ -2,6 +2,7 @@
  * Display formatting helpers for the checkout UI. Pure functions, no I/O.
  */
 import type { Money, PaymentNetwork } from "@settlekit/common";
+import { getEvmChain } from "@settlekit/chains";
 
 /** Format a Money value as "25.50 USDC" with grouped thousands. */
 export function formatMoney(value: Money): string {
@@ -18,45 +19,104 @@ export function formatAmount(amount: string): string {
   return negative ? `-${body}` : body;
 }
 
+/** Environment a network settles on (Solana devnet counts as testnet). */
+export type ChainEnvName = "mainnet" | "testnet";
+
+/** Honest disclosure badges shown next to a network. */
+export type NetworkBadge = "testnet" | "bridged" | "transparent";
+
+export type NetworkFamilyName = "solana" | "evm" | "zcash";
+
+/** Display facts for one network on one environment. */
+export interface NetworkLabel {
+  network: PaymentNetwork;
+  family: NetworkFamilyName;
+  /** e.g. "Base Sepolia", "Robinhood Chain", "Zcash". */
+  name: string;
+  /** Settlement asset symbol: USDC, USDG, USDC.e, pathUSD or ZEC. */
+  asset: string;
+  badges: NetworkBadge[];
+}
+
+const OTHER_ENV: Readonly<Record<ChainEnvName, ChainEnvName>> = { mainnet: "testnet", testnet: "mainnet" };
+
+/** Describe `network` on `env` from the verified chain registry. */
+export function describeNetwork(network: PaymentNetwork, env: ChainEnvName = "mainnet"): NetworkLabel {
+  if (network === "solana") {
+    return {
+      network,
+      family: "solana",
+      name: env === "testnet" ? "Solana Devnet" : "Solana",
+      asset: "USDC",
+      badges: env === "testnet" ? ["testnet"] : [],
+    };
+  }
+  if (network === "zcash") {
+    // Transparent t-addresses only, mainnet only (no public testnet explorer).
+    return { network, family: "zcash", name: "Zcash", asset: "ZEC", badges: ["transparent"] };
+  }
+  // Arc has no mainnet yet: fall back to whichever environment exists.
+  const spec = getEvmChain(network, env) ?? getEvmChain(network, OTHER_ENV[env]);
+  if (spec === undefined) return { network, family: "evm", name: network, asset: "USDC", badges: [] };
+  const badges: NetworkBadge[] = [];
+  if (spec.env === "testnet") badges.push("testnet");
+  if (spec.label === "bridged") badges.push("bridged");
+  return { network, family: "evm", name: spec.name, asset: spec.token.symbol, badges };
+}
+
 /** Human label for a payment network. */
-export function formatNetwork(network: PaymentNetwork): string {
-  switch (network) {
-    case "arc":
-      return "Arc";
-    case "base":
-      return "Base";
-    case "ethereum":
-      return "Ethereum";
-    case "solana":
-      return "Solana";
-    default:
-      return network;
+export function formatNetwork(network: PaymentNetwork, env: ChainEnvName = "mainnet"): string {
+  return describeNetwork(network, env).name;
+}
+
+/** Settlement asset symbol on a network (USDC / USDG / USDC.e / pathUSD / ZEC). */
+export function formatAsset(network: PaymentNetwork, env: ChainEnvName = "mainnet"): string {
+  return describeNetwork(network, env).asset;
+}
+
+/** Visible text of a disclosure badge. */
+export function badgeText(badge: NetworkBadge): string {
+  switch (badge) {
+    case "testnet":
+      return "Testnet";
+    case "bridged":
+      return "Bridged";
+    case "transparent":
+      return "Transparent";
+  }
+}
+
+/** One-line explanation of a badge (tooltips / screen readers). */
+export function badgeDescription(badge: NetworkBadge): string {
+  switch (badge) {
+    case "testnet":
+      return "Test network: tokens have no real value.";
+    case "bridged":
+      return "Bridged stablecoin, not natively issued on this chain.";
+    case "transparent":
+      return "Transparent Zcash payment: amount and addresses are visible on-chain.";
   }
 }
 
 /** Solana cluster a checkout settles on (mirrors @settlekit/solana, client-safe). */
 export type SolanaClusterName = "mainnet" | "devnet";
 
-/** Block explorer base for a network + tx hash. */
-export function explorerTxUrl(
-  network: PaymentNetwork,
-  txHash: string,
-  solanaCluster: SolanaClusterName = "mainnet",
-): string {
-  switch (network) {
-    case "solana":
-      return `https://solscan.io/tx/${encodeURIComponent(txHash)}${
-        solanaCluster === "devnet" ? "?cluster=devnet" : ""
-      }`;
-    case "base":
-      return `https://basescan.org/tx/${txHash}`;
-    case "ethereum":
-      return `https://etherscan.io/tx/${txHash}`;
-    case "arc":
-      return `https://explorer.arc.network/tx/${txHash}`;
-    default:
-      return "#";
+export interface ExplorerOptions {
+  solanaCluster?: SolanaClusterName;
+  /** Environment the EVM chain runs on (defaults to mainnet). */
+  chainEnv?: ChainEnvName;
+}
+
+/** Block explorer link for a network + tx hash ("" when none exists). */
+export function explorerTxUrl(network: PaymentNetwork, txHash: string, options: ExplorerOptions = {}): string {
+  const hash = encodeURIComponent(txHash);
+  if (network === "solana") {
+    return `https://solscan.io/tx/${hash}${options.solanaCluster === "devnet" ? "?cluster=devnet" : ""}`;
   }
+  if (network === "zcash") return `https://blockchair.com/zcash/transaction/${hash}`;
+  const env = options.chainEnv ?? "mainnet";
+  const spec = getEvmChain(network, env) ?? getEvmChain(network, OTHER_ENV[env]);
+  return spec?.explorerTx(hash) ?? "";
 }
 
 /** Short-form an address or hash: 0x1234…cdef. */

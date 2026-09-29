@@ -14,7 +14,10 @@
  *
  * Payment confirmation FAILS CLOSED: every network is verified on-chain by
  * `verifySessionPayment`, and a network without a configured verifier can
- * never settle a session. A transaction hash settles at most one payment (the
+ * never settle a session. Verification binds the transfer to the session:
+ * payTo for the session's network, amount, notBefore = session.createdAt,
+ * the declared payer, and per-chain bindings (Solana reference, Tempo memo,
+ * locked ZEC quote). A transaction hash settles at most one payment (the
  * unique `payments.tx_hash` index is the claim), and fulfillment runs exactly
  * once per confirmed payment.
  *
@@ -45,9 +48,12 @@ import { verifyOnChainPayment } from "./arc";
 import { CheckoutError, isUniqueViolation } from "./errors";
 import { fulfillPayment, type FulfillmentDeps } from "./fulfill";
 import { getGitHubDelivery } from "./github-delivery";
+import { getEvmRuntime } from "./evm";
 import { getSolanaRuntime } from "./solana";
+import { getZcashRuntime } from "./zcash";
 import { isWellFormedTxHash, normalizeTxHash, txHashFormatHint } from "./tx-hash";
 import { verifySessionPayment, type VerifyDeps } from "./verify-payment";
+import type { OnChainVerification } from "./arc";
 import type { DeliveredAccess } from "./types";
 
 /** Everything the store needs; injectable for tests. */
@@ -57,14 +63,30 @@ export interface StoreDeps {
   fulfillment: FulfillmentDeps;
 }
 
+/** Env-configured verifiers for every network (each fails closed when unset). */
+export function defaultVerifyDeps(): VerifyDeps {
+  return {
+    solana: getSolanaRuntime(),
+    verifyArc: verifyOnChainPayment,
+    evm: getEvmRuntime(),
+    zcash: getZcashRuntime(),
+  };
+}
+
 /** Process defaults: `DATABASE_URL` backend + env-configured chains + GitHub App. */
 export function defaultStoreDeps(): StoreDeps {
   const backend = getBackend();
   return {
     backend,
-    verify: { solana: getSolanaRuntime(), verifyArc: verifyOnChainPayment },
+    verify: defaultVerifyDeps(),
     fulfillment: { entitlements: backend.entitlements, github: () => getGitHubDelivery() },
   };
+}
+
+/** Whether any payment (pending or confirmed) is recorded for a session. */
+export async function hasRecordedPayment(backend: CheckoutBackend, sessionId: string): Promise<boolean> {
+  const payments = await backend.payments.findByCheckoutSessionId(sessionId);
+  return payments.some((p) => p.status === "pending" || p.status === "confirmed");
 }
 
 /** The confirmed payment for a session, derived from the payment repository. */
@@ -144,7 +166,13 @@ const inflight = new Map<string, Promise<ConfirmResult>>();
  *
  * Throws {@link CheckoutError}: `malformed_tx`, `duplicate_tx` (the hash
  * already settled another payment), `verification_failed` (including a
- * network with no configured verifier — fail closed), `session_not_payable`.
+ * network with no configured verifier — fail closed), `session_not_payable`,
+ * `payment_pending` (found but not final: poll again) and
+ * `payment_under_review` (Zcash paid after the quote expired).
+ *
+ * A transaction that already pays this session but lacks confirmations (or
+ * arrived late) is CLAIMED as a pending payment, so the worker can finish
+ * confirming it even if the buyer leaves, and no other session can use it.
  */
 export function recordAndConfirm(
   sessionId: string,
@@ -183,7 +211,8 @@ async function confirmOnce(sessionId: string, rawTxHash: string, deps: StoreDeps
 
   const verification = await verifySessionPayment(deps.verify, session, txHash);
   if (!verification.ok) {
-    throw new CheckoutError("verification_failed", verification.reason ?? "On-chain payment verification failed.");
+    if ((verification.claimable || verification.late) && !prior) await claimTxHash(backend, session, txHash);
+    throw unsettledError(verification);
   }
 
   // Resume a pending row left by an interrupted run, else claim the tx hash.
@@ -197,6 +226,20 @@ async function confirmOnce(sessionId: string, rawTxHash: string, deps: StoreDeps
 
   await fulfillOnce(deps, completed, confirmed);
   return { session: completed, payment: confirmed };
+}
+
+/** The buyer-facing error for a verification that did not settle. */
+function unsettledError(verification: OnChainVerification): CheckoutError {
+  if (verification.late) {
+    return new CheckoutError(
+      "payment_under_review",
+      "Your payment arrived after the price quote expired. It is recorded and under review; the merchant will confirm it.",
+    );
+  }
+  if (verification.pending) {
+    return new CheckoutError("payment_pending", verification.reason ?? "The payment is not final yet.");
+  }
+  return new CheckoutError("verification_failed", verification.reason ?? "On-chain payment verification failed.");
 }
 
 /** Insert the pending payment; the unique tx-hash index makes this the claim. */
