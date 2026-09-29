@@ -1,23 +1,50 @@
 # SettleKit
 
-> **SettleKit lets developers sell private repos, SaaS, APIs, templates, and AI tools in USDC — and automatically delivers access after payment.**
+> **Get paid in stablecoins on any chain, by people or AI agents, and deliver access automatically.**
 
-SettleKit is an open-source Commerce OS for software. Connect GitHub, create a
-product, set a USDC price, and share your checkout link. SettleKit handles
-payment verification, **access delivery**, subscriptions, license keys,
-webhooks, and customer portals.
+SettleKit is an open-source payment link and checkout for software sellers:
+founders, small teams, app studios, and API or tool builders. Create a product,
+set a USD price, share one link. Buyers pay on the chain they already use;
+SettleKit verifies the transfer on-chain, fail closed, and delivers access the
+moment it confirms: GitHub repo invites, license keys, API keys, Discord roles,
+SaaS plans, files, and signed webhooks to your backend.
 
-Sell private GitHub repos, SaaS subscriptions, API access, AI agent tools,
-templates, datasets, license keys, and digital downloads — settled in USDC on
-Arc, with automatic access delivery the moment a payment confirms.
+| Network | Asset | Label |
+| --- | --- | --- |
+| Solana | USDC | Solana Pay + x402 agent payments |
+| Ethereum, Base, Arbitrum | USDC | wallet checkout + x402 agent payments |
+| Hyperliquid | USDC on HyperEVM, or `usdSend` to HyperCore | two separate balances |
+| Robinhood Chain | USDG (Paxos) | no native USDC on mainnet |
+| Tempo | USDC.e | bridged; MPP agent payments |
+| Zcash | ZEC at a locked USD quote | transparent only, mainnet only |
+
+- **Pay with any token** from another chain (Relay, LI.FI fallback); access is granted only after the destination transfer is verified.
+- **AI agents buy directly** over x402 v2 (Solana, EVM chains) and MPP (Tempo) and get the product in the response.
+- **Onchain subscriptions** (Permit2, Base spend permissions and commerce-payments escrow, SPL delegate, renewal invoices) and **refunds that send funds**.
+- **Public proof**: every confirmed payment is listed at `/proof` with explorer links, mainnet and testnet kept apart.
+- **1% per payment**, no fixed or monthly fee (`DEFAULT_FEE_SCHEDULE` in `packages/platform-billing`). Open source and self-hostable.
 
 ```text
-Create product → Set price → Buyer pays → Access delivered
+Create product -> Share link -> Buyer pays on any chain (or an agent pays) -> Verified on-chain -> Access delivered
 ```
+
+### Colosseum Crypto World's Fair
+
+SettleKit is entered in the Colosseum Crypto World's Fair (Sep 14 to Oct 12, 2026).
+Work done in the window is `git diff pre-colosseum-baseline..HEAD` on
+`feat/solana-colosseum`; everything up to tag `pre-colosseum-baseline`
+(`7c6f6ce`, 2026-06-22) pre-exists and is disclosed.
+
+| Doc | What's inside |
+| --- | --- |
+| [docs/colosseum/SUBMISSION.md](./docs/colosseum/SUBMISSION.md) | Problem, solution, chain matrix with honest labels, architecture, OSS composed, security model, business model, GTM, traction template, disclosure with in-window stats |
+| [docs/colosseum/PITCH-SCRIPT.md](./docs/colosseum/PITCH-SCRIPT.md) | 2 to 3 minute pitch video script |
+| [docs/colosseum/DEMO-SCRIPT.md](./docs/colosseum/DEMO-SCRIPT.md) | Demo video click path and required setup |
+| [docs/colosseum/LAUNCH-CHECKLIST.md](./docs/colosseum/LAUNCH-CHECKLIST.md) | Owner steps to go live: Render, env, keys, first mainnet payment per chain |
 
 ---
 
-## Demo
+## Demo (pre-hackathon, Arc USDC)
 
 <p align="center">
   <a href="https://github.com/caelum0x/settlekit/releases/download/demo-2026-06-22/settlekit-demo.mp4">
