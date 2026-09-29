@@ -6,12 +6,13 @@
  * and verifies a presented key for a product + machine (activating the machine
  * when new and within capacity).
  */
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
+import type { LicenseKey } from "@settlekit/common";
 import { z } from "zod";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
-import { requireOrg } from "../http/tenant.js";
+import { requireOrg, requireOwned } from "../http/tenant.js";
 
 const issueSchema = z.object({
   // Derived from the authenticated org (tenant scope); ignored if supplied.
@@ -29,6 +30,11 @@ const verifySchema = z.object({
   productId: z.string().min(1),
   machineId: z.string().min(1),
 });
+
+/** Load a license by id, requiring it belongs to the caller's org (else 404). */
+async function ownedLicense(c: Context<AppEnv>, id: string): Promise<LicenseKey> {
+  return requireOwned(c, await c.get("ctx").licenseStore.findById(id), "license", id);
+}
 
 export function licenseRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
@@ -66,13 +72,15 @@ export function licenseRoutes(): Hono<AppEnv> {
 
   // Mint an offline validation token for an existing license.
   app.post("/:id/token", async (c) => {
-    const token = await c.get("ctx").licenses.issueToken(c.req.param("id"));
+    const { id } = await ownedLicense(c, c.req.param("id"));
+    const token = await c.get("ctx").licenses.issueToken(id);
     return data(c, { token });
   });
 
   // Revoke a license.
   app.post("/:id/revoke", async (c) => {
-    const revoked = await c.get("ctx").licenses.revoke(c.req.param("id"));
+    const { id } = await ownedLicense(c, c.req.param("id"));
+    const revoked = await c.get("ctx").licenses.revoke(id);
     return data(c, revoked);
   });
 

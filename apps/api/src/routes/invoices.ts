@@ -10,15 +10,15 @@
  *   POST /v1/invoices/:id/pay          open  -> paid
  *   POST /v1/invoices/:id/void         draft|open -> void
  */
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { z } from "zod";
 import { money } from "@settlekit/common";
-import type { InvoiceLineItem } from "@settlekit/invoices";
+import type { Invoice, InvoiceLineItem } from "@settlekit/invoices";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
-import { requireOrg } from "../http/tenant.js";
+import { requireOrg, requireOwned } from "../http/tenant.js";
 
 const amount = z.string().regex(/^\d+(\.\d+)?$/);
 
@@ -47,6 +47,12 @@ const createSchema = z.object({
 
 function toLineItem(input: z.infer<typeof lineItemSchema>): InvoiceLineItem {
   return { description: input.description, quantity: input.quantity, unitAmount: money(input.unitAmount) };
+}
+
+/** Load an invoice by id, requiring it belongs to the caller's org (else 404). */
+async function ownedInvoice(c: Context<AppEnv>, id: string): Promise<Invoice> {
+  const found = await c.get("ctx").invoices.get(id);
+  return requireOwned(c, found.ok ? found.value : undefined, "invoice", id);
 }
 
 export function invoiceRoutes(): Hono<AppEnv> {
@@ -84,28 +90,30 @@ export function invoiceRoutes(): Hono<AppEnv> {
 
   // `:id.html` must be matched before the bare `:id` route below.
   app.get("/:id{.+\\.html}", async (c) => {
-    const id = c.req.param("id").replace(/\.html$/, "");
+    const { id } = await ownedInvoice(c, c.req.param("id").replace(/\.html$/, ""));
     const html = unwrapResult(await c.get("ctx").invoices.renderHtml(id, c.get("ctx").merchant));
     return c.html(html);
   });
 
   app.get("/:id", async (c) => {
-    const invoice = unwrapResult(await c.get("ctx").invoices.get(c.req.param("id")));
-    return data(c, invoice);
+    return data(c, await ownedInvoice(c, c.req.param("id")));
   });
 
   app.post("/:id/finalize", async (c) => {
-    const invoice = unwrapResult(await c.get("ctx").invoices.finalize(c.req.param("id")));
+    const { id } = await ownedInvoice(c, c.req.param("id"));
+    const invoice = unwrapResult(await c.get("ctx").invoices.finalize(id));
     return data(c, invoice);
   });
 
   app.post("/:id/pay", async (c) => {
-    const invoice = unwrapResult(await c.get("ctx").invoices.markPaid(c.req.param("id")));
+    const { id } = await ownedInvoice(c, c.req.param("id"));
+    const invoice = unwrapResult(await c.get("ctx").invoices.markPaid(id));
     return data(c, invoice);
   });
 
   app.post("/:id/void", async (c) => {
-    const invoice = unwrapResult(await c.get("ctx").invoices.void(c.req.param("id")));
+    const { id } = await ownedInvoice(c, c.req.param("id"));
+    const invoice = unwrapResult(await c.get("ctx").invoices.void(id));
     return data(c, invoice);
   });
 

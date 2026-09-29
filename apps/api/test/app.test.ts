@@ -627,13 +627,27 @@ describe("SettleKit API", () => {
   });
 
   it("starts a dunning campaign and records a recovery", async () => {
-    const started = await call(app, "POST", "/v1/dunning", {
-      subscriptionId: "sub_dun_1",
+    // Dunning is tenant-scoped: it needs a real subscription owned by the caller.
+    const product = await call(app, "POST", "/v1/products", {
+      merchantId: "mch_1",
+      name: "Dunning Plan",
+      type: "saas_plan",
+      deliveryMode: "saas_entitlement",
     });
+    const productId = product.json.data.id as string;
+    const price = await call(app, "POST", `/v1/products/${productId}/prices`, { amount: "9", interval: "monthly" });
+    const sub = await call(app, "POST", "/v1/subscriptions", {
+      customerId: "cus_dun",
+      productId,
+      priceId: price.json.data.id,
+    });
+    const subscriptionId = sub.json.data.subscription.id as string;
+
+    const started = await call(app, "POST", "/v1/dunning", { subscriptionId });
     expect(started.status).toBe(201);
     expect(started.json.data.status).toBe("active");
 
-    const recovered = await call(app, "POST", "/v1/dunning/sub_dun_1/attempt", {
+    const recovered = await call(app, "POST", `/v1/dunning/${subscriptionId}/attempt`, {
       outcome: "recovered",
     });
     expect(recovered.json.data.status).toBe("recovered");

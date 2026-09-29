@@ -13,6 +13,7 @@ import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
+import { ownedSubscription } from "../http/tenant.js";
 
 const startSchema = z.object({
   subscriptionId: z.string().min(1),
@@ -28,6 +29,8 @@ export function dunningRoutes(): Hono<AppEnv> {
 
   app.post("/", async (c) => {
     const body = await parseBody(c, startSchema);
+    // Tenant-scoped: only the caller's own subscriptions can enter dunning.
+    await ownedSubscription(c, body.subscriptionId);
     const state = unwrapResult(await c.get("ctx").dunning.start(body.subscriptionId));
     return created(c, state);
   });
@@ -42,6 +45,7 @@ export function dunningRoutes(): Hono<AppEnv> {
   });
 
   app.post("/:subscriptionId/attempt", async (c) => {
+    await ownedSubscription(c, c.req.param("subscriptionId"));
     const body = await parseBody(c, attemptSchema);
     // A "recovered" outcome closes the campaign; "failed" advances/exhausts it.
     const ctx = c.get("ctx");
@@ -57,6 +61,7 @@ export function dunningRoutes(): Hono<AppEnv> {
   });
 
   app.post("/:subscriptionId/recover", async (c) => {
+    await ownedSubscription(c, c.req.param("subscriptionId"));
     const state = unwrapResult(await c.get("ctx").dunning.recover(c.req.param("subscriptionId")));
     return data(c, state);
   });

@@ -20,7 +20,7 @@ import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
-import { requireOrg } from "../http/tenant.js";
+import { requireOrg, requireOwned } from "../http/tenant.js";
 import { screenAddressOrThrow } from "../compliance/screen.js";
 
 const amount = z.string().regex(/^\d+(\.\d+)?$/);
@@ -106,8 +106,7 @@ export function payoutRoutes(): Hono<AppEnv> {
         { id },
       );
     }
-    const payout = await ctx.payoutStore.findById(id);
-    if (!payout) throw notFound("payout not found", { id });
+    const payout = requireOwned(c, await ctx.payoutStore.findById(id), "payout", id);
     if (payout.status !== "pending") {
       throw conflict(`payout is ${payout.status}, only pending payouts can be executed`, { id });
     }
@@ -144,8 +143,7 @@ export function payoutRoutes(): Hono<AppEnv> {
     if (!ctx.payoutExecutor) {
       throw validationError("payout execution is not configured", { id });
     }
-    const payout = await ctx.payoutStore.findById(id);
-    if (!payout) throw notFound("payout not found", { id });
+    const payout = requireOwned(c, await ctx.payoutStore.findById(id), "payout", id);
     if (!payout.providerRef) {
       throw conflict("payout has not been executed; nothing to reconcile", { id });
     }
@@ -167,15 +165,19 @@ export function payoutRoutes(): Hono<AppEnv> {
   });
 
   app.post("/:id/paid", async (c) => {
+    const id = c.req.param("id");
+    requireOwned(c, await c.get("ctx").payoutStore.findById(id), "payout", id);
     const body = await parseBody(c, paidSchema);
-    const payout = unwrapResult(await c.get("ctx").payouts.markPaid(c.req.param("id"), body.txHash));
+    const payout = unwrapResult(await c.get("ctx").payouts.markPaid(id, body.txHash));
     return data(c, payout);
   });
 
   app.post("/:id/fail", async (c) => {
+    const id = c.req.param("id");
+    requireOwned(c, await c.get("ctx").payoutStore.findById(id), "payout", id);
     const body = await parseBody(c, failSchema);
     const payout = unwrapResult(
-      await c.get("ctx").payouts.markFailed(c.req.param("id"), body.reason ?? "payout failed"),
+      await c.get("ctx").payouts.markFailed(id, body.reason ?? "payout failed"),
     );
     return data(c, payout);
   });

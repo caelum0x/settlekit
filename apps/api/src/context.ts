@@ -193,6 +193,8 @@ export interface AppContext {
   // Access / key services.
   readonly apiKeys: ApiKeyService;
   readonly licenses: LicenseService;
+  /** Raw license store (tenant ownership checks on single-license routes). */
+  readonly licenseStore: LicenseStore;
   readonly files: FileDeliveryService;
 
   // Authentication (account/session/magic-link) for the public /v1/auth routes.
@@ -417,6 +419,7 @@ export async function createContext(): Promise<AppContext> {
 
     apiKeys: new ApiKeyService(apiKeyStore),
     licenses: new LicenseService(licenseStore, { tokenSecret: config.licenseTokenSecret }),
+    licenseStore,
     files: new FileDeliveryService(grantStore, {
       baseUrl: config.fileDelivery.baseUrl,
       secret: config.fileDelivery.secret,
