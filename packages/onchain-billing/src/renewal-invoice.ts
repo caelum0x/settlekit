@@ -10,7 +10,7 @@
  * counts as a failed charge (dunning then retries with a new invoice).
  */
 import { escapeHtml } from "./html.js";
-import type { CheckoutSession, PaymentNetwork } from "@settlekit/common";
+import type { CheckoutSession } from "@settlekit/common";
 import { createCheckoutSession, type CheckoutRepository } from "@settlekit/payments";
 import type { EmailClient } from "@settlekit/notifications";
 import {
@@ -74,8 +74,7 @@ export class RenewalInvoiceBilling implements ChargeProvider {
           },
         ],
         payToAddress: subscription.payTo,
-        // HyperCore is a PaymentNetwork once @settlekit/hyperliquid lands (W2).
-        network: subscription.network as PaymentNetwork,
+        network: subscription.network,
         collectedFields: {
           onchainSubscriptionId: subscription.id,
           periodIndex: String(context.charge.periodIndex),

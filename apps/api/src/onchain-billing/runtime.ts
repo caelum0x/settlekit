@@ -13,7 +13,9 @@ import {
   type OnchainBillingRuntime,
 } from "@settlekit/onchain-billing";
 import { DEFAULT_MERCHANT_ID, PgOnchainBillingStore } from "@settlekit/persistence";
+import { createHyperCoreClient, createHyperCoreUsdSender, loadHyperCoreConfig, type HyperCoreUsdSender } from "@settlekit/hyperliquid";
 import type { AppContext } from "../context.js";
+import { deliverOnchainSubscription } from "./delivery.js";
 
 export async function buildApiOnchainBilling(
   ctx: Omit<AppContext, "onchainBilling">,
@@ -35,7 +37,13 @@ export async function buildApiOnchainBilling(
     async savePayment(payment) {
       await ctx.payments.save(payment);
     },
+    async queueDelivery(delivery) {
+      await deliverOnchainSubscription(ctx, delivery);
+    },
+  }, {
+    onError: (message, meta) => console.warn(`[onchain-billing] ${message}`, meta),
   });
+  const hypercoreRefunds = hyperCoreRefundSender(env);
   return buildOnchainBilling({
     env,
     store: ctx.db ? new PgOnchainBillingStore(ctx.db) : new InMemoryOnchainBillingStore(),
@@ -44,5 +52,19 @@ export async function buildApiOnchainBilling(
     email: ctx.email,
     merchantId: DEFAULT_MERCHANT_ID,
     hooks,
+    ...(hypercoreRefunds ? { hypercoreRefunds } : {}),
   });
+}
+
+/**
+ * HyperCore refunds: an operator-signed `usdSend` from the onchain billing
+ * operator key (HYPERCORE_REFUND_PRIVATE_KEY overrides it), when HyperCore is
+ * enabled. The account must hold USDC on HyperCore to refund from.
+ */
+function hyperCoreRefundSender(env: Readonly<Record<string, string | undefined>>): HyperCoreUsdSender | undefined {
+  const config = loadHyperCoreConfig(env);
+  const key = env.HYPERCORE_REFUND_PRIVATE_KEY?.trim() || env.ONCHAIN_BILLING_OPERATOR_PRIVATE_KEY?.trim();
+  if (!config || !key) return undefined;
+  if (!/^0x[0-9a-fA-F]{64}$/.test(key)) throw new Error("HYPERCORE_REFUND_PRIVATE_KEY must be a 0x-prefixed 32-byte hex key");
+  return createHyperCoreUsdSender({ client: createHyperCoreClient(config), privateKey: key as `0x${string}` });
 }

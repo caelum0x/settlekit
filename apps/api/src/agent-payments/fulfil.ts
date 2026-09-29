@@ -104,7 +104,7 @@ async function resolveCustomer(ctx: AppContext, input: AgentPurchaseInput): Prom
  * `metadata.githubInstallationId`, else the org's connected installation,
  * else GITHUB_APP_INSTALLATION_ID.
  */
-async function githubInstallationFor(ctx: AppContext, product: Product): Promise<number | undefined> {
+export async function githubInstallationFor(ctx: Pick<AppContext, "githubInstallations">, product: Product): Promise<number | undefined> {
   const pinned = product.metadata?.githubInstallationId;
   if (typeof pinned === "number" && Number.isInteger(pinned) && pinned > 0) return pinned;
   const [installation] = await ctx.githubInstallations.list((entry) => entry.organizationId === product.organizationId);

@@ -5,8 +5,8 @@
  */
 import type { PaymentNetwork } from "@settlekit/common";
 
-/** Every network onchain billing can bill on (HyperCore is invoice-only). */
-export type BillingNetwork = PaymentNetwork | "hypercore";
+/** Every network onchain billing can bill on (HyperCore and Zcash are invoice-only). */
+export type BillingNetwork = PaymentNetwork;
 
 /**
  * How a subscription is collected each period:

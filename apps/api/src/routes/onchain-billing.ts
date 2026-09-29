@@ -21,7 +21,6 @@ import {
   SettleKitError,
   fromBaseUnits,
   generateId,
-  isPaymentNetwork,
   money,
   notFound,
   toBaseUnits,
@@ -43,7 +42,7 @@ import { DEFAULT_MERCHANT_ID } from "@settlekit/persistence";
 import type { AppContext, AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
-import { requireOrg } from "../http/tenant.js";
+import { ownedSubscription as ownedCoreSubscription, requireOrg, requireOwned, requireOwnedPayment } from "../http/tenant.js";
 import { unwrapResult } from "../http/internal.js";
 
 const BILLING_NETWORKS = ["solana", "base", "arc", "ethereum", "arbitrum", "robinhood", "hyperevm", "tempo", "zcash", "hypercore"] as const;
@@ -120,20 +119,21 @@ async function guard<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 async function ownedSubscription(c: Context<AppEnv>, id: string) {
-  const sub = await billing(c).subscriptions.get(id);
-  if (!sub || sub.organizationId !== requireOrg(c)) throw notFound("onchain subscription not found", { id });
-  return sub;
+  return requireOwned(c, await billing(c).subscriptions.get(id), "onchain subscription", id);
 }
 
 async function ownedEscrow(c: Context<AppEnv>, id: string) {
-  const record = await billing(c).store.getEscrowPayment(id);
-  if (!record || record.organizationId !== requireOrg(c)) throw notFound("escrow payment not found", { id });
-  return record;
+  return requireOwned(c, await billing(c).store.getEscrowPayment(id), "escrow payment", id);
+}
+
+/** A customer id stamped by another tenant is refused (unknown ids are allowed: checkout creates them). */
+async function assertCustomerNotForeign(c: Context<AppEnv>, customerId: string): Promise<void> {
+  const customer = await c.get("ctx").customers.findById(customerId);
+  if (customer) requireOwned(c, customer, "customer", customerId);
 }
 
 /** A checkout-session record for the purchase, so charges' Payments reference it. */
 async function recordSession(ctx: AppContext, input: { organizationId: string; customerId?: string; productId?: string; priceId: string; amount: string; network: BillingNetwork; payTo: string }): Promise<string | undefined> {
-  if (!isPaymentNetwork(input.network)) return undefined;
   const session = createCheckoutSession({
     organizationId: input.organizationId,
     merchantId: DEFAULT_MERCHANT_ID,
@@ -179,16 +179,17 @@ export function onchainBillingRoutes(): Hono<AppEnv> {
     const ctx = c.get("ctx");
     const body = await parseBody(c, createSchema);
     const runtime = billing(c);
+    requireOwned(c, await ctx.products.findById(body.productId), "product", body.productId);
     const price = await ctx.prices.findById(body.priceId);
     if (!price) throw notFound("price not found", { id: body.priceId });
     if (price.interval !== "monthly" && price.interval !== "yearly") {
       throw validationError("onchain subscriptions need a monthly or yearly price", { priceId: price.id });
     }
     if (price.productId !== body.productId) throw validationError("price does not belong to product", { priceId: price.id });
-    if (isPaymentNetwork(body.network)) {
-      const check = checkPayTo(body.network, body.payTo);
-      if (!check.ok) throw validationError(`payTo ${check.reason}`);
-    }
+    const check = checkPayTo(body.network, body.payTo);
+    if (!check.ok) throw validationError(`payTo ${check.reason}`);
+    await assertCustomerNotForeign(c, body.customerId);
+    if (body.subscriptionId) await ownedCoreSubscription(c, body.subscriptionId);
     const organizationId = requireOrg(c);
     const checkoutSessionId = await recordSession(ctx, {
       organizationId,
@@ -272,6 +273,7 @@ export function onchainBillingRoutes(): Hono<AppEnv> {
     if (!runtime.escrow) throw notFound("Base escrow is not configured (enable base with ONCHAIN_BILLING_OPERATOR_PRIVATE_KEY)");
     const escrow = runtime.escrow;
     const body = await parseBody(c, escrowSchema);
+    await assertCustomerNotForeign(c, body.customerId);
     const base = runtime.assets.base;
     if (!base?.chainId) throw validationError("base is not an enabled network");
     const organizationId = requireOrg(c);
@@ -430,7 +432,6 @@ async function resolveRefundTarget(
 ): Promise<RefundTarget> {
   const ctx = c.get("ctx");
   const runtime = billing(c);
-  const org = requireOrg(c);
   const escrowId = body.escrowPaymentId ?? (body.paymentId?.startsWith("pay_esc_") ? body.paymentId.slice("pay_".length) : undefined);
   if (escrowId) {
     const record = await ownedEscrow(c, escrowId);
@@ -438,8 +439,7 @@ async function resolveRefundTarget(
     if (!payment) throw validationError("escrow payment has not been captured yet");
     return { payment, network: "base", to: paymentInfoFromJson(record.paymentInfo).payer, escrowPaymentId: escrowId };
   }
-  const payment = await ctx.payments.findById(body.paymentId as string);
-  if (!payment || payment.organizationId !== org) throw notFound("payment not found", { id: body.paymentId });
+  const payment = await requireOwnedPayment(c, body.paymentId as string);
   const chargeId = chargeIdForPayment(payment.id);
   if (chargeId) {
     const charge = await runtime.store.getChargeById(chargeId);
@@ -448,9 +448,7 @@ async function resolveRefundTarget(
     return { payment, network: sub.network, to: sub.payer };
   }
   if (!body.to) throw validationError("`to` (the payer's address) is required for payments made outside onchain billing");
-  if (isPaymentNetwork(payment.network)) {
-    const check = checkPayTo(payment.network, body.to);
-    if (!check.ok) throw validationError(`to ${check.reason}`);
-  }
+  const check = checkPayTo(payment.network, body.to);
+  if (!check.ok) throw validationError(`to ${check.reason}`);
   return { payment, network: payment.network, to: body.to };
 }

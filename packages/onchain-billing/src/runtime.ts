@@ -57,7 +57,7 @@ export interface OnchainBillingDeps {
   solanaSigner?: TransactionSigner;
   /** Tests: Solana refund sender without RPC. */
   solanaRefunds?: SolanaRefundSender;
-  /** HyperCore usdSend for refunds, once @settlekit/hyperliquid is wired. */
+  /** HyperCore usdSend for refunds (the apps wire @settlekit/hyperliquid's operator sender). */
   hypercoreRefunds?: HyperCoreRefundSender;
 }
 
@@ -192,7 +192,9 @@ export async function buildOnchainBilling(deps: OnchainBillingDeps): Promise<Onc
     ...(solanaRefunds ? { solana: solanaRefunds } : {}),
     ...(deps.hypercoreRefunds ? { hypercore: deps.hypercoreRefunds } : {}),
   });
-  if (!deps.hypercoreRefunds) notes.push("HyperCore refunds are manual until @settlekit/hyperliquid usdSend is wired");
+  if (!deps.hypercoreRefunds && assets.hypercore) {
+    notes.push("HyperCore refunds are manual: set HYPERCORE_ENABLED and an operator key (HYPERCORE_REFUND_PRIVATE_KEY or ONCHAIN_BILLING_OPERATOR_PRIVATE_KEY)");
+  }
 
   return {
     assets,

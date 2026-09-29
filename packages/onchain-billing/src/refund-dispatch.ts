@@ -4,9 +4,9 @@
  *   Base escrow payment  -> AuthCaptureEscrow.refund via OperatorRefundCollector
  *   EVM chains           -> ERC-20 `transfer` of the chain's stablecoin back to the payer
  *   Solana               -> USDC TransferChecked back to the payer (settlement provider)
- *   HyperCore            -> `usdSend` through an injected sender (the
- *                           @settlekit/hyperliquid package is not on this branch;
- *                           without a sender HyperCore refunds are manual)
+ *   HyperCore            -> operator-signed `usdSend` through an injected sender
+ *                           (@settlekit/hyperliquid createHyperCoreUsdSender;
+ *                           without one HyperCore refunds are manual)
  *   Zcash                -> manual (transparent ZEC refunds need an operator wallet)
  *
  * Every automated route pays from the OPERATOR's own balance: merchants were

@@ -25,6 +25,7 @@ import {
 import type { Env } from "@settlekit/chains";
 import type { WorkerStore } from "../stores.js";
 import type { Logger } from "../logger.js";
+import { createOnchainDeliveryQueue } from "./onchain-delivery.js";
 
 export interface WorkerOnchainBillingDeps {
   env: Env;
@@ -55,6 +56,7 @@ export async function buildWorkerOnchainBilling(deps: WorkerOnchainBillingDeps):
       async savePayment(payment) {
         await stores.upsertPayment(payment);
       },
+      queueDelivery: createOnchainDeliveryQueue({ stores, env: deps.env, now }),
     },
     { now, onError: (message, meta) => logger.warn(message, meta) },
   );

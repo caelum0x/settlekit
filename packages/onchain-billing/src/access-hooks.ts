@@ -9,9 +9,14 @@
  *   suspended  -> core Subscription expired, entitlements expired so the
  *                 access-sync job revokes downstream grants
  *
+ * On the first successful charge, and when a suspended (expired) subscription
+ * is paid again, the product's delivery actions (GitHub / Discord / files /
+ * keys) are handed to `queueDelivery` so the app's delivery runner grants the
+ * downstream access. A delivery failure never undoes the collected charge.
+ *
  * Storage is behind {@link AccessSinks} so each app adapts its own stores.
  */
-import { fromBaseUnits, money, type Entitlement, type Payment, type PaymentNetwork, type Subscription } from "@settlekit/common";
+import { fromBaseUnits, money, type Entitlement, type Payment, type Subscription } from "@settlekit/common";
 import type { ChargeEngineHooks } from "./charge-engine.js";
 import type { PeriodBounds } from "./period.js";
 import type { OnchainCharge, OnchainSubscription } from "./types.js";
@@ -22,6 +27,25 @@ export interface AccessSinks {
   entitlementsFor(customerId: string, productId: string): Promise<Entitlement[]>;
   saveEntitlement(entitlement: Entitlement): Promise<void>;
   savePayment(payment: Payment): Promise<void>;
+  /** Run / enqueue the product's delivery actions (idempotent per `paymentId`). */
+  queueDelivery?(delivery: AccessDelivery): Promise<void>;
+}
+
+export type AccessDeliveryReason = "first_charge" | "reactivated";
+
+export interface AccessDelivery {
+  subscription: OnchainSubscription;
+  charge: OnchainCharge;
+  reason: AccessDeliveryReason;
+  /** Stable reference for the run (the charge's core Payment id). */
+  paymentId: string;
+}
+
+/** Why a collected charge should (re)deliver access, or null for a plain renewal. */
+export function deliveryReasonFor(previous: Subscription | undefined, charge: OnchainCharge): AccessDeliveryReason | null {
+  if (previous?.status === "expired") return "reactivated";
+  if (previous === undefined || charge.periodIndex === 0) return "first_charge";
+  return null;
 }
 
 export interface AccessHookOptions {
@@ -42,11 +66,16 @@ export function chargeIdForPayment(paymentId: string): string | undefined {
 export function createAccessHooks(sinks: AccessSinks, options: AccessHookOptions = {}): ChargeEngineHooks {
   const now = options.now ?? (() => new Date());
 
-  async function upsertCoreSubscription(sub: OnchainSubscription, patch: (existing: Subscription | undefined) => Subscription | undefined): Promise<void> {
-    if (!sub.subscriptionId) return;
+  /** Patch the linked core subscription; returns the record as it was before. */
+  async function upsertCoreSubscription(
+    sub: OnchainSubscription,
+    patch: (existing: Subscription | undefined) => Subscription | undefined,
+  ): Promise<Subscription | undefined> {
+    if (!sub.subscriptionId) return undefined;
     const existing = await sinks.getSubscription(sub.subscriptionId);
     const next = patch(existing);
     if (next) await sinks.saveSubscription(next);
+    return existing;
   }
 
   async function setEntitlements(sub: OnchainSubscription, update: (e: Entitlement) => Entitlement | undefined): Promise<void> {
@@ -59,7 +88,7 @@ export function createAccessHooks(sinks: AccessSinks, options: AccessHookOptions
   return {
     async onCollected(sub: OnchainSubscription, charge: OnchainCharge, period: PeriodBounds): Promise<void> {
       const stamp = now().toISOString();
-      await upsertCoreSubscription(sub, (existing) => {
+      const previous = await upsertCoreSubscription(sub, (existing) => {
         const base: Subscription = existing ?? {
           id: sub.subscriptionId as string,
           organizationId: sub.organizationId,
@@ -88,7 +117,7 @@ export function createAccessHooks(sinks: AccessSinks, options: AccessHookOptions
           checkoutSessionId: sub.checkoutSessionId,
           customerId: sub.customerId,
           amount: money(fromBaseUnits(BigInt(charge.amount))),
-          network: sub.network as PaymentNetwork,
+          network: sub.network,
           ...(charge.txHash ? { txHash: charge.txHash } : {}),
           confirmations: 1,
           status: "confirmed",
@@ -99,6 +128,19 @@ export function createAccessHooks(sinks: AccessSinks, options: AccessHookOptions
       await setEntitlements(sub, (e) =>
         e.status === "revoked" ? undefined : { ...e, status: "active", expiresAt: period.end.toISOString(), updatedAt: stamp },
       );
+      const reason = sub.subscriptionId ? deliveryReasonFor(previous, charge) : charge.periodIndex === 0 ? "first_charge" : null;
+      if (reason && sinks.queueDelivery) {
+        try {
+          await sinks.queueDelivery({ subscription: sub, charge, reason, paymentId: paymentIdForCharge(charge.id) });
+        } catch (error) {
+          options.onError?.("onchain subscription delivery could not be queued", {
+            onchainSubscriptionId: sub.id,
+            chargeId: charge.id,
+            reason,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
     },
 
     async onPastDue(sub: OnchainSubscription): Promise<void> {
