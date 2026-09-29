@@ -1,11 +1,12 @@
 import Link from "next/link";
 import { links, internalLinks } from "@/lib/links";
+import { ONBOARDING_URL } from "@/lib/site";
 
 const navItems = [
+  { href: internalLinks.proof, label: "Live payments" },
   { href: internalLinks.useCases, label: "Use cases" },
   { href: internalLinks.pricing, label: "Pricing" },
   { href: links.docs, label: "Docs", external: true },
-  { href: links.marketplace, label: "Marketplace", external: true },
 ];
 
 export function Nav() {
@@ -33,10 +34,10 @@ export function Nav() {
         </nav>
 
         <div className="nav-actions">
-          <a href={links.dashboard} className="btn btn-ghost">
+          <a href={`${links.dashboard}/login`} className="btn btn-ghost">
             Sign in
           </a>
-          <a href={links.dashboard} className="btn btn-primary">
+          <a href={ONBOARDING_URL} className="btn btn-primary">
             Start selling
           </a>
         </div>

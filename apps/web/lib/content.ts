@@ -168,7 +168,7 @@ export const useCases: UseCase[] = [
     id: "private-repo",
     title: "Sell my private repo in 5 minutes",
     target:
-      "Indie hackers, template sellers, AI boilerplate sellers, open-source maintainers",
+      "Founders, template sellers, AI boilerplate sellers, open-source maintainers",
     promise: "Connect GitHub. Pick repo. Set price. Share link. We handle access.",
     detail:
       "Your best first wedge: turn a private repository into a paid product without writing any billing or access code. Buyers are added as collaborators on payment and removed on refund or expiry.",

@@ -5,9 +5,9 @@ const columns = [
   {
     title: "Product",
     items: [
+      { label: "Live payments", href: internalLinks.proof, external: false },
       { label: "Use cases", href: internalLinks.useCases, external: false },
       { label: "Pricing", href: internalLinks.pricing, external: false },
-      { label: "Marketplace", href: links.marketplace, external: true },
       { label: "Dashboard", href: links.dashboard, external: true },
     ],
   },
@@ -17,7 +17,7 @@ const columns = [
       { label: "Documentation", href: links.docs, external: true },
       { label: "SDKs", href: links.docs, external: true },
       { label: "Webhooks", href: links.docs, external: true },
-      { label: "x402 middleware", href: links.docs, external: true },
+      { label: "Agent payments (x402, MPP)", href: links.docs, external: true },
     ],
   },
   {
@@ -41,8 +41,8 @@ export function Footer() {
             <span>SettleKit</span>
           </div>
           <p className="footer-tagline">
-            Sell private repos, SaaS, APIs, templates, and AI tools in USDC — and
-            automatically deliver access after payment.
+            Get paid in stablecoins on every chain, no merchant of record
+            required, with access delivered automatically after payment.
           </p>
           <a href={links.github} className="footer-oss">
             Open source · self-host or use hosted cloud
@@ -71,7 +71,7 @@ export function Footer() {
 
       <div className="container footer-bottom">
         <span>© {new Date().getFullYear()} SettleKit</span>
-        <span>Net settled in USDC · conserved to the cent</span>
+        <span>Solana · Ethereum · Base · Arbitrum · Robinhood Chain · Hyperliquid · Tempo · Zcash</span>
       </div>
     </footer>
   );

@@ -1219,3 +1219,242 @@ h4 {
     transform: none;
   }
 }
+
+/* =========================================================================
+   Landing: founder story, chain grid, agent payments, simple pricing, proof
+   ========================================================================= */
+.story {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr);
+  gap: 48px;
+  align-items: start;
+}
+.story-body p {
+  margin: 0 0 16px;
+  font-size: 17px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+.chain-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1.5px solid var(--ink);
+  border-left: 1px solid var(--rule);
+}
+.chain-card {
+  padding: 20px;
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-edge);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.chain-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+}
+.chain-name {
+  font-size: 18px;
+}
+.chain-asset {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--credit);
+}
+.chain-label {
+  align-self: flex-start;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--seal);
+  background: var(--seal-soft);
+  padding: 2px 6px;
+}
+.chain-detail {
+  margin: 0;
+  font-size: 14px;
+  color: var(--ink-2);
+  line-height: 1.5;
+}
+.agent-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 40px;
+  align-items: center;
+}
+.agent-grid .section-desc {
+  margin-top: 14px;
+}
+.agent-code {
+  margin: 0;
+  padding: 22px;
+  background: var(--ink);
+  color: var(--paper);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-x: auto;
+  white-space: pre;
+}
+.pricing-simple {
+  display: grid;
+  grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+  gap: 40px;
+  align-items: center;
+}
+.pricing-simple .section-desc {
+  margin-top: 14px;
+}
+.pricing-points {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  border-top: 1.5px solid var(--ink);
+}
+.pricing-points li {
+  padding: 14px 0;
+  border-bottom: 1px solid var(--rule);
+  font-size: 15px;
+  color: var(--ink-2);
+}
+.pricing-points b {
+  font-family: var(--font-mono);
+  color: var(--ink);
+  font-size: 20px;
+  margin-right: 6px;
+}
+.proof-stats {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  border-top: 1.5px solid var(--ink);
+  margin-bottom: 28px;
+}
+.proof-stat {
+  padding: 18px 20px 18px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  border-bottom: 1px solid var(--rule);
+}
+.proof-stat-label,
+.proof-stat-hint {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  color: var(--ink-3);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.proof-stat-hint {
+  text-transform: none;
+  letter-spacing: 0;
+}
+.proof-stat-value {
+  font-family: var(--font-mono);
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--credit);
+}
+.proof-totals {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 0;
+  border-left: 1px solid var(--rule);
+  border-top: 1px solid var(--rule);
+  margin-bottom: 28px;
+}
+.proof-total {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 12px 14px;
+  border-right: 1px solid var(--rule);
+  border-bottom: 1px solid var(--rule);
+  background: var(--paper-edge);
+}
+.proof-total-name {
+  font-weight: 700;
+}
+.proof-total-value {
+  font-family: var(--font-mono);
+}
+.proof-total-value small {
+  color: var(--ink-3);
+}
+.proof-testnet {
+  margin-left: 6px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--debit);
+  background: var(--debit-soft);
+  padding: 1px 5px;
+  vertical-align: middle;
+}
+.proof-agent {
+  color: var(--seal);
+  font-weight: 600;
+}
+.proof-table-wrap {
+  overflow-x: auto;
+  border-top: 1.5px solid var(--ink);
+}
+.proof-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.proof-table th {
+  text-align: left;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ink-3);
+  padding: 10px 12px 10px 0;
+  border-bottom: 1px solid var(--rule-2);
+}
+.proof-table td {
+  padding: 10px 12px 10px 0;
+  border-bottom: 1px solid var(--rule);
+}
+.proof-table tbody tr:nth-child(even) {
+  background: var(--bar);
+}
+.proof-table .num {
+  text-align: right;
+  font-family: var(--font-mono);
+}
+.proof-empty {
+  padding: 28px;
+  border: 1px dashed var(--rule-2);
+  color: var(--ink-2);
+}
+.proof-note {
+  margin-top: 16px;
+  font-size: 13px;
+  color: var(--ink-3);
+}
+@media (max-width: 900px) {
+  .story,
+  .agent-grid,
+  .pricing-simple {
+    grid-template-columns: 1fr;
+    gap: 24px;
+  }
+  .chain-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .proof-stats {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .chain-grid {
+    grid-template-columns: 1fr;
+  }
+}

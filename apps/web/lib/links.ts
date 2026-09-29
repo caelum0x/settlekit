@@ -13,4 +13,5 @@ export const internalLinks = {
   home: "/",
   pricing: "/pricing",
   useCases: "/use-cases",
+  proof: "/proof",
 } as const;
