@@ -27,7 +27,7 @@ export interface ConsoleConfig {
 
 export const DEFAULT_API_URL = "http://localhost:8787";
 export const DEFAULT_EXPLORER_URL = "https://testnet.arcscan.app";
-export const DEFAULT_CHECKOUT_URL = "http://localhost:3002";
+export const DEFAULT_CHECKOUT_URL = "http://localhost:3000";
 export const MIN_SECRET_LENGTH = 32;
 
 const ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
