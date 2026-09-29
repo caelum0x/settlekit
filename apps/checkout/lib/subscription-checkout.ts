@@ -185,7 +185,8 @@ export async function getSubscriptionOffer(sessionId: string): Promise<Subscript
   try {
     networks = await billingApi.networks(session.organizationId);
   } catch (error) {
-    return { ...base, existing, reason: error instanceof Error ? error.message : "Subscriptions are unavailable right now." };
+    console.error("[checkout] subscription options unavailable:", error);
+    return { ...base, existing, reason: "Subscriptions are unavailable right now. You can still pay for one period below." };
   }
   const entry = networks.networks.find((n) => n.network === session.network);
   const allowed = (entry?.methods ?? []).filter((m) => !INVOICE_ONLY.includes(session.network) || m === "renewal_invoice");
