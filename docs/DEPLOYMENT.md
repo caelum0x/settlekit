@@ -46,7 +46,7 @@ dashboard:
    `COMPLIANCE_API_KEY`, `ARC_CHAIN_ID=5042002`) to `settlekit-api` (+ wallet keys to
    the worker). Each flips its feature live; see `.env.example`. The platform
    take-rate is configurable via `PLATFORM_FEE_BPS` / `PLATFORM_FEE_FIXED` (default
-   2.5% + 0.30).
+   1%, no fixed fee; `DEFAULT_FEE_SCHEDULE` in packages/platform-billing).
 
 > **Commit the lockfile.** Every service installs with `--frozen-lockfile`, so
 > `pnpm-lock.yaml` must be committed and current (run `pnpm install` and commit it

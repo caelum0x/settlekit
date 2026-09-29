@@ -5,7 +5,8 @@ import { links } from "./links";
 
 /**
  * Platform pricing. Free to start; a small fee per successful payment.
- * Keep in sync with the API's PLATFORM_FEE_BPS / PLATFORM_FEE_FIXED env.
+ * Mirrors DEFAULT_FEE_SCHEDULE in packages/platform-billing (1%, no fixed fee),
+ * which the API charges unless PLATFORM_FEE_BPS / PLATFORM_FEE_FIXED override it.
  */
 export const PRICING = {
   /** Fee per successful payment, in basis points (100 = 1%). */

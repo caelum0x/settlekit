@@ -829,24 +829,24 @@ describe("SettleKit API", () => {
   });
 
   it("applies the platform take-rate to the merchant's withdrawable balance", async () => {
-    // Settle a 40.00 USDC payment. Default take-rate is 2.5% + 0.30:
-    //   fee = 1.00 + 0.30 = 1.30 ; net = 38.70.
+    // Settle a 40.00 USDC payment. Default take-rate is 1%, no fixed fee:
+    //   fee = 0.40 ; net = 39.60.
     await makeConfirmedPayment(app);
 
     const balance = await call(app, "GET", "/v1/payouts/balance");
     expect(balance.status).toBe(200);
     expect(balance.json.data.grossVolume.amount).toBe("40");
-    expect(balance.json.data.platformFees.amount).toBe("1.3");
-    expect(balance.json.data.netToMerchant.amount).toBe("38.7");
+    expect(balance.json.data.platformFees.amount).toBe("0.4");
+    expect(balance.json.data.netToMerchant.amount).toBe("39.6");
     // Withdrawable is net of the platform fee (no prior payouts yet).
-    expect(balance.json.data.available.amount).toBe("38.7");
-    expect(balance.json.data.feeSchedule.bps).toBe(250);
+    expect(balance.json.data.available.amount).toBe("39.6");
+    expect(balance.json.data.feeSchedule.bps).toBe(100);
 
     // A payout for the net amount succeeds; one cent more than net is rejected
     // because the platform's cut is reserved and cannot be withdrawn.
     const ok = await call(app, "POST", "/v1/payouts", {
       walletAddress: "0xMerchantWallet",
-      amount: "38.70",
+      amount: "39.60",
       network: "arc",
     });
     expect(ok.status).toBe(201);

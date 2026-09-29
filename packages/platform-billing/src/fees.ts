@@ -8,8 +8,14 @@ import {
 } from "@settlekit/common";
 import type { PlatformFeeSchedule, PlatformRevenue } from "./types.js";
 
-/** SettleKit's default take-rate: 2.5% + $0.30 per payment. */
-export const DEFAULT_FEE_SCHEDULE: PlatformFeeSchedule = { bps: 250, fixed: "0.30" };
+/**
+ * SettleKit's default take-rate: 1% per successful payment, no fixed fee.
+ * This is the single source of truth for the platform fee. The API reads it
+ * unless PLATFORM_FEE_BPS / PLATFORM_FEE_FIXED override it, and the landing
+ * page defaults (NEXT_PUBLIC_PLATFORM_FEE_BPS=100 / _FIXED=0) mirror it.
+ * Change all three together (see .env.example "Platform fee").
+ */
+export const DEFAULT_FEE_SCHEDULE: PlatformFeeSchedule = { bps: 100, fixed: "0" };
 
 const BPS_DENOMINATOR = 10_000n;
 

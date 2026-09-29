@@ -24,9 +24,9 @@ function payment(amount: string, status: Payment["status"] = "confirmed"): Payme
 
 describe("platform-billing", () => {
   it("applies bps + fixed to a single payment", () => {
-    // 2.5% of 100 = 2.50, + 0.30 fixed = 2.80
+    // 1% of 100 = 1.00, no fixed fee
     const fee = applicationFee(money("100"), DEFAULT_FEE_SCHEDULE);
-    expect(fee.amount).toBe("2.8");
+    expect(fee.amount).toBe("1");
   });
 
   it("uses floored bigint math with no floating-point drift", () => {
@@ -49,20 +49,20 @@ describe("platform-billing", () => {
 
   it("sums fees only over confirmed payments", () => {
     const payments = [
-      payment("100"), // fee 2.80
-      payment("200"), // fee 5.30
+      payment("100"), // fee 1.00
+      payment("200"), // fee 2.00
       payment("999", "pending"), // ignored
       payment("999", "refunded"), // ignored
     ];
     const total = totalPlatformFees(payments, DEFAULT_FEE_SCHEDULE);
-    expect(total.amount).toBe("8.1");
+    expect(total.amount).toBe("3");
   });
 
   it("computes full settlement economics (gross / fees / net)", () => {
     const revenue = computePlatformRevenue([payment("100"), payment("200")], DEFAULT_FEE_SCHEDULE);
     expect(revenue.grossVolume.amount).toBe("300");
-    expect(revenue.platformFees.amount).toBe("8.1");
-    expect(revenue.netToMerchant.amount).toBe("291.9");
+    expect(revenue.platformFees.amount).toBe("3");
+    expect(revenue.netToMerchant.amount).toBe("297");
     expect(revenue.paymentCount).toBe(2);
   });
 
