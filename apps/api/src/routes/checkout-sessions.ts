@@ -24,7 +24,7 @@ import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { requireOrg, requireOwned } from "../http/tenant.js";
 import { payToFor } from "./payment-verification.js";
-import { lockZcashQuoteFor } from "./zcash-quote.js";
+import { lockZcashQuoteFor, saveZcashSession } from "./zcash-quote.js";
 
 const NETWORKS = PAYMENT_NETWORKS as unknown as readonly [PaymentNetwork, ...PaymentNetwork[]];
 
@@ -97,7 +97,7 @@ async function withNetworkBindings(ctx: AppContext, session: CheckoutSession): P
   const zcashNetwork = ctx.zcash?.network ?? "mainnet";
   const check = checkPayTo("zcash", payTo, { zcashNetwork });
   if (!check.ok) throw validationError(`invalid Zcash payTo: ${check.reason}`, { network: "zcash" });
-  const settlementQuote = await lockZcashQuoteFor(ctx, withReference, payTo);
+  const settlementQuote = await lockZcashQuoteFor(ctx, withReference);
   return { ...withReference, settlementQuote };
 }
 
@@ -160,7 +160,11 @@ export function checkoutRoutes(): Hono<AppEnv> {
       ...(body.requireMemo === true ? { requireMemo: true } : {}),
     });
 
-    const saved = await ctx.checkouts.save(session);
+    // Zcash: the amount tag is chosen + saved atomically per payTo.
+    const saved =
+      session.settlementQuote !== undefined
+        ? await saveZcashSession(ctx, { ...session, settlementQuote: session.settlementQuote }, payToFor(session, "zcash"))
+        : await ctx.checkouts.save(session);
     return created(c, saved);
   });
 

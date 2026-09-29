@@ -3,7 +3,9 @@
  *
  * The amount carries a per-session zatoshi tag (transparent addresses have
  * no memo), kept unique among the OPEN sessions paying the same address so
- * an incoming payment matches exactly one session.
+ * an incoming payment matches exactly one session. The tag is assigned and
+ * the session saved atomically per payTo (Postgres advisory lock across
+ * instances, in-process mutex otherwise) — see `saveWithUniqueTag`.
  */
 import {
   SettleKitError,
@@ -11,7 +13,15 @@ import {
   type CheckoutSession,
   type SettlementQuote,
 } from "@settlekit/common";
-import { assignTag, lockQuote, QuoteError, usdToZats } from "@settlekit/zcash";
+import { withAdvisoryLock } from "@settlekit/database";
+import {
+  createInMemoryTagLock,
+  lockQuote,
+  QuoteError,
+  saveWithUniqueTag,
+  usdToZats,
+  type TagLock,
+} from "@settlekit/zcash";
 import type { AppContext } from "../context.js";
 import { payToFor } from "./payment-verification.js";
 
@@ -23,31 +33,64 @@ function tagOf(session: CheckoutSession): number | null {
   return tag >= 0n ? Number(tag) : null;
 }
 
-/** Tags held by other open Zcash sessions on `payTo`. */
-async function takenTags(ctx: AppContext, payTo: string): Promise<Set<number>> {
+/** Tags held by OTHER open Zcash sessions with a live quote on `payTo`. */
+async function takenTags(ctx: AppContext, sessionId: string, payTo: string, now: Date): Promise<Set<number>> {
   const open = await ctx.checkouts.findOpen();
   const tags = open
-    .filter((session) => payToFor(session, "zcash") === payTo)
+    .filter((session) => session.id !== sessionId && payToFor(session, "zcash") === payTo)
+    .filter((session) => session.settlementQuote !== undefined && Date.parse(session.settlementQuote.expiresAt) > now.getTime())
     .map(tagOf)
     .filter((tag): tag is number => tag !== null);
   return new Set(tags);
 }
 
-/** Lock a quote for `session` paying `payTo`; 400 when Zcash is disabled, 502 when prices fail. */
+/** One in-process lock shared by every in-memory context in this process. */
+const inMemoryTagLock = createInMemoryTagLock();
+
+/** Per-payTo lock: Postgres advisory lock when a database is wired, else in-process. */
+function tagLockFor(ctx: AppContext): TagLock {
+  const db = ctx.db;
+  if (!db) return inMemoryTagLock;
+  return { withLock: (key, fn) => withAdvisoryLock(db, `zcash-tag:${key}`, fn) };
+}
+
+/**
+ * Save `session` (whose `settlementQuote` was locked with tag 0 by
+ * {@link lockZcashQuoteFor}) with a tag unique on `payTo`, atomically.
+ */
+export async function saveZcashSession(
+  ctx: AppContext,
+  session: CheckoutSession & { settlementQuote: SettlementQuote },
+  payTo: string,
+  now: Date = new Date(),
+): Promise<CheckoutSession> {
+  return saveWithUniqueTag({
+    lock: tagLockFor(ctx),
+    payTo,
+    sessionId: session.id,
+    baseQuote: session.settlementQuote,
+    takenTags: () => takenTags(ctx, session.id, payTo, now),
+    save: (settlementQuote) => ctx.checkouts.save({ ...session, settlementQuote }),
+  });
+}
+
+/**
+ * Lock the base (tag 0) quote for `session` paying `payTo`; the unique tag is
+ * added when the session is saved via {@link saveZcashSession}. 400 when
+ * Zcash is disabled, 502 when prices fail.
+ */
 export async function lockZcashQuoteFor(
   ctx: AppContext,
   session: CheckoutSession,
-  payTo: string,
   now: Date = new Date(),
 ): Promise<SettlementQuote> {
   if (ctx.zcash === null) {
     throw validationError('zcash payments are not enabled on this deployment (set ZCASH_ENABLED)', { network: "zcash" });
   }
-  const tag = assignTag(session.id, await takenTags(ctx, payTo));
   try {
     return await lockQuote({
       usdAmount: session.amount.amount,
-      tag,
+      tag: 0,
       sources: ctx.zcash.priceSources,
       now,
       ttlSec: ctx.zcash.quoteTtlSec,

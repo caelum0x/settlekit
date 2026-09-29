@@ -21,7 +21,8 @@ import {
   type PaymentRepository,
 } from "@settlekit/payments";
 import { InMemoryEntitlementRepository, type EntitlementRepository } from "@settlekit/entitlements";
-import { createDb, merchants, eq } from "@settlekit/database";
+import { createDb, merchants, eq, withAdvisoryLock } from "@settlekit/database";
+import type { TagLock } from "@settlekit/zcash";
 import {
   PgCheckoutRepository,
   PgEntitlementRepository,
@@ -40,6 +41,11 @@ export interface CheckoutBackend {
   readonly payments: PaymentRepository;
   /** Entitlements granted by confirmed payments (also the fulfillment ledger). */
   readonly entitlements: EntitlementRepository;
+  /**
+   * Per-payTo lock serializing Zcash tag assignment (Postgres advisory lock
+   * shared with the API; in-process mutex when absent).
+   */
+  readonly tagLock?: TagLock;
   /** Whether this backend is Postgres-backed (real catalog) or seeded. */
   readonly persistent: boolean;
   findProduct(id: string): Promise<Product | undefined>;
@@ -71,6 +77,8 @@ function createPostgresBackend(databaseUrl: string): CheckoutBackend {
     checkouts: new PgCheckoutRepository(db),
     payments: new PgPaymentRepository(db),
     entitlements: new PgEntitlementRepository(db),
+    // Same key namespace as the API so both apps serialize on one lock.
+    tagLock: { withLock: (key, fn) => withAdvisoryLock(db, `zcash-tag:${key}`, fn) },
     persistent: true,
     async findProduct(id) {
       return (await products.findById(id)) ?? undefined;

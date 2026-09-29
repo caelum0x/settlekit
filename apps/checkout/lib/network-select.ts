@@ -22,7 +22,7 @@ import { CheckoutError } from "./errors";
 import { acceptedNetworksOf, networkUnavailableReason } from "./network-options";
 import { defaultStoreDeps, hasRecordedPayment, type StoreDeps } from "./store";
 import { payToFor } from "./verify-payment";
-import { isQuoteLive, lockZcashQuote } from "./zcash";
+import { isQuoteLive, lockZcashQuote, saveWithZcashTag } from "./zcash";
 
 /** Pin every accepted network's payTo so switching never loses the default. */
 function pinnedPayTo(session: CheckoutSession): Partial<Record<PaymentNetwork, string>> {
@@ -55,24 +55,27 @@ async function switchableSession(sessionId: string, deps: StoreDeps, now: Date):
   return session;
 }
 
-/** Add the per-network bindings the chosen network needs. */
-async function withBindings(
+/**
+ * Add the per-network bindings the chosen network needs and save. A fresh
+ * Zcash quote is saved through {@link saveWithZcashTag}, which picks the
+ * session's amount tag atomically per payTo.
+ */
+async function bindAndSave(
   session: CheckoutSession,
   network: PaymentNetwork,
   deps: StoreDeps,
   now: Date,
 ): Promise<CheckoutSession> {
   if (network === "solana" && session.paymentReference === undefined) {
-    return { ...session, paymentReference: createReference() };
+    return deps.backend.checkouts.save({ ...session, paymentReference: createReference() });
   }
-  if (network !== "zcash" || isQuoteLive(session.settlementQuote, now)) return session;
+  if (network !== "zcash" || isQuoteLive(session.settlementQuote, now)) return deps.backend.checkouts.save(session);
   const zcash = deps.verify.zcash;
   if (zcash === undefined || !zcash.ok) {
     throw new CheckoutError("network_not_configured", zcash?.error ?? "Zcash payments are not enabled on this checkout.");
   }
-  const open = await deps.backend.checkouts.findOpen();
-  const quote = await lockZcashQuote(zcash.runtime, session, payToFor(session, "zcash"), open, now);
-  return { ...session, settlementQuote: quote };
+  const baseQuote = await lockZcashQuote(zcash.runtime, session, now);
+  return saveWithZcashTag(deps.backend, session, baseQuote, payToFor(session, "zcash"), now);
 }
 
 /** Switch `sessionId` to `rawNetwork`; returns the saved session. */
@@ -101,7 +104,5 @@ export async function selectNetwork(
     payToAddress: payToByNetwork[network] ?? session.payToAddress,
     payToByNetwork,
   };
-  const bound = await withBindings(switched, network, deps, now);
-  await deps.backend.checkouts.save(bound);
-  return bound;
+  return bindAndSave(switched, network, deps, now);
 }
