@@ -229,7 +229,7 @@ services:
     startCommand: pnpm --filter @settlekit/web exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
       - key: NEXT_PUBLIC_DASHBOARD_URL
         sync: false
       - key: NEXT_PUBLIC_MARKETPLACE_URL
@@ -246,7 +246,7 @@ services:
     startCommand: pnpm --filter @settlekit/dashboard exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
       - key: NEXT_PUBLIC_API_URL
         sync: false
 
@@ -259,7 +259,7 @@ services:
     startCommand: pnpm --filter @settlekit/marketplace-app exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
       - key: NEXT_PUBLIC_API_URL
         sync: false
 
@@ -272,7 +272,7 @@ services:
     startCommand: pnpm --filter @settlekit/checkout-app exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
       - key: NEXT_PUBLIC_API_URL
         sync: false
 
@@ -285,7 +285,7 @@ services:
     startCommand: pnpm --filter @settlekit/docs-app exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
 
   # ---- Buyer portal ---------------------------------------------------------
   - type: web
@@ -296,7 +296,7 @@ services:
     startCommand: pnpm --filter @settlekit/portal exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
       - key: NEXT_PUBLIC_API_URL
         sync: false
 
@@ -309,7 +309,7 @@ services:
     startCommand: pnpm --filter @settlekit/admin exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
       - key: NEXT_PUBLIC_API_URL
         sync: false
 
@@ -322,7 +322,7 @@ services:
     startCommand: pnpm --filter @settlekit/agent-console exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
       - key: NEXT_PUBLIC_API_URL
         sync: false
 
@@ -335,7 +335,7 @@ services:
     startCommand: pnpm --filter @settlekit/creator-dashboard exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
       - key: NEXT_PUBLIC_API_URL
         sync: false
 
@@ -348,6 +348,6 @@ services:
     startCommand: pnpm --filter @settlekit/stream-meter exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
-        value: "20"
+        value: "22"
       - key: NEXT_PUBLIC_API_URL
         sync: false
