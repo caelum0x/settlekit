@@ -123,3 +123,9 @@ export async function computeProof(store: OperatorStore, options: ProofOptions =
     generatedAt: (options.now ?? new Date()).toISOString(),
   };
 }
+
+/** The decision recorded for an event, if the event was already handled. */
+export async function findDecisionByEventRef(store: OperatorStore, orgId: string, eventRef: string): Promise<DecisionRecord | null> {
+  const records = await allDecisions(store, orgId);
+  return records.find((r) => r.eventRef === eventRef) ?? null;
+}

@@ -61,6 +61,7 @@ import { onchainEscrowRoutes } from "./routes/onchain-escrow.js";
 import { authRoutes } from "./routes/auth.js";
 import { leptonRoutes } from "./routes/lepton.js";
 import { fundRoutes } from "./routes/fund.js";
+import { operatorRoutes } from "./routes/operator.js";
 
 /** Build the full SettleKit API app. Pass a context to share/isolate state. */
 export function createApp(ctx: AppContext): Hono<AppEnv> {
@@ -127,6 +128,7 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
   // signature (verified in the handler), not an API key. Mounted outside the
   // v1 api-key guard. POST /v1/circle/webhooks.
   app.route("/v1/circle", circleWebhookRoutes());
+  app.route("/", operatorRoutes()); // /v1/operator/* (own API-key guard) + /v1/public/operator/*
 
   // Everything else under /v1 requires a valid Bearer API key.
   const v1 = new Hono<AppEnv>();

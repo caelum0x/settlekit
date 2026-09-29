@@ -8,6 +8,7 @@
   },
   "references": [
     { "path": "../../packages/common" },
+    { "path": "../../packages/operator" },
     { "path": "../../packages/solana" },
     { "path": "../../packages/database" },
     { "path": "../../packages/settlement-core" },

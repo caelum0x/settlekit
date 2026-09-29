@@ -102,7 +102,10 @@ export class OperatorService {
     } else {
       result = { status: "executed" };
     }
-    if (result.status === "executed") await this.deps.escalations.approve(orgId, escalation.id, by);
+    if (result.status === "executed") {
+      await this.deps.escalations.approve(orgId, escalation.id, by);
+      await this.resolveBill(orgId, subject, "paid");
+    }
     const trace = subject ? [executeTrace(subject, result)] : [];
     return this.record({ ...draft, toolCalls: [...draft.toolCalls, ...trace], outcome: aggregateOutcome([result]), ...this.txOf([result]), anchorHash }, started);
   }
@@ -121,6 +124,7 @@ export class OperatorService {
       return this.record({ ...draft, outcome: "failed", toolCalls: [...draft.toolCalls, trace], anchorHash }, started);
     }
     await this.deps.escalations.reject(orgId, escalation.id, by, reason);
+    await this.resolveBill(orgId, escalation.proposal.action.kind === "escalate" ? escalation.proposal.action.subject : escalation.proposal.action, "rejected");
     return this.record({ ...draft, outcome: "denied", toolCalls: [...draft.toolCalls, trace], ...this.txOf([result]), anchorHash }, started);
   }
 
@@ -258,6 +262,13 @@ export class OperatorService {
     const outcome = aggregateOutcome(results);
     const status = outcome === "executed" ? "paid" : outcome === "escalated" ? "escalated" : outcome === "denied" ? "rejected" : null;
     if (status) await this.deps.store.saveBill({ ...bill, status });
+  }
+
+  /** Close an escalated bill once the owner resolves its payout. */
+  private async resolveBill(orgId: string, action: Proposal["action"] | undefined, status: "paid" | "rejected"): Promise<void> {
+    if (!action || action.kind !== "payout") return;
+    const bill = await this.deps.store.getBill(orgId, action.ref);
+    if (bill && bill.status === "escalated") await this.deps.store.saveBill({ ...bill, status });
   }
 
   /** Chain onto the org head and append, re-linking on a concurrent append. */
