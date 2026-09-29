@@ -56,6 +56,7 @@
     "@settlekit/notifications": "workspace:*",
     "@settlekit/onchain": "workspace:*",
     "@settlekit/onchain-billing": "workspace:*",
+    "@settlekit/operator": "workspace:*",
     "@settlekit/oss-fund": "workspace:*",
     "@settlekit/paymaster": "workspace:*",
     "@settlekit/payments": "workspace:*",

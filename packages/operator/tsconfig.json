@@ -1,0 +1,51 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "composite": true,
+    "types": [
+      "node"
+    ]
+  },
+  "references": [
+    {
+      "path": "../arc"
+    },
+    {
+      "path": "../circle-wallets"
+    },
+    {
+      "path": "../common"
+    },
+    {
+      "path": "../compliance"
+    },
+    {
+      "path": "../database"
+    },
+    {
+      "path": "../notifications"
+    },
+    {
+      "path": "../risk"
+    },
+    {
+      "path": "../treasury"
+    },
+    {
+      "path": "../x402"
+    },
+    {
+      "path": "../x402-client"
+    }
+  ],
+  "include": [
+    "src/**/*"
+  ],
+  "exclude": [
+    "dist",
+    "node_modules",
+    "**/*.test.ts"
+  ]
+}

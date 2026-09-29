@@ -14,6 +14,7 @@
     { "path": "../../packages/zcash" },
     { "path": "../../packages/chains" },
     { "path": "../../packages/hyperliquid" },
+    { "path": "../../packages/operator" },
     { "path": "../../packages/routing" },
     { "path": "../../packages/database" },
     { "path": "../../packages/settlement-core" },

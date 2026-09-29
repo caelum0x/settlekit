@@ -1,0 +1,42 @@
+{
+  "name": "@settlekit/operator",
+  "version": "0.0.0",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run",
+    "coverage": "vitest run --coverage"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.65.0",
+    "@settlekit/arc": "workspace:*",
+    "@settlekit/circle-wallets": "workspace:*",
+    "@settlekit/common": "workspace:*",
+    "@settlekit/compliance": "workspace:*",
+    "@settlekit/database": "workspace:*",
+    "@settlekit/notifications": "workspace:*",
+    "@settlekit/risk": "workspace:*",
+    "@settlekit/treasury": "workspace:*",
+    "@settlekit/x402": "workspace:*",
+    "@settlekit/x402-client": "workspace:*",
+    "viem": "^2.21.0",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@vitest/coverage-v8": "^2.0.5",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

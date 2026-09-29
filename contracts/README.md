@@ -6,7 +6,7 @@ with Foundry (`solc 0.8.30`).
 ```bash
 cd contracts
 forge build        # compile
-forge test         # 13 tests (escrow + CCTP hook)
+forge test         # all suites (escrow, CCTP hook, OperatorVault, ...)
 ```
 
 ## Contracts
@@ -35,6 +35,17 @@ merchant credit atomic**.
 
 Only the configured `MessageTransmitterV2` may call the handlers. `hookData`
 begins at byte 228 of a `BurnMessageV2` body (offset documented in-contract).
+
+### `OperatorVault.sol` (Tameion operator)
+Guard rails for SettleKit's autonomous business operator. A human `owner` sets
+policy; the agent `operator` (a Circle DCW address) runs inside it. USDC is
+split into OPERATING / TAX / YIELD / REFUND buckets via `allocate` (only from
+unallocated inflow). `pay` enforces allowlist, per-tx cap, UTC-day cap and
+bucket balance; TAX is never operator-spendable; amounts above `escalateAbove`
+reserve funds and emit `Escalated` for owner `approve`/`reject` (72h expiry).
+Optional USYC yield adapter (`sweepToYield`/`redeemFromYield`, `YieldDisabled`
+when unset), `pause` kill switch, and `DecisionAnchored(decisionHash, action)`
+on every mutation. Deploy: `script/DeployOperator.s.sol`.
 
 ## Integration
 

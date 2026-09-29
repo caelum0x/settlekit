@@ -22,6 +22,7 @@ export { routeWatchJob } from "./route-watch.js";
 export { githubDeliveryRetryJob } from "./github-delivery-retry-job.js";
 export { subscriptionChargeJob } from "./subscription-charge.js";
 export { discordDeliveryRetryJob } from "./discord-delivery-retry-job.js";
+export { operatorTickJob, createOperatorTickJob } from "./operator-tick-job.js";
 
 import type { Job } from "./types.js";
 import { deliveryRunnerJob } from "./delivery-runner-job.js";

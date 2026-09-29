@@ -66,6 +66,7 @@ import {
   githubDeliveryRetryJob,
   subscriptionChargeJob,
   discordDeliveryRetryJob,
+  operatorTickJob,
   type JobContext,
 } from "./jobs/index.js";
 
@@ -338,6 +339,8 @@ export function buildRuntime(deps: RuntimeDeps): WorkerRuntime {
     { job: discordDeliveryRetryJob, intervalMs: intervals.githubDeliveryRetryMs },
     // No-op until onchain billing is configured (operator key / checkout URL).
     { job: subscriptionChargeJob, intervalMs: intervals.subscriptionChargeMs },
+    // No-op unless the operator vault is configured.
+    { job: operatorTickJob, intervalMs: intervals.payoutReconcileMs },
   ];
 
   const scheduler = new Scheduler(scheduled, ctx, logger);

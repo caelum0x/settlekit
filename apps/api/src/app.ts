@@ -66,6 +66,7 @@ import { publicRoutes } from "./routes/public.js";
 import { x402AgentRoutes } from "./routes/x402-agent.js";
 import { mppTempoRoutes } from "./routes/mpp-tempo.js";
 import { onchainBillingRoutes } from "./routes/onchain-billing.js";
+import { operatorRoutes } from "./routes/operator.js";
 
 /** Build the full SettleKit API app. Pass a context to share/isolate state. */
 export function createApp(ctx: AppContext): Hono<AppEnv> {
@@ -136,6 +137,7 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
   // signature (verified in the handler), not an API key. Mounted outside the
   // v1 api-key guard. POST /v1/circle/webhooks.
   app.route("/v1/circle", circleWebhookRoutes());
+  app.route("/", operatorRoutes()); // /v1/operator/* (own API-key guard) + /v1/public/operator/*
 
   // Payment links + public proof are PUBLIC: buyers open checkout sessions
   // from a seller's link, visitors read settled on-chain payments.
