@@ -96,3 +96,16 @@ export function readPaymentResponse(response: Response): SettleResponse | null {
   const header = response.headers.get("PAYMENT-RESPONSE") ?? response.headers.get("X-PAYMENT-RESPONSE");
   return header ? decodePaymentResponseHeader(header) : null;
 }
+
+/**
+ * Resolve an agent-facing network name ("hyperevm", "base", "solana", ...)
+ * or a CAIP-2 id to the CAIP-2 id x402 uses, via the @settlekit/chains registry.
+ */
+export function resolveX402Network(name: string, env: ChainEnv = "mainnet"): string {
+  if (name.includes(":")) return name;
+  const key = name.trim().toLowerCase();
+  if (key === "solana") return SOLANA_CAIP2[env];
+  const spec = Object.values(EVM_CHAINS[env]).find((entry) => entry?.key === key);
+  if (!spec) throw new Error(`unknown x402 network "${name}" on ${env}`);
+  return spec.caip2;
+}

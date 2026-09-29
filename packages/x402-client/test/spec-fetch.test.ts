@@ -119,3 +119,14 @@ describe("createSpecX402Fetch", () => {
     expect(() => createSpecX402Fetch({})).toThrow(/signer/i);
   });
 });
+
+describe("resolveX402Network", () => {
+  it("maps registry names to CAIP-2 ids per environment", async () => {
+    const { resolveX402Network } = await import("../src/index.js");
+    expect(resolveX402Network("hyperevm")).toBe("eip155:999");
+    expect(resolveX402Network("robinhood", "testnet")).toBe("eip155:46630");
+    expect(resolveX402Network("solana", "testnet")).toBe("solana:EtWTRABZaYq6iMfeYKouRu166VU2xqa1");
+    expect(resolveX402Network("eip155:8453")).toBe("eip155:8453");
+    expect(() => resolveX402Network("dogechain")).toThrow(/unknown/);
+  });
+});
