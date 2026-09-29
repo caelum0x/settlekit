@@ -1,0 +1,49 @@
+{
+  "data": {
+    "t1Ne88F8ouCV92brDXNBB47a85brvnEHE8g": {
+      "address": {
+        "type": "pubkeyhash",
+        "script_hex": "76a914344bf297cc708861717a25a4833653822167347088ac",
+        "balance": 1429000,
+        "received": 397980213002685,
+        "transaction_count": 5308
+      },
+      "transactions": [
+        {
+          "block_id": 3500258,
+          "hash": "c285f0a84825a24951fcf9d73e254a194b15c34b69de1153e79838485d79501e",
+          "time": "2026-09-29 11:40:19",
+          "balance_change": -77198500051
+        },
+        {
+          "block_id": 3500254,
+          "hash": "87ffd72ecb2753bcb31939dcd5ba7138c35e7a50a013fee1b8d4322c3fe96543",
+          "time": "2026-09-29 11:27:54",
+          "balance_change": 77198500051
+        },
+        {
+          "block_id": 3500245,
+          "hash": "794bab6f629d241c5e8ea4030dcc8c2d610d3c7dee1b26aeddc91095aebf7dd7",
+          "time": "2026-09-29 11:17:54",
+          "balance_change": -65428142319
+        },
+        {
+          "block_id": 3500162,
+          "hash": "42f400b9ce8756d26110c3e1f6a272cc558aeff3cbb07af40d75f0d6ceb56760",
+          "time": "2026-09-29 09:31:43",
+          "balance_change": -749146218164
+        },
+        {
+          "block_id": 3500152,
+          "hash": "88ec0b50cb69962d9c9cabcdc20131ed9968a2c0beeb0a5be6fa80e133557a27",
+          "time": "2026-09-29 09:20:17",
+          "balance_change": 749146218164
+        }
+      ]
+    }
+  },
+  "context": {
+    "code": 200,
+    "state": 3500291
+  }
+}

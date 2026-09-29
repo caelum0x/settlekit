@@ -1,0 +1,64 @@
+{
+  "data": {
+    "4c5b63098595b25090abb69e6fbb5431cd58735857f96bc33c6324d503791357": {
+      "transaction": {
+        "block_id": 3500129,
+        "hash": "4c5b63098595b25090abb69e6fbb5431cd58735857f96bc33c6324d503791357",
+        "time": "2026-09-29 09:00:07",
+        "input_count": 2,
+        "output_count": 2,
+        "input_total": 2479752686593,
+        "output_total": 2479752446593,
+        "fee": 240000,
+        "is_coinbase": false
+      },
+      "inputs": [
+        {
+          "block_id": 3478346,
+          "transaction_hash": "aef92477a5f4b6a6d1096ba454ff7b534617059608bec4db73ef99e4bd983999",
+          "index": 1,
+          "time": "2026-09-10 09:06:58",
+          "value": 2479751686593,
+          "recipient": "t1gH8kwDu1euQky74m2CS15vtopntebdKX5",
+          "type": "pubkeyhash"
+        },
+        {
+          "block_id": 3478456,
+          "transaction_hash": "d3e2c7a0f3ab0b4bef2a27b3ac6c7767196dc788c3eb918782edeaae9ad52336",
+          "index": 0,
+          "time": "2026-09-10 11:15:52",
+          "value": 1000000,
+          "recipient": "t1gH8kwDu1euQky74m2CS15vtopntebdKX5",
+          "type": "pubkeyhash"
+        }
+      ],
+      "outputs": [
+        {
+          "block_id": 3500129,
+          "transaction_hash": "4c5b63098595b25090abb69e6fbb5431cd58735857f96bc33c6324d503791357",
+          "index": 0,
+          "time": "2026-09-29 09:00:07",
+          "value": 375527095632,
+          "recipient": "t1Ne88F8ouCV92brDXNBB47a85brvnEHE8g",
+          "type": "pubkeyhash",
+          "script_hex": "76a914344bf297cc708861717a25a4833653822167347088ac"
+        },
+        {
+          "block_id": 3500129,
+          "transaction_hash": "4c5b63098595b25090abb69e6fbb5431cd58735857f96bc33c6324d503791357",
+          "index": 1,
+          "time": "2026-09-29 09:00:07",
+          "value": 2104225350961,
+          "recipient": "t1gH8kwDu1euQky74m2CS15vtopntebdKX5",
+          "type": "pubkeyhash",
+          "script_hex": "76a914f5c6012e46a0010c0930a843b0ebb2c362e981d988ac"
+        }
+      ]
+    }
+  },
+  "context": {
+    "code": 200,
+    "source": "D",
+    "state": 3500291
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "data": {
+    "blocks": 3500297,
+    "best_block_height": 3500291,
+    "best_block_hash": "0000000000694f76e2f5b2d9e6cccd72444470682061275adf8bc5e4278d8bd1",
+    "best_block_time": "2026-09-29 12:23:15"
+  },
+  "context": {
+    "code": 200,
+    "state": 3500291
+  }
+}
