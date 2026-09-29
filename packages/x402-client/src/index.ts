@@ -5,3 +5,4 @@ export * from "./payer.js";
 export * from "./provider-settler.js";
 export * from "./indexer-client.js";
 export * from "./onchain-verifier.js";
+export * from "./spec-fetch.js";
