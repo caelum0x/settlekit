@@ -35,6 +35,7 @@ export function acceptedNetworksOf(session: CheckoutSession): PaymentNetwork[] {
 export function networkEnv(network: PaymentNetwork, verify: VerifyDeps): ChainEnvName {
   if (network === "solana") return verify.solana.ok && verify.solana.runtime.config.cluster === "devnet" ? "testnet" : "mainnet";
   if (network === "zcash") return "mainnet";
+  if (network === "hypercore") return verify.hypercore?.ok ? verify.hypercore.runtime.config.network : "mainnet";
   if (verify.evm?.ok && isEvmNetwork(network)) {
     const chain = verify.evm.runtime.config.enabled[network];
     if (chain !== undefined) return chain.spec.env;
@@ -48,6 +49,10 @@ function configReason(network: PaymentNetwork, verify: VerifyDeps): string | und
   if (network === "zcash") {
     if (verify.zcash === undefined) return "Zcash payments are not enabled on this checkout.";
     return verify.zcash.ok ? undefined : verify.zcash.error;
+  }
+  if (network === "hypercore") {
+    if (verify.hypercore === undefined) return "HyperCore payments are not enabled on this checkout.";
+    return verify.hypercore.ok ? undefined : verify.hypercore.error;
   }
   const reason = evmUnavailableReason(verify.evm, network);
   // Legacy Arc settings still verify pasted hashes (see ./arc).
@@ -67,7 +72,7 @@ export function networkUnavailableReason(
   const payTo = payToFor(session, network);
   const check = checkPayTo(network, payTo);
   if (!check.ok) return `The merchant has no valid ${network} payment address (${check.reason}).`;
-  if (isEvmNetwork(network) && payTo === DEMO_EVM_PAY_TO && networkEnv(network, verify) === "mainnet") {
+  if ((isEvmNetwork(network) || network === "hypercore") && payTo === DEMO_EVM_PAY_TO && networkEnv(network, verify) === "mainnet") {
     return "The demo address is only used on test networks.";
   }
   return undefined;

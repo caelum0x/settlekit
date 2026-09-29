@@ -25,7 +25,7 @@ export type ChainEnvName = "mainnet" | "testnet";
 /** Honest disclosure badges shown next to a network. */
 export type NetworkBadge = "testnet" | "bridged" | "transparent";
 
-export type NetworkFamilyName = "solana" | "evm" | "zcash";
+export type NetworkFamilyName = "solana" | "evm" | "zcash" | "hypercore";
 
 /** Display facts for one network on one environment. */
 export interface NetworkLabel {
@@ -54,6 +54,16 @@ export function describeNetwork(network: PaymentNetwork, env: ChainEnvName = "ma
   if (network === "zcash") {
     // Transparent t-addresses only, mainnet only (no public testnet explorer).
     return { network, family: "zcash", name: "Zcash", asset: "ZEC", badges: ["transparent"] };
+  }
+  if (network === "hypercore") {
+    // Hyperliquid L1 perps-account USDC (usdSend), not an EVM token balance.
+    return {
+      network,
+      family: "hypercore",
+      name: env === "testnet" ? "HyperCore Testnet" : "HyperCore",
+      asset: "USDC",
+      badges: env === "testnet" ? ["testnet"] : [],
+    };
   }
   // Arc has no mainnet yet: fall back to whichever environment exists.
   const spec = getEvmChain(network, env) ?? getEvmChain(network, OTHER_ENV[env]);
@@ -114,6 +124,10 @@ export function explorerTxUrl(network: PaymentNetwork, txHash: string, options: 
     return `https://solscan.io/tx/${hash}${options.solanaCluster === "devnet" ? "?cluster=devnet" : ""}`;
   }
   if (network === "zcash") return `https://blockchair.com/zcash/transaction/${hash}`;
+  if (network === "hypercore") {
+    const host = options.chainEnv === "testnet" ? "app.hyperliquid-testnet.xyz" : "app.hyperliquid.xyz";
+    return `https://${host}/explorer/tx/${hash}`;
+  }
   const env = options.chainEnv ?? "mainnet";
   const spec = getEvmChain(network, env) ?? getEvmChain(network, OTHER_ENV[env]);
   return spec?.explorerTx(hash) ?? "";

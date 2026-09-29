@@ -26,6 +26,7 @@ import type { CheckoutBackend } from "../lib/backend";
 import { verifyOnChainPayment } from "../lib/arc";
 import { loadEvmRuntime, type EvmRuntimeResult } from "../lib/evm";
 import type { SolanaRuntimeResult } from "../lib/solana";
+import type { HyperCoreRuntimeResult } from "../lib/hypercore";
 import type { StoreDeps } from "../lib/store";
 import type { ZcashRuntime, ZcashRuntimeResult } from "../lib/zcash";
 
@@ -34,6 +35,7 @@ export const MERCHANT_EVM = "0x3333333333333333333333333333333333333333" as Hex;
 export const BUYER_EVM = "0x2222222222222222222222222222222222222222" as Hex;
 export const OTHER_EVM = "0x4444444444444444444444444444444444444444" as Hex;
 export const ZEC_PAY_TO = "t1Ne88F8ouCV92brDXNBB47a85brvnEHE8g";
+export const SOL_PAY_TO = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
 export const ZEC_PAYER = "t1gH8kwDu1euQky74m2CS15vtopntebdKX5";
 export const SESSION_CREATED = new Date("2026-09-29T10:00:00.000Z");
 
@@ -78,7 +80,9 @@ const UNCONFIGURED_SOLANA: SolanaRuntimeResult = {
   error: "Solana payments are not configured on this checkout (SOLANA_CLUSTER is unset).",
 };
 
-export function harness(options: { evm?: EvmRuntimeResult; zcash?: ZcashRuntimeResult; solana?: SolanaRuntimeResult } = {}): Harness {
+export function harness(
+  options: { evm?: EvmRuntimeResult; zcash?: ZcashRuntimeResult; solana?: SolanaRuntimeResult; hypercore?: HyperCoreRuntimeResult } = {},
+): Harness {
   const payments = new InMemoryPaymentRepository();
   const checkouts = new InMemoryCheckoutRepository();
   const entitlements = new InMemoryEntitlementRepository();
@@ -101,6 +105,7 @@ export function harness(options: { evm?: EvmRuntimeResult; zcash?: ZcashRuntimeR
         verifyArc: verifyOnChainPayment,
         ...(options.evm ? { evm: options.evm } : {}),
         ...(options.zcash ? { zcash: options.zcash } : {}),
+        ...(options.hypercore ? { hypercore: options.hypercore } : {}),
       },
       fulfillment: { entitlements, github: () => ({ ok: false, error: "GitHub App not configured." }) },
     },

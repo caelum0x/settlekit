@@ -36,6 +36,8 @@ export interface EvmPaymentParams {
   payTo: Hex;
   /** Tempo TIP-20 memo binding the transfer to this session; null elsewhere. */
   memo: Hex | null;
+  /** Tempo: only transferWithMemo carrying `memo` settles (plain transfers are refused). */
+  memoRequired: boolean;
   minConfirmations: number;
   /** Explorer tx URL prefix, or null when the chain has no public explorer. */
   explorerTxBase: string | null;
@@ -81,6 +83,7 @@ export async function getEvmPaymentParams(
     amountBase: toBaseUnits(session.amount.amount).toString(),
     payTo: getAddress(payToFor(session, key)),
     memo: key === "tempo" ? sessionMemo(session.id) : null,
+    memoRequired: key === "tempo" && session.requireMemo === true,
     minConfirmations: chain.minConfirmations,
     explorerTxBase,
     addChain: buildAddChainParams({

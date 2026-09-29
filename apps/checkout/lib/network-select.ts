@@ -10,7 +10,9 @@
  * payTo is pinned into `payToByNetwork` first, so the merchant's default
  * address is never lost), clears the declared payer (it belongs to the old
  * chain), makes sure Solana has a reference and locks a ZEC quote for Zcash.
- * A live quote is kept as is: re-selecting Zcash never re-prices.
+ * A live quote is kept as is: re-selecting Zcash never re-prices. While an
+ * any-token route is moving funds (past "quoted", not refunded/failed) the
+ * network is fixed too.
  */
 import { isPaymentNetwork, type CheckoutSession, type PaymentNetwork } from "@settlekit/common";
 import { isSessionExpired } from "@settlekit/payments";
@@ -36,6 +38,13 @@ async function switchableSession(sessionId: string, deps: StoreDeps, now: Date):
   }
   if (session.status !== "open" || isSessionExpired(session, now)) {
     throw new CheckoutError("session_not_payable", "This checkout session has expired and can no longer be paid.");
+  }
+  const route = session.route;
+  if (route !== undefined && route.state !== "quoted" && route.state !== "refund" && route.state !== "failure") {
+    throw new CheckoutError(
+      "session_not_payable",
+      "A cross-chain payment for this checkout is in progress, so its network can no longer change.",
+    );
   }
   if (await hasRecordedPayment(deps.backend, session.id)) {
     throw new CheckoutError(

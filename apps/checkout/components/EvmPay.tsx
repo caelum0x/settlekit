@@ -158,8 +158,9 @@ export function EvmPay(props: EvmPayProps) {
   }, [confirmingHash, sessionId, fields]);
 
   // Mobile wallets: EIP-681 transfer request as a QR, then paste the hash.
+  // (EIP-681 cannot carry a TIP-20 memo, so no QR when the memo is required.)
   const mobileQr = useMemo(() => {
-    if (params === null) return null;
+    if (params === null || params.memoRequired) return null;
     const uri = buildEip681TransferUri({
       token: params.token.address,
       chainId: params.chainId,
@@ -265,6 +266,13 @@ export function EvmPay(props: EvmPayProps) {
 
       {manual && stage.kind !== "confirming" ? (
         <>
+          {params?.memoRequired ? (
+            <div className="alert alert-info" role="status">
+              This checkout only accepts a Tempo <span className="mono">transferWithMemo</span> carrying memo{" "}
+              <span className="mono">{shortHash(params.memo ?? "")}</span>. Plain transfers are refused; paying with a
+              browser wallet above sends the memo for you.
+            </div>
+          ) : null}
           {mobileQr !== null ? (
             <div className="evm-mobile">
               <div

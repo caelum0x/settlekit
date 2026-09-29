@@ -1,14 +1,20 @@
+import nextDynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 
 import { getCheckoutSession, ApiClientError } from "@/lib/api";
 import { badgeDescription, badgeText, formatAmount, formatExpiry, formatMoney } from "@/lib/format";
 import { OrderSummary } from "@/components/OrderSummary";
 import { NetworkPicker } from "@/components/NetworkPicker";
-import { EvmPay } from "@/components/EvmPay";
-import { ZcashPay } from "@/components/ZcashPay";
-import { WalletPay } from "@/components/WalletPay";
-import { BridgePay } from "@/components/BridgePay";
-import { SolanaPay } from "@/components/SolanaPay";
+
+// Per-network payment components load on demand: a buyer only downloads the
+// flow for the network they pay on (and any-token routing when offered).
+const Loading = () => <p className="muted">Loading payment options…</p>;
+const EvmPay = nextDynamic(() => import("@/components/EvmPay").then((m) => m.EvmPay), { loading: Loading });
+const SolanaPay = nextDynamic(() => import("@/components/SolanaPay").then((m) => m.SolanaPay), { loading: Loading });
+const ZcashPay = nextDynamic(() => import("@/components/ZcashPay").then((m) => m.ZcashPay), { loading: Loading });
+const HyperCorePay = nextDynamic(() => import("@/components/HyperCorePay").then((m) => m.HyperCorePay), { loading: Loading });
+const AnyTokenPay = nextDynamic(() => import("@/components/AnyTokenPay").then((m) => m.AnyTokenPay), { loading: Loading });
+const WalletPay = nextDynamic(() => import("@/components/WalletPay").then((m) => m.WalletPay), { loading: Loading });
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +26,9 @@ interface PageProps {
  * Hosted checkout page. Server-fetches the checkout session from the SettleKit
  * API, renders the order summary, a network picker (accepted networks this
  * checkout can verify) and the flow for the chosen network: SolanaPay,
- * EvmPay (every EVM chain) or ZcashPay. Expired sessions redirect to the
+ * EvmPay (every EVM chain), HyperCorePay or ZcashPay, plus "pay with any
+ * token" (AnyTokenPay, real Relay/LI.FI routes) when routing is enabled for
+ * the network. Expired sessions redirect to the
  * /expired page; completed sessions redirect to /success.
  */
 export default async function CheckoutPage({ params }: PageProps) {
@@ -47,7 +55,7 @@ export default async function CheckoutPage({ params }: PageProps) {
   const option = session.networkOption;
   const family = option.family;
   const amountLabel = `${formatAmount(session.amount.amount)} ${option.asset}`;
-  // The Arc demo wallet + bridge cards only apply to Arc sessions.
+  // The Arc demo wallet (offline simulation) only applies to Arc sessions.
   const isArc = session.network === "arc";
 
   return (
@@ -99,6 +107,16 @@ export default async function CheckoutPage({ params }: PageProps) {
             requiredFields={session.requiredFields}
             initialValues={session.collectedFields}
           />
+        ) : family === "hypercore" ? (
+          <HyperCorePay
+            key={session.network}
+            sessionId={session.id}
+            networkName={option.name}
+            amountLabel={amountLabel}
+            payToAddress={session.payToAddress}
+            requiredFields={session.requiredFields}
+            initialValues={session.collectedFields}
+          />
         ) : family === "zcash" ? (
           <ZcashPay
             key={session.network}
@@ -122,18 +140,29 @@ export default async function CheckoutPage({ params }: PageProps) {
         )}
       </div>
 
-      {isArc && option.available ? (
-        <>
-          <div className="card">
-            <h2>Pay with wallet</h2>
-            <WalletPay amount={session.amount.amount} payToAddress={session.payToAddress} />
-          </div>
+      {option.available && session.anyToken.available ? (
+        <div className="card">
+          <h2>Pay with any token</h2>
+          <AnyTokenPay
+            key={session.network}
+            sessionId={session.id}
+            networkName={option.name}
+            amountLabel={amountLabel}
+            requiredFields={session.requiredFields}
+            initialValues={session.collectedFields}
+          />
+        </div>
+      ) : null}
 
-          <div className="card">
-            <h2>Pay from another chain</h2>
-            <BridgePay amount={session.amount.amount} />
-          </div>
-        </>
+      {isArc && option.available ? (
+        <div className="card">
+          <h2>Arc demo wallet (simulation)</h2>
+          <p className="hint">
+            Offline App Kit simulation for the Arc testnet demo: it returns a synthetic transaction and does not pay
+            this order. Use the payment form above to pay.
+          </p>
+          <WalletPay amount={session.amount.amount} payToAddress={session.payToAddress} />
+        </div>
       ) : null}
     </div>
   );

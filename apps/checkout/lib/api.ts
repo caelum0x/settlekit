@@ -11,7 +11,9 @@
  */
 import type { PaymentNetwork } from "@settlekit/common";
 
+import type { AnyTokenOptionsResponse, RouteQuoteView, RouteStatusView } from "./any-token";
 import type { EvmPaymentParams } from "./evm-checkout";
+import type { HyperCorePaymentParams, HyperCoreStatusResponse } from "./hypercore-checkout";
 import type {
   CheckoutSessionView,
   ConfirmPaymentRequest,
@@ -217,4 +219,58 @@ export function requestZcashUri(sessionId: string, fields: Record<string, string
 /** Poll the session's Zcash payment status. */
 export function getZcashStatus(sessionId: string): Promise<ZcashStatusResponse> {
   return request<ZcashStatusResponse>(sessionPath(sessionId, "zcash/status"));
+}
+
+/** What the buyer's wallet signs to pay on HyperCore. */
+export function getHyperCoreParams(sessionId: string): Promise<HyperCorePaymentParams> {
+  return request<HyperCorePaymentParams>(sessionPath(sessionId, "hypercore/params"));
+}
+
+/** Submit the buyer-signed usdSend (binds the signer, saves fields). */
+export function submitHyperCoreTransfer(
+  sessionId: string,
+  payload: { action: unknown; signature: string; fields: Record<string, string> },
+): Promise<HyperCoreStatusResponse> {
+  return request<HyperCoreStatusResponse>(sessionPath(sessionId, "hypercore/submit"), {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Poll the submitted HyperCore transfer (settles it once it is in the ledger). */
+export function getHyperCoreStatus(sessionId: string, nonce: number): Promise<HyperCoreStatusResponse> {
+  return request<HyperCoreStatusResponse>(sessionPath(sessionId, "hypercore/status"), {
+    method: "POST",
+    body: JSON.stringify({ nonce }),
+  });
+}
+
+/** Origin chains/tokens the buyer can pay from (any-token routing). */
+export function getAnyTokenOptions(sessionId: string): Promise<AnyTokenOptionsResponse> {
+  return request<AnyTokenOptionsResponse>(sessionPath(sessionId, "route/quote"));
+}
+
+/** Quote an any-token route to the session's network (saves fields). */
+export function requestRouteQuote(
+  sessionId: string,
+  payload: {
+    originChainId: number;
+    originToken: string;
+    originAddress: string;
+    depositAddress: boolean;
+    fields: Record<string, string>;
+  },
+): Promise<RouteQuoteView> {
+  return request<RouteQuoteView>(sessionPath(sessionId, "route/quote"), {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Poll the route; settles the session once the destination transfer verifies. */
+export function getRouteStatus(sessionId: string, originTxHash?: string): Promise<RouteStatusView> {
+  return request<RouteStatusView>(sessionPath(sessionId, "route/status"), {
+    method: "POST",
+    body: JSON.stringify(originTxHash ? { originTxHash } : {}),
+  });
 }
