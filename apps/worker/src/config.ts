@@ -46,6 +46,8 @@ export interface JobIntervals {
   payoutReconcileMs: number;
   /** How often open Zcash sessions' addresses are checked for payments. */
   zcashWatchMs: number;
+  /** How often pending GitHub entitlements from checkout are re-delivered. */
+  githubDeliveryRetryMs: number;
 }
 
 /** Circle developer-controlled wallets used to reconcile executed payouts. */
@@ -110,6 +112,12 @@ export interface GithubConfig {
   privateKey: string;
   /** Default installation id the worker authenticates as for sync/automation. */
   installationId: number;
+  /**
+   * True when an installation id was explicitly configured
+   * (GITHUB_INSTALLATION_ID or GITHUB_APP_INSTALLATION_ID). Jobs that act on
+   * the merchant's behalf without a per-run installation require it.
+   */
+  installationConfigured: boolean;
 }
 
 /** Discord bot credentials used for role automation. */
@@ -273,6 +281,7 @@ export function loadConfig(env: Env = process.env): WorkerConfig {
     accessEmailMs: intInRange(env, "WORKER_ACCESS_EMAIL_INTERVAL_MS", 60_000, 1_000, 86_400_000),
     payoutReconcileMs: intInRange(env, "WORKER_PAYOUT_RECONCILE_INTERVAL_MS", 60_000, 1_000, 86_400_000),
     zcashWatchMs: intInRange(env, "WORKER_ZCASH_WATCH_INTERVAL_MS", 90_000, 30_000, 3_600_000),
+    githubDeliveryRetryMs: intInRange(env, "WORKER_GITHUB_RETRY_INTERVAL_MS", 120_000, 10_000, 86_400_000),
   };
 
   const circleWallets: CircleWalletsConfig | null =
@@ -326,7 +335,17 @@ export function loadConfig(env: Env = process.env): WorkerConfig {
     github: {
       appId: intInRange(env, "GITHUB_APP_ID", 1, 1, 2_147_483_647),
       privateKey: requireString(env, "GITHUB_APP_PRIVATE_KEY"),
-      installationId: intInRange(env, "GITHUB_INSTALLATION_ID", 1, 1, 2_147_483_647),
+      // GITHUB_APP_INSTALLATION_ID is the name the checkout app reads.
+      installationId: intInRange(
+        { ...env, GITHUB_INSTALLATION_ID: env.GITHUB_INSTALLATION_ID ?? env.GITHUB_APP_INSTALLATION_ID },
+        "GITHUB_INSTALLATION_ID",
+        1,
+        1,
+        2_147_483_647,
+      ),
+      installationConfigured: Boolean(
+        (env.GITHUB_INSTALLATION_ID ?? env.GITHUB_APP_INSTALLATION_ID ?? "").trim(),
+      ),
     },
     discord: {
       botToken: requireString(env, "DISCORD_BOT_TOKEN"),

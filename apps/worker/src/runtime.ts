@@ -58,6 +58,7 @@ import {
   leptonPayoutSweepJob,
   leptonStreamRefundJob,
   zcashWatchJob,
+  githubDeliveryRetryJob,
   type JobContext,
 } from "./jobs/index.js";
 
@@ -306,6 +307,8 @@ export function buildRuntime(deps: RuntimeDeps): WorkerRuntime {
     { job: leptonStreamRefundJob, intervalMs: intervals.payoutReconcileMs },
     // No-op (no network calls) unless Zcash is enabled AND open Zcash sessions exist.
     { job: zcashWatchJob, intervalMs: intervals.zcashWatchMs },
+    // No-op until a GitHub App installation id is configured.
+    { job: githubDeliveryRetryJob, intervalMs: intervals.githubDeliveryRetryMs },
   ];
 
   const scheduler = new Scheduler(scheduled, ctx, logger);

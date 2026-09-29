@@ -22,6 +22,7 @@ import type {
   DiscordRoleGrant,
   Merchant,
   Payment,
+  Product,
   Subscription,
   WebhookEndpoint,
   WebhookEvent,
@@ -88,6 +89,8 @@ export interface WorkerStore {
   openCheckoutSessions(): Promise<CheckoutSession[]>;
   /** The payment already carrying `txHash` (global uniqueness), if any. */
   paymentByTxHash(txHash: string): Promise<Payment | undefined>;
+  /** A catalog product (delivery configuration lives in its metadata). */
+  getProduct(id: string): Promise<Product | undefined>;
 
   // --- delivery queue ---------------------------------------------------
   enqueueDelivery(item: QueuedDeliveryRun): Promise<QueuedDeliveryRun>;
@@ -180,6 +183,7 @@ export class InMemoryWorkerStore implements WorkerStore {
   private readonly webhookJobsTable = new Table<WebhookJob>();
   private readonly customersTable = new Table<Customer>();
   private readonly merchantsTable = new Table<Merchant>();
+  private readonly productsTable = new Table<Product>();
 
   private readonly subscriptionIntervals = new Map<string, BillingInterval>();
   private readonly dunningAttempts = new Map<string, number>();
@@ -215,6 +219,13 @@ export class InMemoryWorkerStore implements WorkerStore {
   }
   async paymentByTxHash(txHash: string): Promise<Payment | undefined> {
     return this.paymentsTable.filter((p) => p.txHash === txHash)[0];
+  }
+  async getProduct(id: string): Promise<Product | undefined> {
+    return this.productsTable.get(id);
+  }
+  /** Record a product (seeding; the API owns catalog writes in Pg). */
+  async upsertProduct(product: Product): Promise<Product> {
+    return this.productsTable.upsert(product);
   }
   /** Record a checkout session (upstream sync / seeding; the API owns writes in Pg). */
   async upsertCheckoutSession(session: CheckoutSession): Promise<CheckoutSession> {

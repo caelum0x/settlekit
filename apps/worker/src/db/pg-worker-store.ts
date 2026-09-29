@@ -26,6 +26,7 @@ import {
   customers,
   merchants,
   prices,
+  products,
   organizations,
   workerDeliveryQueue,
   workerWebhookJobs,
@@ -42,6 +43,7 @@ import type {
   Merchant,
   Payment,
   Price,
+  Product,
   Subscription,
 } from "@settlekit/common";
 import type {
@@ -137,6 +139,15 @@ export class PgWorkerStore implements WorkerStore {
       .where(eq(payments.txHash, txHash))
       .limit(1);
     return unpackDoc<Payment>(rows[0]) ?? undefined;
+  }
+
+  async getProduct(id: string): Promise<Product | undefined> {
+    const rows = await this.db
+      .select({ metadata: products.metadata })
+      .from(products)
+      .where(eq(products.id, id))
+      .limit(1);
+    return unpackDoc<Product>(rows[0]) ?? undefined;
   }
 
   async pendingPayments(): Promise<Payment[]> {
