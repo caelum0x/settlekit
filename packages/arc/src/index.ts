@@ -30,8 +30,8 @@ export {
 } from "./chains.js";
 export type { ArcAsset, ArcChain, ArcContracts, ArcTokenInfo } from "./chains.js";
 
-export { createViemArcRpc } from "./rpc.js";
-export type { ArcRpc, ArcFeesPerGas } from "./rpc.js";
+export { createViemArcRpc, createViemEvmRpc } from "./rpc.js";
+export type { ArcRpc, ArcFeesPerGas, EvmRpc, FullEvmRpc, ViemEvmRpcOptions } from "./rpc.js";
 
 export {
   decodeTransferLog,

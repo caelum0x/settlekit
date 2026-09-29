@@ -80,6 +80,21 @@ export function createArcClient(
   rpc: ArcRpc = createViemArcRpc(config),
 ): ArcClient {
   const usdcAddress = normalizeAddress(config.usdcAddress);
+  let chainIdChecked = false;
+
+  /**
+   * When the RPC can report its chain id, refuse to verify against an
+   * endpoint serving a different chain than `config.chainId` (a mis-pointed
+   * RPC must never confirm a payment made elsewhere). Checked once per client.
+   */
+  async function assertChainId(): Promise<void> {
+    if (chainIdChecked || rpc.getChainId === undefined) return;
+    const actual = await rpc.getChainId();
+    if (actual !== config.chainId) {
+      throw new Error(`RPC chain id mismatch: expected ${config.chainId}, endpoint serves ${actual}`);
+    }
+    chainIdChecked = true;
+  }
 
   /** Compute confirmations from head and a receipt's block number. */
   function computeConfirmations(
@@ -112,6 +127,7 @@ export function createArcClient(
   async function verifyTokenTransfer(
     params: VerifyTokenTransferParams,
   ): Promise<VerifyUsdcTransferResult> {
+    await assertChainId();
     const receipt = await rpc.getTransactionReceipt(params.txHash);
     if (receipt === null || receipt.status !== "success") {
       return { confirmed: false, from: null, amount: null, confirmations: 0 };

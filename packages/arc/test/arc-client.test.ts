@@ -290,3 +290,35 @@ describe("createArcClient.getTransactionReceipt", () => {
     expect(await client.getTransactionReceipt(TX)).toEqual(receipt);
   });
 });
+
+describe("createArcClient chain-id assertion (generic EvmRpc)", () => {
+  it("refuses to verify when the RPC serves another chain", async () => {
+    const rpc = { ...inMemoryRpc({ receipt: receiptWithTransfer(25_000_000n), head: 105n }), getChainId: async () => 1 };
+    const client = createArcClient(
+      { rpcUrl: "http://localhost:8545", usdcAddress: USDC, chainId: 5_042_002 },
+      rpc,
+    );
+    await expect(client.verifyUsdcTransfer({ txHash: TX, to: TO, minAmount: money("25") })).rejects.toThrow(
+      /chain id mismatch/,
+    );
+  });
+
+  it("verifies (and checks the chain id once) when it matches", async () => {
+    let chainIdCalls = 0;
+    const rpc = {
+      ...inMemoryRpc({ receipt: receiptWithTransfer(25_000_000n), head: 105n }),
+      getChainId: async () => {
+        chainIdCalls += 1;
+        return 5_042_002;
+      },
+    };
+    const client = createArcClient(
+      { rpcUrl: "http://localhost:8545", usdcAddress: USDC, chainId: 5_042_002 },
+      rpc,
+    );
+    const params = { txHash: TX, to: TO, minAmount: money("25") };
+    expect((await client.verifyUsdcTransfer(params)).confirmed).toBe(true);
+    expect((await client.verifyUsdcTransfer(params)).confirmed).toBe(true);
+    expect(chainIdCalls).toBe(1);
+  });
+});
