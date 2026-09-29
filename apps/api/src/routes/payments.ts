@@ -21,12 +21,17 @@ import {
   refundPayment,
 } from "@settlekit/payments";
 import { completeSession } from "@settlekit/payments";
-import { X402_SCHEME } from "@settlekit/x402";
 import type { AppEnv, AppContext } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { requireOrg } from "../http/tenant.js";
 import { screenAddressOrThrow } from "../compliance/screen.js";
+import {
+  assertTxHashUnused,
+  normalizeTxHash,
+  requireVerifier,
+  verifyOnChainOrThrow,
+} from "./payment-verification.js";
 
 const recordSchema = z.object({
   checkoutSessionId: z.string().min(1),
@@ -39,21 +44,44 @@ const confirmSchema = z.object({
   minConfirmations: z.number().int().positive().optional(),
 });
 
-const observeSchema = z.object({
-  // Derived from the authenticated org (tenant scope); ignored if supplied.
-  organizationId: z.string().min(1).optional(),
-  txHash: z.string().regex(/^0x[a-fA-F0-9]{64}$/, "must be a 0x tx hash"),
-  /** The watched (recipient) address the transfer landed at. */
-  to: z.string().regex(/^0x[a-fA-F0-9]{40}$/, "must be a 0x address"),
-  amount: z.string().regex(/^\d+(\.\d+)?$/, "must be a decimal amount"),
-  asset: z.enum(["USDC", "EURC", "USYC"]).default("USDC"),
-  network: z.enum(["arc", "base", "ethereum"]).default("arc"),
-  /** Sender, if the indexer decoded it; screened when present. */
-  from: z.string().regex(/^0x[a-fA-F0-9]{40}$/).optional(),
-  /** Optional customer attribution; defaults to a synthetic direct-payment id. */
-  customerId: z.string().optional(),
-  confirmations: z.number().int().nonnegative().default(0),
-});
+const EVM_TX_HASH_RE = /^0x[a-fA-F0-9]{64}$/;
+const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+/** Base58 (no 0/O/I/l): Solana signatures are 64 bytes, addresses 32. */
+const SOLANA_SIGNATURE_RE = /^[1-9A-HJ-NP-Za-km-z]{64,88}$/;
+const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+const observeSchema = z
+  .object({
+    // Derived from the authenticated org (tenant scope); ignored if supplied.
+    organizationId: z.string().min(1).optional(),
+    txHash: z.string().min(1),
+    /** The watched (recipient) address the transfer landed at. */
+    to: z.string().min(1),
+    amount: z.string().regex(/^\d+(\.\d+)?$/, "must be a decimal amount"),
+    asset: z.enum(["USDC", "EURC", "USYC"]).default("USDC"),
+    network: z.enum(["solana", "arc", "base", "ethereum"]).default("arc"),
+    /** Sender, if the indexer decoded it; screened when present. */
+    from: z.string().optional(),
+    /** Optional customer attribution; defaults to a synthetic direct-payment id. */
+    customerId: z.string().optional(),
+    confirmations: z.number().int().nonnegative().default(0),
+  })
+  .superRefine((body, ctx) => {
+    // Hash/address formats depend on the chain: base58 on Solana, 0x on EVM.
+    const solana = body.network === "solana";
+    const txRe = solana ? SOLANA_SIGNATURE_RE : EVM_TX_HASH_RE;
+    const addrRe = solana ? SOLANA_ADDRESS_RE : EVM_ADDRESS_RE;
+    const kind = solana ? "a base58 Solana" : "a 0x";
+    if (!txRe.test(body.txHash)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["txHash"], message: `must be ${kind} tx hash` });
+    }
+    if (!addrRe.test(body.to)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["to"], message: `must be ${kind} address` });
+    }
+    if (body.from !== undefined && !addrRe.test(body.from)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["from"], message: `must be ${kind} address` });
+    }
+  });
 
 export function paymentRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
@@ -70,13 +98,16 @@ export function paymentRoutes(): Hono<AppEnv> {
       });
     }
 
+    const txHash = body.txHash !== undefined ? normalizeTxHash(session.network, body.txHash) : undefined;
+    if (txHash !== undefined) await assertTxHashUnused(ctx, txHash);
+
     const payment = recordPendingPayment({
       organizationId: session.organizationId,
       checkoutSessionId: session.id,
       customerId: session.customerId,
       amount: session.amount,
       network: session.network,
-      ...(body.txHash !== undefined ? { txHash: body.txHash } : {}),
+      ...(txHash !== undefined ? { txHash } : {}),
     });
     return created(c, await ctx.payments.save(payment));
   });
@@ -104,42 +135,26 @@ export function paymentRoutes(): Hono<AppEnv> {
     const session = await ctx.checkouts.findById(payment.checkoutSessionId);
     if (!session) throw conflict("checkout session vanished", { id: payment.checkoutSessionId });
 
-    // When Arc settlement is configured, verify the transfer ON-CHAIN before
-    // confirming an Arc-network payment: the tx must have moved at least the
-    // invoiced USDC to the session's payTo address with enough confirmations.
-    // This prevents a caller from settling a session with an arbitrary hash.
-    // (Non-Arc networks / unconfigured Arc fall through to the recorded count.)
-    if (ctx.arcVerifier && payment.network === "arc") {
-      const verification = await ctx.arcVerifier(
-        {
-          txHash: body.txHash,
-          from: "",
-          amount: session.amount.amount,
-          network: payment.network,
-          nonce: "",
-        },
-        {
-          scheme: X402_SCHEME,
-          amount: session.amount.amount,
-          asset: session.amount.currency,
-          network: payment.network,
-          payTo: session.payToAddress,
-          productId: "",
-          resource: `checkout_session:${session.id}`,
-          nonce: "",
-        },
-      );
-      if (!verification.ok) {
-        throw validationError(`on-chain payment verification failed: ${verification.reason ?? "unverified"}`, {
-          paymentId: id,
-          txHash: body.txHash,
-        });
-      }
-    }
+    // Verify the transfer ON-CHAIN before confirming, on EVERY network: the tx
+    // must have moved at least the invoiced USDC to the session's payTo (and,
+    // on Solana, carry the session's reference). No verifier for the network
+    // means the payment cannot be confirmed (fail closed), and a tx hash can
+    // back only one payment, so one transfer never settles two sessions.
+    const txHash = normalizeTxHash(payment.network, body.txHash);
+    await assertTxHashUnused(ctx, txHash, payment.id);
+    await verifyOnChainOrThrow(ctx, {
+      network: payment.network,
+      txHash,
+      amount: session.amount.amount,
+      asset: session.amount.currency,
+      payTo: session.payToAddress,
+      resource: `checkout_session:${session.id}`,
+      ...(session.paymentReference !== undefined ? { reference: session.paymentReference } : {}),
+    });
 
     const confirmed = confirmPayment(
       payment,
-      body.txHash,
+      txHash,
       body.confirmations,
       body.minConfirmations,
     );
@@ -181,59 +196,53 @@ export function paymentRoutes(): Hono<AppEnv> {
     // Tenant-scoped: credit the authenticated org, never a client-supplied one.
     const organizationId = requireOrg(c);
 
-    if (!ctx.arcVerifier) {
-      throw validationError(
-        "Arc is not configured; observed transfers cannot be verified (set ARC_CHAIN_ID)",
-      );
+    // Fail closed: without a verifier for the network nothing can be credited.
+    requireVerifier(ctx, body.network);
+    const txHash = normalizeTxHash(body.network, body.txHash);
+
+    // Idempotency: this org already recorded the transfer -> return it. A hash
+    // recorded by ANY other payment (another org/session) is a replay -> 409.
+    const existing = await ctx.payments.findByTxHash(txHash);
+    if (existing) {
+      if (existing.organizationId === organizationId && existing.status === "confirmed") {
+        return data(c, { payment: existing, deduped: true });
+      }
+      throw conflict("transaction hash already used by another payment", { txHash, paymentId: existing.id });
     }
 
-    // Idempotency: a confirmed payment for this txHash already exists?
-    const confirmed = await ctx.payments.findConfirmedByOrganization(organizationId);
-    const dupe = confirmed.find((p) => p.txHash === body.txHash);
-    if (dupe) return data(c, { payment: dupe, deduped: true });
-
-    // Independently re-verify the transfer on-chain via the same Arc verifier
-    // the checkout-confirm path uses. This enforces recipient + amount +
-    // confirmations against the chain, so a spoofed `observe` body is rejected.
-    const verification = await ctx.arcVerifier(
-      { txHash: body.txHash, from: body.from ?? "", amount: body.amount, network: body.network, nonce: "" },
-      {
-        scheme: X402_SCHEME,
-        amount: body.amount,
-        // The verifier widens asset to string at runtime to resolve EURC/USYC.
-        asset: body.asset as "USDC",
-        network: body.network,
-        payTo: body.to,
-        productId: "",
-        resource: `observe:${body.txHash}`,
-        nonce: "",
-      },
-    );
-    if (!verification.ok) {
-      throw validationError(`on-chain verification failed: ${verification.reason ?? "unverified"}`, {
-        txHash: body.txHash,
-      });
-    }
+    // Independently re-verify the transfer on-chain via the network's verifier
+    // (the same one the checkout-confirm path uses). This enforces recipient +
+    // amount (+ confirmations on EVM) against the chain, so a spoofed
+    // `observe` body is rejected.
+    await verifyOnChainOrThrow(ctx, {
+      network: body.network,
+      txHash,
+      amount: body.amount,
+      asset: body.asset,
+      payTo: body.to,
+      resource: `observe:${txHash}`,
+      ...(body.from !== undefined ? { from: body.from } : {}),
+    });
 
     // Screen the sender (when decoded) before crediting the merchant.
     if (body.from) {
       await screenAddressOrThrow(
         { screening: ctx.screening, defaultChain: ctx.complianceDefaultChain },
-        { address: body.from, network: body.network, context: `observe:${body.txHash}` },
+        { address: body.from, network: body.network, context: `observe:${txHash}` },
       );
     }
 
     const amount = { amount: money(body.amount).amount, currency: body.asset } as unknown as Money;
     const pending = recordPendingPayment({
       organizationId,
-      checkoutSessionId: `direct:${body.txHash}`,
+      checkoutSessionId: `direct:${txHash}`,
       customerId: body.customerId ?? `direct:${body.from ?? "unknown"}`,
       amount,
       network: body.network,
-      txHash: body.txHash,
+      txHash,
     });
     // The on-chain verifier already enforced confirmations; mark confirmed.
-    const settled = confirmPayment(pending, body.txHash, Math.max(body.confirmations, 1), 1);
+    const settled = confirmPayment(pending, txHash, Math.max(body.confirmations, 1), 1);
     const saved = await ctx.payments.save(settled);
     return created(c, { payment: saved, deduped: false });
   });

@@ -11,7 +11,12 @@
  * have stores can pass their own sink via {@link BuildIntegrationsOptions}.
  */
 
-import { money, type DiscordRoleGrant, type GitHubRepoAccessGrant } from "@settlekit/common";
+import {
+  money,
+  type DiscordRoleGrant,
+  type GitHubRepoAccessGrant,
+  type PaymentNetwork,
+} from "@settlekit/common";
 import {
   createArcClient,
   getArcChain,
@@ -38,6 +43,7 @@ import type { ApiKeyStore } from "@settlekit/api-keys";
 import type { GrantStore } from "@settlekit/file-delivery";
 import type { DeliveryClients } from "@settlekit/delivery";
 import type { PaymentVerifier } from "@settlekit/x402";
+import { createKitSolanaRpc, createSolanaPaymentVerifier } from "@settlekit/solana";
 import type { ApiConfig } from "./env.js";
 import {
   createDeliveryClients,
@@ -57,6 +63,11 @@ export interface Integrations {
   discordApi: DiscordApi;
   /** Arc settlement verifier for x402 paid calls, or null when Arc is unset. */
   arcVerifier: PaymentVerifier | null;
+  /**
+   * On-chain payment verifiers keyed by network. A network with no entry has
+   * NO way to confirm payments: confirm/observe fail closed for it.
+   */
+  verifiers: PaymentVerifiers;
   /** Raw Arc client (verify / fee-estimate / confirmations), or null when unset. */
   arc: ArcClient | null;
   /** Real Circle REST client, or null when Circle is unset. */
@@ -68,6 +79,9 @@ export interface Integrations {
   /** Real email client, or null when email is unset. */
   email: EmailClient | null;
 }
+
+/** Per-network on-chain verifier registry (absent network = fail closed). */
+export type PaymentVerifiers = Readonly<Partial<Record<PaymentNetwork, PaymentVerifier>>>;
 
 /** Optional injection points for {@link buildIntegrations}. */
 export interface BuildIntegrationsOptions {
@@ -112,13 +126,18 @@ function createInMemoryGrantSink(): DeliveryGrantSink {
 /**
  * Build an x402 {@link PaymentVerifier} over a real {@link ArcClient}. Confirms
  * the proof's transaction transferred at least the advertised amount to the
- * configured `payTo` address with enough confirmations.
+ * configured `payTo` address with enough confirmations. The client is a
+ * generic EVM USDC reader, so the same verifier serves Base (`network`).
  */
-function buildArcVerifier(arc: ArcClient, minConfirmations: number): PaymentVerifier {
-  const chain = getArcChain(arc.config.chainId);
+function buildEvmVerifier(
+  arc: ArcClient,
+  minConfirmations: number,
+  network: "arc" | "base" = "arc",
+): PaymentVerifier {
+  const chain = network === "arc" ? getArcChain(arc.config.chainId) : undefined;
 
   return async (proof, requirements) => {
-    if (proof.network !== "arc") {
+    if (proof.network !== network || requirements.network !== network) {
       return { ok: false, reason: `Unsupported network: ${proof.network}` };
     }
     if (!/^0x[a-fA-F0-9]{64}$/.test(proof.txHash)) {
@@ -146,7 +165,7 @@ function buildArcVerifier(arc: ArcClient, minConfirmations: number): PaymentVeri
         minAmount,
       });
     } else {
-      return { ok: false, reason: `Unsupported settlement asset on Arc: ${asset}` };
+      return { ok: false, reason: `Unsupported settlement asset on ${network}: ${asset}` };
     }
 
     if (!result.confirmed) {
@@ -234,7 +253,33 @@ export function buildIntegrations(
       })
     : null;
   const arcVerifier =
-    arcClient && config.arc ? buildArcVerifier(arcClient, config.arc.minConfirmations) : null;
+    arcClient && config.arc ? buildEvmVerifier(arcClient, config.arc.minConfirmations) : null;
+
+  const baseVerifier = config.base
+    ? buildEvmVerifier(
+        createArcClient({
+          rpcUrl: config.base.rpcUrl,
+          usdcAddress: config.base.usdcAddress,
+          chainId: config.base.chainId,
+        }),
+        config.base.minConfirmations,
+        "base",
+      )
+    : null;
+
+  const solanaVerifier = config.solana
+    ? createSolanaPaymentVerifier({
+        rpc: createKitSolanaRpc(config.solana.rpcUrl),
+        mint: config.solana.usdcMint,
+        commitment: "confirmed",
+      })
+    : null;
+
+  const verifiers: PaymentVerifiers = {
+    ...(arcVerifier ? { arc: arcVerifier } : {}),
+    ...(baseVerifier ? { base: baseVerifier } : {}),
+    ...(solanaVerifier ? { solana: solanaVerifier } : {}),
+  };
 
   const circle = config.circle
     ? createCircleClient({
@@ -275,6 +320,7 @@ export function buildIntegrations(
     githubAccessClient,
     discordApi,
     arcVerifier,
+    verifiers,
     arc: arcClient,
     circle,
     payoutExecutor,

@@ -15,6 +15,7 @@ describe("circleChainForNetwork", () => {
   it("maps known networks and falls back for Arc", () => {
     expect(circleChainForNetwork("base", "ETH")).toBe("BASE");
     expect(circleChainForNetwork("ethereum", "ETH")).toBe("ETH");
+    expect(circleChainForNetwork("solana", "ETH")).toBe("SOL");
     expect(circleChainForNetwork("arc", "ETH")).toBe("ETH");
     expect(circleChainForNetwork("arc", "MATIC")).toBe("MATIC");
   });
