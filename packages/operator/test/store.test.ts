@@ -6,7 +6,7 @@ import { OPERATOR_SCHEMA_SQL, PgOperatorStore } from "../src/pg-store.js";
 import { ChainConflictError, InMemoryOperatorStore, type OperatorStore } from "../src/store.js";
 import type { Bill } from "../src/types.js";
 import { FakeSql } from "./fake-sql.js";
-import { T0, U, VENDOR } from "./fixtures.js";
+import { POLICY, T0, U, VENDOR } from "./fixtures.js";
 
 const input = (n: number, orgId = "org_1"): DecisionInput => ({
   id: `${orgId}_dec_${n}`,
@@ -130,5 +130,22 @@ describe("PgOperatorStore specifics", () => {
     expect((await store.getBill("org_1", "b1"))?.amount).toBe(42n * U);
     rows[0] = { metadata: { other: 1 } };
     expect(await store.listBills("org_1")).toEqual([]);
+  });
+});
+
+describe.each<[string, () => OperatorStore]>([
+  ["InMemoryOperatorStore", () => new InMemoryOperatorStore()],
+  ["PgOperatorStore", () => new PgOperatorStore(new FakeSql())],
+])("%s policies and org listing", (_name, make) => {
+  it("round-trips a policy with bigints and lists every org", async () => {
+    const store = make();
+    expect(await store.getPolicy("org_1")).toBeNull();
+    const policy = { ...POLICY, minFloat: 7n * U };
+    await store.savePolicy("org_1", policy);
+    await store.savePolicy("org_1", { ...policy, minFloat: 9n * U });
+    expect((await store.getPolicy("org_1"))?.minFloat).toBe(9n * U);
+    await store.saveBill(bill("b_org2", T0.toISOString()) as Bill);
+    await store.appendDecision(new DecisionLog().append(input(0, "org_3")).head!);
+    expect(await store.listOrgIds()).toEqual(["org_1", "org_3"]);
   });
 });
