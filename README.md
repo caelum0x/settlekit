@@ -221,6 +221,21 @@ Every variable the system reads is documented in
 Validate that required secrets are present at startup; never commit a real
 `.env`.
 
+### Chain support
+
+Checkout, API and worker share one registry (`@settlekit/chains`) and fail
+closed per network. Full matrix with finality notes:
+[apps/checkout/README.md](./apps/checkout/README.md#chain-support).
+
+| Network | Asset | Environments | Label |
+| --- | --- | --- | --- |
+| Solana | USDC | mainnet, devnet | |
+| Base, Ethereum, Arbitrum, HyperEVM | USDC | mainnet, testnet | |
+| Robinhood Chain | USDG (mainnet), Mock USDC (testnet) | mainnet, testnet | no native USDC |
+| Tempo | USDC.e (mainnet), pathUSD (testnet) | mainnet, testnet | bridged |
+| Arc | USDC | testnet only | testnet |
+| Zcash | ZEC at a locked USD quote | mainnet only | transparent, not shielded |
+
 ---
 
 ## Architecture overview
