@@ -51,4 +51,12 @@ export class PgCheckoutRepository implements CheckoutRepository {
       .where(eq(checkoutSessions.customerId, customerId));
     return unpackDocs<CheckoutSession>(rows);
   }
+
+  async findOpen(): Promise<CheckoutSession[]> {
+    const rows = await this.db
+      .select({ metadata: checkoutSessions.metadata })
+      .from(checkoutSessions)
+      .where(eq(checkoutSessions.status, "open"));
+    return [...unpackDocs<CheckoutSession>(rows)].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
 }

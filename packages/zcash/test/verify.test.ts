@@ -117,6 +117,8 @@ describe("verifyZcashTransparent", () => {
     const { explorer } = recordedExplorer();
     const early = await verifyZcashTransparent(explorer, { ...base, notBefore: new Date("2026-09-29T10:00:00Z") });
     expect(early).toMatchObject({ status: "rejected", reason: expect.stringMatching(/before/) });
+    const skewed = await verifyZcashTransparent(explorer, { ...base, notBefore: new Date("2026-09-29T09:04:00Z") });
+    expect(skewed.status).toBe("confirmed");
     const late = await verifyZcashTransparent(explorer, { ...base, quoteExpiresAt: new Date("2026-09-29T08:45:00Z") });
     expect(late).toMatchObject({ status: "late", receivedZats: PAID });
     const withinGrace = await verifyZcashTransparent(explorer, { ...base, quoteExpiresAt: new Date("2026-09-29T08:55:00Z") });

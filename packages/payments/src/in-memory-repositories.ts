@@ -50,6 +50,11 @@ export class InMemoryCheckoutRepository implements CheckoutRepository {
     return newestFirst(matches).map(clone);
   }
 
+  async findOpen(): Promise<CheckoutSession[]> {
+    const open = [...this.store.values()].filter((s) => s.status === "open");
+    return newestFirst(open).map(clone);
+  }
+
   /** Number of stored sessions (handy in tests/dev tooling). */
   size(): number {
     return this.store.size;

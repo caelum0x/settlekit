@@ -5,12 +5,13 @@
  */
 
 import type { ExplorerResult, ZcashAddressActivity, ZcashExplorer } from "./explorer.js";
+import { NOT_BEFORE_SKEW_MS } from "./verify.js";
 
 export const DEFAULT_ACTIVITY_LIMIT = 50;
 
 export interface FindZcashPaymentParams {
   expectedZats: bigint;
-  /** Earliest acceptable block time; mempool entries are always candidates. */
+  /** Earliest acceptable block time (minus clock skew); mempool entries are always candidates. */
   notBefore: Date;
 }
 
@@ -22,7 +23,7 @@ export function matchZcashPayment(
   const matches = activity.filter(
     (entry) =>
       entry.balanceChange === params.expectedZats &&
-      (entry.blockTime === null || entry.blockTime.getTime() >= params.notBefore.getTime()),
+      (entry.blockTime === null || entry.blockTime.getTime() >= params.notBefore.getTime() - NOT_BEFORE_SKEW_MS),
   );
   return matches.length > 0 ? (matches[matches.length - 1] ?? null) : null;
 }

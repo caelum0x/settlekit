@@ -23,6 +23,11 @@ export interface Repository<T> {
 export interface CheckoutRepository extends Repository<CheckoutSession> {
   /** All sessions for a customer, newest first. */
   findByCustomerId(customerId: string): Promise<CheckoutSession[]>;
+  /**
+   * Every session still `open`, newest first. Used to keep per-address
+   * payment tags unique and to watch open sessions for incoming payments.
+   */
+  findOpen(): Promise<CheckoutSession[]>;
 }
 
 export interface PaymentRepository extends Repository<Payment> {

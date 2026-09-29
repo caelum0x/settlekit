@@ -4,7 +4,8 @@
  * Rules: the txid is well formed and known; it pays `payTo` the expected
  * zatoshis (exactly, by default: the amount tag binds the payment to one
  * session); it is mined with enough confirmations; it was mined no earlier
- * than `notBefore` (session creation minus clock skew); and when mined more
+ * than `notBefore` minus {@link NOT_BEFORE_SKEW_MS} (block timestamps are
+ * second-resolution miner clocks that may trail wall time); and when mined more
  * than 10 minutes after the quote expired it is `late` — the buyer paid, but
  * at a stale price, so a human reviews instead of auto-confirming.
  */
@@ -12,6 +13,8 @@
 import type { ZcashExplorer } from "./explorer.js";
 
 export const LATE_GRACE_MS = 10 * 60 * 1000;
+/** Allowed lag of a block timestamp behind the session creation time. */
+export const NOT_BEFORE_SKEW_MS = 5 * 60 * 1000;
 export const DEFAULT_ZCASH_MIN_CONFIRMATIONS = 3;
 const TXID_RE = /^[0-9a-f]{64}$/;
 
@@ -73,7 +76,7 @@ export async function verifyZcashTransparent(
   if (tx.confirmations < minConfirmations) {
     return pending(`awaiting confirmations: ${tx.confirmations} < ${minConfirmations}`, true, tx.confirmations);
   }
-  if (tx.blockTime.getTime() < params.notBefore.getTime()) {
+  if (tx.blockTime.getTime() < params.notBefore.getTime() - NOT_BEFORE_SKEW_MS) {
     return { status: "rejected", reason: "transaction was mined before the checkout session was created" };
   }
   if (tx.blockTime.getTime() > params.quoteExpiresAt.getTime() + LATE_GRACE_MS) {
