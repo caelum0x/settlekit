@@ -1,20 +1,10 @@
-import nextDynamic from "next/dynamic";
 import { notFound, redirect } from "next/navigation";
 
 import { getCheckoutSession, ApiClientError } from "@/lib/api";
 import { badgeDescription, badgeText, formatAmount, formatExpiry, formatMoney } from "@/lib/format";
 import { OrderSummary } from "@/components/OrderSummary";
 import { NetworkPicker } from "@/components/NetworkPicker";
-
-// Per-network payment components load on demand: a buyer only downloads the
-// flow for the network they pay on (and any-token routing when offered).
-const Loading = () => <p className="muted">Loading payment options…</p>;
-const EvmPay = nextDynamic(() => import("@/components/EvmPay").then((m) => m.EvmPay), { loading: Loading });
-const SolanaPay = nextDynamic(() => import("@/components/SolanaPay").then((m) => m.SolanaPay), { loading: Loading });
-const ZcashPay = nextDynamic(() => import("@/components/ZcashPay").then((m) => m.ZcashPay), { loading: Loading });
-const HyperCorePay = nextDynamic(() => import("@/components/HyperCorePay").then((m) => m.HyperCorePay), { loading: Loading });
-const AnyTokenPay = nextDynamic(() => import("@/components/AnyTokenPay").then((m) => m.AnyTokenPay), { loading: Loading });
-const WalletPay = nextDynamic(() => import("@/components/WalletPay").then((m) => m.WalletPay), { loading: Loading });
+import { AnyTokenPay, EvmPay, HyperCorePay, SolanaPay, WalletPay, ZcashPay } from "@/components/LazyPay";
 
 export const dynamic = "force-dynamic";
 
