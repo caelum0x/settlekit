@@ -22,6 +22,7 @@ import { toAtomicAmount } from "@settlekit/x402-facilitator";
 import type { AppEnv } from "../context.js";
 import type { AgentPaymentNetwork, AgentPaymentsRuntime } from "../agent-payments/config.js";
 import { fulfilAgentPurchase } from "../agent-payments/fulfil.js";
+import { fulfilmentError } from "../agent-payments/unfulfilled.js";
 import { readBuyer, resolvePurchasable, type Purchasable } from "../agent-payments/purchasable.js";
 import { ContextAdapter, settleFirstPayment, type SettleFirstVariables } from "../agent-payments/settle-first.js";
 import { data, error } from "../http/respond.js";
@@ -181,7 +182,13 @@ export function x402AgentRoutes(runtime: AgentPaymentsRuntime | null): Hono<Agen
         });
         return data(c, result, 201);
       } catch (err) {
-        return error(c, err);
+        return fulfilmentError(c, err, {
+          rail: "x402",
+          network: entry.network,
+          txHash: settled.settlement.transaction,
+          productId: purchase.product.id,
+          ...(settled.settlement.payer ? { payer: settled.settlement.payer } : {}),
+        });
       }
     },
   );

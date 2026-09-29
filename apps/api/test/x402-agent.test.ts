@@ -239,6 +239,27 @@ describe("POST /v1/x402/products/:productId/buy", () => {
     expect(await ctx.payments.findByTxHash(SOLANA_SIG)).not.toBeNull();
   });
 
+  it("never loses a settled payment when fulfilment breaks: 500 with the transaction", async () => {
+    const { runtime } = fakeRuntime();
+    process.env.API_BOOTSTRAP_KEY = BOOTSTRAP;
+    const base = await createContext();
+    const payments = Object.create(base.payments) as AppContext["payments"];
+    payments.save = async () => {
+      throw new Error("database unavailable");
+    };
+    const app = createApp({ ...base, payments, agentPayments: runtime });
+    const appFetch = ((input: RequestInfo | URL, init?: RequestInit) => app.request(new Request(input, init))) as typeof fetch;
+    const productId = await publishedProduct(app);
+    const pay = createSpecX402Fetch({ fetch: appFetch, evmSigner: agent, preferNetworks: ["eip155:999"], maxAtomicPerPayment: "100000000" });
+    const res = await pay(`${ORIGIN}/v1/x402/products/${productId}/buy`, { method: "POST" });
+    expect(res.status).toBe(500);
+    const body = await res.json();
+    expect(body.error.code).toBe("fulfilment_failed");
+    expect(body.error.details).toMatchObject({ rail: "x402", network: "hyperevm", productId, payer: agent.address });
+    expect(body.error.details.txHash).toMatch(/^0x[0-9a-f]{64}$/);
+    expect(readPaymentResponse(res)).toMatchObject({ success: true });
+  });
+
   it("records nothing when settlement fails", async () => {
     const { local, runtime } = fakeRuntime();
     const { app, ctx, pay } = await harness(runtime);

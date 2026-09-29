@@ -20,6 +20,7 @@ import type { AppEnv } from "../context.js";
 import type { AgentPaymentsRuntime } from "../agent-payments/config.js";
 import type { MppRuntime } from "../agent-payments/mpp.js";
 import { fulfilAgentPurchase } from "../agent-payments/fulfil.js";
+import { fulfilmentError } from "../agent-payments/unfulfilled.js";
 import { readBuyer, resolvePurchasable } from "../agent-payments/purchasable.js";
 import { data, error } from "../http/respond.js";
 
@@ -87,17 +88,29 @@ export function mppTempoRoutes(runtime: AgentPaymentsRuntime | null): Hono<AppEn
 
       const receipt = Receipt.fromResponse(result.withReceipt(new Response(null)));
       const payer = payerFromCredential(c.req.raw);
-      const outcome = await fulfilAgentPurchase(ctx, {
-        product: purchase.product,
-        price: purchase.price,
-        rail: "mpp",
-        network: "tempo",
-        txHash: receipt.reference,
-        ...(payer ? { payer } : {}),
-        assetSymbol: mpp.symbol,
-        buyer: purchase.buyer,
-      });
-      return result.withReceipt(data(c, outcome, 201));
+      try {
+        const outcome = await fulfilAgentPurchase(ctx, {
+          product: purchase.product,
+          price: purchase.price,
+          rail: "mpp",
+          network: "tempo",
+          txHash: receipt.reference,
+          ...(payer ? { payer } : {}),
+          assetSymbol: mpp.symbol,
+          buyer: purchase.buyer,
+        });
+        return result.withReceipt(data(c, outcome, 201));
+      } catch (err) {
+        return result.withReceipt(
+          fulfilmentError(c, err, {
+            rail: "mpp",
+            network: "tempo",
+            txHash: receipt.reference,
+            productId: purchase.product.id,
+            ...(payer ? { payer } : {}),
+          }),
+        );
+      }
     } catch (err) {
       return error(c, err);
     }
