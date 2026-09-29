@@ -89,7 +89,7 @@ export function networkCatalog(cfg: ApiConfig = apiConfig()): NetworkInfo[] {
           network,
           name: "Solana",
           asset: "USDC",
-          env: cfg.solana?.cluster === "devnet" ? "testnet" : "mainnet",
+          env: cfg.solana ? (cfg.solana.cluster === "devnet" ? "testnet" : "mainnet") : cfg.evm.env,
           enabled: cfg.solana !== null,
           addressGroup: "solana",
         };
@@ -98,7 +98,7 @@ export function networkCatalog(cfg: ApiConfig = apiConfig()): NetworkInfo[] {
           network,
           name: "Hyperliquid (HyperCore)",
           asset: "USDC",
-          env: cfg.hypercore?.network ?? "mainnet",
+          env: cfg.hypercore?.network ?? cfg.evm.env,
           enabled: cfg.hypercore !== null,
           addressGroup: "hypercore",
           note: "Paid with usdSend into your Hyperliquid account balance",
@@ -129,11 +129,11 @@ export function explorerTxUrl(network: PaymentNetwork, txHash: string, cfg: ApiC
   if (!txHash) return null;
   switch (network) {
     case "solana": {
-      const cluster = cfg.solana?.cluster ?? "mainnet";
+      const cluster = cfg.solana?.cluster ?? (cfg.evm.env === "testnet" ? "devnet" : "mainnet");
       return `https://solscan.io/tx/${txHash}${SOLANA_CLUSTERS[cluster].explorerClusterParam}`;
     }
     case "hypercore":
-      return hyperCoreTxUrl(txHash, cfg.hypercore?.network ?? "mainnet");
+      return hyperCoreTxUrl(txHash, cfg.hypercore?.network ?? cfg.evm.env);
     case "zcash":
       return zcashExplorerTxUrl(cfg.zcash?.network ?? "mainnet", txHash);
     default: {
@@ -146,14 +146,14 @@ export function explorerTxUrl(network: PaymentNetwork, txHash: string, cfg: ApiC
 
 /** RPC / API endpoints used to read merchant balances. */
 export function balanceEndpoints(cfg: ApiConfig = apiConfig()) {
-  const solanaCluster = cfg.solana?.cluster ?? "mainnet";
+  const solanaCluster = cfg.solana?.cluster ?? (cfg.evm.env === "testnet" ? "devnet" : "mainnet");
   return {
     solana: {
       rpcUrl: cfg.solana?.rpcUrl ?? SOLANA_CLUSTERS[solanaCluster].rpcUrl,
       mint: cfg.solana?.usdcMint ?? (solanaCluster === "mainnet" ? USDC_MINT_MAINNET : USDC_MINT_DEVNET),
     },
     hypercore: {
-      apiUrl: cfg.hypercore?.apiUrl ?? defaultHyperliquidApiUrl(cfg.hypercore?.network ?? "mainnet"),
+      apiUrl: cfg.hypercore?.apiUrl ?? defaultHyperliquidApiUrl(cfg.hypercore?.network ?? cfg.evm.env),
     },
     zcash: {
       explorerUrl: cfg.zcash?.explorerUrl ?? "https://api.blockchair.com/zcash",
