@@ -12,7 +12,7 @@ import { z } from "zod";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
-import { requireOrg, requireOwned } from "../http/tenant.js";
+import { requireOrg, requireOwned, scopeToOrg } from "../http/tenant.js";
 
 const issueSchema = z.object({
   // Derived from the authenticated org (tenant scope); ignored if supplied.
@@ -39,9 +39,9 @@ async function ownedLicense(c: Context<AppEnv>, id: string): Promise<LicenseKey>
 export function licenseRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
-  // List all issued license keys (merchant-wide).
+  // List the caller's issued license keys (tenant-scoped).
   app.get("/", async (c) => {
-    return data(c, await c.get("ctx").licenses.list());
+    return data(c, scopeToOrg(c, await c.get("ctx").licenses.list()));
   });
 
   // Issue a license key.

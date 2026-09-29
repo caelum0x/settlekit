@@ -36,6 +36,7 @@ export class PgCouponStore implements CouponStore {
   async save(coupon: Coupon): Promise<Coupon> {
     const code = normalizeCouponCode(coupon.code);
     const projection = {
+      organizationId: coupon.organizationId ?? null,
       name: coupon.name ?? null,
       status: coupon.status,
       currency: coupon.currency,

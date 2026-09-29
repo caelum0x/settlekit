@@ -17,7 +17,7 @@ import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
-import { isOwned, requireOwnedPayment } from "../http/tenant.js";
+import { isOwned, ownedPaymentIds, requireOwnedPayment } from "../http/tenant.js";
 import type { Context } from "hono";
 import type { Refund } from "@settlekit/refunds";
 
@@ -74,13 +74,14 @@ export function refundRoutes(): Hono<AppEnv> {
     const ctx = c.get("ctx");
     const paymentId = c.req.query("paymentId");
     const customerId = c.req.query("customerId");
-    if (paymentId) {
-      return data(c, await ctx.refunds.listByPayment(paymentId));
-    }
-    if (customerId) {
-      return data(c, await ctx.refunds.listByCustomer(customerId));
-    }
-    return data(c, await ctx.refundStore.listAll());
+    // Tenant-scoped: a refund is visible only when its payment is ours.
+    const owned = await ownedPaymentIds(c);
+    const all = paymentId
+      ? await ctx.refunds.listByPayment(paymentId)
+      : customerId
+        ? await ctx.refunds.listByCustomer(customerId)
+        : await ctx.refundStore.listAll();
+    return data(c, all.filter((r) => owned.has(r.paymentId)));
   });
 
   app.post("/:id/succeed", async (c) => {

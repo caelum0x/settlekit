@@ -71,6 +71,13 @@
       "when": 1782000300000,
       "tag": "0009_payments_tx_hash_unique",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782000500000,
+      "tag": "0011_coupons_organization",
+      "breakpoints": true
     }
   ]
 }
