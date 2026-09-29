@@ -42,6 +42,20 @@ Work done in the window is `git diff pre-colosseum-baseline..HEAD` on
 | [docs/colosseum/DEMO-SCRIPT.md](./docs/colosseum/DEMO-SCRIPT.md) | Demo video click path and required setup |
 | [docs/colosseum/LAUNCH-CHECKLIST.md](./docs/colosseum/LAUNCH-CHECKLIST.md) | Owner steps to go live: Render, env, keys, first mainnet payment per chain |
 
+### SettleKit Operator (Arc)
+
+An autonomous business operator on Arc, built for the Tameion Agents Hackathon
+(Canteen x Circle). Checkout revenue lands in an on-chain `OperatorVault`
+(`contracts/src/OperatorVault.sol`), and a Claude agent allocates it, pays
+vendors and handles refunds within on-chain caps. Anything outside those caps
+is escalated to the owner, and every decision is hash-chained and anchored on
+Arc. The code lives in `packages/operator`, `apps/operator-console`,
+`/v1/operator/*` in `apps/api`, and the worker's operator tick. It is a no-op
+unless `OPERATOR_VAULT_ADDRESS` or `OPERATOR_SIMULATION=1` is set.
+
+See [TAMEION.md](./TAMEION.md) for the pitch, architecture, run guide and
+disclosure, and [docs/tameion/](./docs/tameion/) for the plan.
+
 ---
 
 ## Demo (pre-hackathon, Arc USDC)
