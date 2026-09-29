@@ -3,7 +3,9 @@
  *
  * EVM chains use `eip155:<chainId>`; Solana uses its genesis-hash ids.
  * Zcash has no registered CAIP-2 namespace, so SettleKit uses the internal,
- * non-standard `zcash:mainnet` / `zcash:testnet`.
+ * non-standard `zcash:mainnet` / `zcash:testnet`; HyperCore (Hyperliquid
+ * L1, not an EVM chain) likewise uses `hlcore:mainnet` / `hlcore:testnet`
+ * (CAIP-2 namespaces are 3-8 characters).
  */
 
 import type { PaymentNetwork } from "@settlekit/common";
@@ -20,10 +22,16 @@ export const ZCASH_CAIP2: Readonly<Record<ChainEnv, string>> = {
   testnet: "zcash:testnet",
 };
 
+export const HYPERCORE_CAIP2: Readonly<Record<ChainEnv, string>> = {
+  mainnet: "hlcore:mainnet",
+  testnet: "hlcore:testnet",
+};
+
 /** The CAIP-2 id for `network` on `env`, or null when that pairing does not exist. */
 export function caip2For(network: PaymentNetwork, env: ChainEnv): string | null {
   if (network === "solana") return SOLANA_CAIP2[env];
   if (network === "zcash") return ZCASH_CAIP2[env];
+  if (network === "hypercore") return HYPERCORE_CAIP2[env];
   if (isEvmNetwork(network)) return getEvmChain(network, env)?.caip2 ?? null;
   return null;
 }

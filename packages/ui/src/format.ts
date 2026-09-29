@@ -170,6 +170,8 @@ const BLOCK_EXPLORERS: Record<PaymentNetwork, ExplorerConfig> = {
   arbitrum: { txPath: (hash) => `https://arbiscan.io/tx/${hash}` },
   robinhood: { txPath: (hash) => `https://robinhoodchain.blockscout.com/tx/${hash}` },
   hyperevm: { txPath: (hash) => `https://hyperevmscan.io/tx/${hash}` },
+  // HyperCore (Hyperliquid L1) transactions live in Hyperliquid's own explorer.
+  hypercore: { txPath: (hash) => `https://app.hyperliquid.xyz/explorer/tx/${hash}` },
   tempo: { txPath: (hash) => `https://explore.tempo.xyz/tx/${hash}` },
   zcash: { txPath: (hash) => `https://blockchair.com/zcash/transaction/${hash}` },
 };

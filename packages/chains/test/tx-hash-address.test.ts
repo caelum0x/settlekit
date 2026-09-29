@@ -18,6 +18,7 @@ const EXPECT: Record<PaymentNetwork, { hash: string; normalized: string; payTo: 
   arbitrum: { hash: EVM_HASH, normalized: EVM_HASH.toLowerCase(), payTo: EVM_ADDR },
   robinhood: { hash: EVM_HASH, normalized: EVM_HASH.toLowerCase(), payTo: EVM_ADDR },
   hyperevm: { hash: EVM_HASH, normalized: EVM_HASH.toLowerCase(), payTo: EVM_ADDR },
+  hypercore: { hash: EVM_HASH, normalized: EVM_HASH.toLowerCase(), payTo: EVM_ADDR },
   tempo: { hash: EVM_HASH, normalized: EVM_HASH.toLowerCase(), payTo: EVM_ADDR },
 };
 

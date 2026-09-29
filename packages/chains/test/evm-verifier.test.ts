@@ -146,6 +146,53 @@ describe("Tempo TIP-20 memo binding and fee transfers", () => {
     expect(await verifier.verify({ ...params, sessionId: "cs_mine", payer: transfer.from })).toMatchObject({ ok: true });
   });
 
+  describe("requireMemo (session demands transferWithMemo)", () => {
+    const withoutMemoLog: RecordedReceipt = {
+      ...record,
+      receipt: { ...record.receipt, logs: record.receipt.logs.filter((log) => log.topics[0] !== TRANSFER_WITH_MEMO_TOPIC) },
+    };
+
+    it("accepts transferWithMemo carrying keccak256(sessionId)", async () => {
+      const bound = withMemo(record, sessionMemo("cs_mine"));
+      const verifier = createEvmVerifier({ spec, rpc: replayRpc(bound) });
+      expect(await verifier.verify({ ...params, sessionId: "cs_mine", requireMemo: true })).toMatchObject({ ok: true, amountBase: 1000n });
+    });
+
+    it("refuses a plain transfer (no memo) even though it pays payTo in full", async () => {
+      const verifier = createEvmVerifier({ spec, rpc: replayRpc(withoutMemoLog) });
+      expect(await verifier.verify({ ...params, sessionId: "cs_mine" })).toMatchObject({ ok: true });
+      expect(await verifier.verify({ ...params, sessionId: "cs_mine", requireMemo: true })).toMatchObject({
+        ok: false,
+        code: "memo_missing",
+        retryable: false,
+      });
+    });
+
+    it("refuses another session's memo", async () => {
+      const verifier = createEvmVerifier({ spec, rpc: replayRpc(record) });
+      expect(await verifier.verify({ ...params, sessionId: "cs_mine", requireMemo: true })).toMatchObject({ ok: false, code: "memo_mismatch" });
+    });
+
+    it("fails closed when a memo is required but no session id is bound", async () => {
+      const verifier = createEvmVerifier({ spec, rpc: replayRpc(record) });
+      expect(await verifier.verify({ ...params, requireMemo: true })).toMatchObject({ ok: false, code: "memo_missing" });
+    });
+
+    it("does not apply to non-Tempo chains", async () => {
+      const base = recorded("base-mainnet");
+      const baseTransfer = firstTransfer(base);
+      const verifier = createEvmVerifier({ spec: getEvmChain("base", "mainnet")!, rpc: replayRpc(base) });
+      const result = await verifier.verify({
+        txHash: base.receipt.transactionHash,
+        payTo: baseTransfer.to,
+        expectedBase: baseTransfer.value,
+        sessionId: "cs_mine",
+        requireMemo: true,
+      });
+      expect(result).toMatchObject({ ok: true });
+    });
+  });
+
   it("ignores the stablecoin fee Transfer paid to the fee manager", async () => {
     const verifier = createEvmVerifier({ spec, rpc: replayRpc(record) });
     // The recorded tx also moves 40 base units to the fee manager 0xfeec…; it

@@ -61,6 +61,28 @@ describe("createEvmSettlementVerifier", () => {
   });
 });
 
+describe("createEvmSettlementVerifier on Tempo with requireMemo", () => {
+  const tempo = recorded("tempo-mainnet-memo");
+  const tempoTransfer = firstTransfer(tempo);
+  const verifier = createEvmSettlementVerifier(
+    createEvmVerifier({ spec: getEvmChain("tempo", "mainnet")!, rpc: replayRpc(tempo) }),
+  );
+  const tempoProof = { txHash: tempo.receipt.transactionHash, from: "", amount: "", network: "tempo" as const, nonce: "" };
+  const tempoRequirements = requirements({
+    network: "tempo",
+    payTo: tempoTransfer.to,
+    amount: (Number(tempoTransfer.value) / 1e6).toString(),
+    sessionId: "cs_other",
+  });
+
+  it("passes requireMemo through: the recorded memo belongs to another session", async () => {
+    expect(await verifier(tempoProof, { ...tempoRequirements, requireMemo: true })).toMatchObject({
+      ok: false,
+      reason: expect.stringMatching(/memo/),
+    });
+  });
+});
+
 describe("checkEvmChainIds", () => {
   it("reports mismatches per chain", async () => {
     const good = createEvmVerifier({ spec, rpc: replayRpc(record) });
