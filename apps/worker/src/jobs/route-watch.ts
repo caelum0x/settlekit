@@ -26,6 +26,7 @@ import { applyRouteStatus, isRouteTerminal, routeDestinationFor } from "@settlek
 import { isEvmNetwork } from "@settlekit/chains";
 import { errorMessage } from "../logger.js";
 import { verifyPaymentOnChain } from "./payment-verification.js";
+import { emitPaymentConfirmed } from "./webhook-events.js";
 import type { Job, JobContext, JobResult } from "./types.js";
 
 /** Stop watching a route this long after it was quoted. */
@@ -105,6 +106,7 @@ async function settleFill(ctx: JobContext, session: CheckoutSession, route: Chec
   if (verification.status === "confirmed") {
     const confirmed = confirmPayment(pending, hash, verification.confirmations, verification.minConfirmations, ctx.now());
     await ctx.stores.upsertPayment(confirmed);
+    await emitPaymentConfirmed(ctx, confirmed, session);
     unverified.delete(hash);
     ctx.logger.info("route fill verified; payment confirmed", { sessionId: session.id, provider: route.provider, txHash: hash });
     return true;

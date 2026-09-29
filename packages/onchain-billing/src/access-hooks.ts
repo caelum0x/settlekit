@@ -29,6 +29,11 @@ export interface AccessSinks {
   savePayment(payment: Payment): Promise<void>;
   /** Run / enqueue the product's delivery actions (idempotent per `paymentId`). */
   queueDelivery?(delivery: AccessDelivery): Promise<void>;
+  /**
+   * A period was collected (seller webhooks). `paymentId` is the recorded core
+   * Payment for pull methods, null for renewal invoices (the checkout records those).
+   */
+  onCharged?(sub: OnchainSubscription, charge: OnchainCharge, period: PeriodBounds, paymentId: string | null): Promise<void>;
 }
 
 export type AccessDeliveryReason = "first_charge" | "reactivated";
@@ -128,6 +133,18 @@ export function createAccessHooks(sinks: AccessSinks, options: AccessHookOptions
       await setEntitlements(sub, (e) =>
         e.status === "revoked" ? undefined : { ...e, status: "active", expiresAt: period.end.toISOString(), updatedAt: stamp },
       );
+      if (sinks.onCharged) {
+        const recorded = sub.method !== "renewal_invoice" && sub.checkoutSessionId ? paymentIdForCharge(charge.id) : null;
+        try {
+          await sinks.onCharged(sub, charge, period, recorded);
+        } catch (error) {
+          options.onError?.("onchain subscription charge notification failed", {
+            onchainSubscriptionId: sub.id,
+            chargeId: charge.id,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
       const reason = sub.subscriptionId ? deliveryReasonFor(previous, charge) : charge.periodIndex === 0 ? "first_charge" : null;
       if (reason && sinks.queueDelivery) {
         try {

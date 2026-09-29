@@ -31,6 +31,7 @@ import {
   PgIdempotencyStore,
   PgRoyaltyLegStore,
   PgStreamStore,
+  PgWebhookOutbox,
 } from "@settlekit/persistence";
 import { InMemoryPayoutStore, type PayoutStore } from "@settlekit/payouts";
 import type {
@@ -278,6 +279,7 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     ...(royaltyLegStore !== undefined ? { royaltyLegStore } : {}),
     ...(streamStore !== undefined ? { streamStore } : {}),
     ...(deps.onchainBilling ? { onchainBilling: deps.onchainBilling } : {}),
+    ...(db ? { webhooks: new PgWebhookOutbox(db) } : {}),
     now,
   };
 

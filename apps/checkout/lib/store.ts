@@ -41,6 +41,7 @@ import {
   type Product,
 } from "@settlekit/common";
 import { findReference } from "@settlekit/solana";
+import { emitWebhookSafely, paymentConfirmedWebhook, type PaymentContext } from "@settlekit/persistence";
 
 import { getBackend, type CheckoutBackend } from "./backend";
 import { entitlementIdForPayment, materializeDelivery } from "./deliver";
@@ -274,8 +275,21 @@ async function claimTxHash(backend: CheckoutBackend, session: CheckoutSession, t
   return pending;
 }
 
+const FORWARDED_FIELDS = ["githubUsername", "discordUserId", "discordUsername"] as const;
+
+/** Buyer details a seller's payment.confirmed webhook carries. */
+function webhookContext(session: CheckoutSession): PaymentContext {
+  const fields = session.collectedFields;
+  return {
+    ...(fields.email ? { customerEmail: fields.email } : {}),
+    productIds: session.lineItems.flatMap((line) => (line.productId ? [line.productId] : [])),
+    buyer: Object.fromEntries(FORWARDED_FIELDS.flatMap((key) => (fields[key] ? [[key, fields[key] as string]] : []))),
+  };
+}
+
 /** Run fulfillment for a newly confirmed payment; never fails the payment. */
 async function fulfillOnce(deps: StoreDeps, session: CheckoutSession, payment: Payment): Promise<void> {
+  await emitWebhookSafely(deps.backend.webhooks, paymentConfirmedWebhook(payment, webhookContext(session)));
   const productId = session.lineItems[0]?.productId;
   const product = productId ? await deps.backend.findProduct(productId) : undefined;
   const action = product ? deps.backend.deliveryActionForProduct(product) : undefined;

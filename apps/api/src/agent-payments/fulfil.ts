@@ -30,7 +30,9 @@ import {
 } from "@settlekit/common";
 import { DeliveryRunner, type DeliveryContext } from "@settlekit/delivery";
 import { confirmPayment, recordPendingPayment } from "@settlekit/payments";
+import { paymentConfirmedWebhook } from "@settlekit/persistence";
 import type { AppContext } from "../context.js";
+import { emitWebhook } from "../webhooks/outbox.js";
 import { assertTxHashUnused, requireTxHash } from "../routes/payment-verification.js";
 import { deliveryActionsFor } from "./delivery-action.js";
 
@@ -196,6 +198,10 @@ export async function fulfilAgentPurchase(ctx: AppContext, input: AgentPurchaseI
     ...(input.price.creditsGranted !== undefined ? { creditsRemaining: input.price.creditsGranted } : {}),
   });
   const delivery = await runDelivery(ctx, input, payment, entitlement);
+  await emitWebhook(
+    ctx.webhookOutbox,
+    paymentConfirmedWebhook(payment, { productIds: [input.product.id], ...(customer.email ? { customerEmail: customer.email } : {}) }),
+  );
   return {
     payment,
     entitlement,

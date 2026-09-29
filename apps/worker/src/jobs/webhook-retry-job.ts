@@ -12,10 +12,15 @@ import { deliverWithRetry } from "@settlekit/webhooks";
 import { errorMessage } from "../logger.js";
 import type { Job, JobContext, JobResult } from "./types.js";
 
+/** Short in-tick backoff; later ticks keep retrying until the attempt cap. */
+const TICK_SCHEDULE = [0, 2, 10] as const;
+/** Give up on an endpoint after this many attempts (kept as `failed` for manual replay). */
+export const MAX_WEBHOOK_ATTEMPTS = 24;
+
 export const webhookRetryJob: Job = {
   name: "webhook-retry",
   async run(ctx: JobContext): Promise<JobResult> {
-    const pending = await ctx.stores.pendingWebhookJobs();
+    const pending = (await ctx.stores.pendingWebhookJobs()).filter((job) => job.attempts < MAX_WEBHOOK_ATTEMPTS);
     let processed = 0;
     let failed = 0;
 
@@ -24,6 +29,7 @@ export const webhookRetryJob: Job = {
         const outcome = await deliverWithRetry({
           endpoint: job.endpoint,
           event: job.event,
+          schedule: TICK_SCHEDULE,
         });
         const attempts = job.attempts + outcome.attempts.length;
         processed += 1;

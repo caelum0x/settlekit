@@ -21,7 +21,9 @@ import {
   refundPayment,
 } from "@settlekit/payments";
 import { completeSession } from "@settlekit/payments";
+import { paymentConfirmedWebhook } from "@settlekit/persistence";
 import type { AppEnv, AppContext } from "../context.js";
+import { emitWebhook } from "../webhooks/outbox.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { requireOrg, requireOwned, requireOwnedPayment } from "../http/tenant.js";
@@ -172,6 +174,13 @@ export function paymentRoutes(): Hono<AppEnv> {
     }
 
     const entitlements = await grantEntitlements(ctx, savedPayment.id);
+    await emitWebhook(
+      ctx.webhookOutbox,
+      paymentConfirmedWebhook(savedPayment, {
+        ...(session.collectedFields.email ? { customerEmail: session.collectedFields.email } : {}),
+        productIds: session.lineItems.flatMap((line) => (line.productId ? [line.productId] : [])),
+      }),
+    );
     return data(c, { payment: savedPayment, entitlements });
   });
 
@@ -248,6 +257,7 @@ export function paymentRoutes(): Hono<AppEnv> {
     // The on-chain verifier already enforced confirmations; mark confirmed.
     const settled = confirmPayment(pending, txHash, Math.max(body.confirmations, 1), 1);
     const saved = await ctx.payments.save(settled);
+    await emitWebhook(ctx.webhookOutbox, paymentConfirmedWebhook(saved));
     return created(c, { payment: saved, deduped: false });
   });
 

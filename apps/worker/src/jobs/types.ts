@@ -27,6 +27,7 @@ import type {
 import type { RoyaltyLegStore } from "@settlekit/citation-toll";
 import type { StreamStore } from "@settlekit/streaming";
 import type { OnchainBillingRuntime } from "@settlekit/onchain-billing";
+import type { WebhookOutbox } from "@settlekit/persistence";
 import type { WorkerConfig } from "../config.js";
 import type { WorkerStore } from "../stores.js";
 import type { Logger } from "../logger.js";
@@ -83,6 +84,8 @@ export interface JobContext {
   streamStore?: StreamStore;
   /** Onchain subscriptions + refunds; absent -> the subscription-charge job no-ops. */
   onchainBilling?: OnchainBillingRuntime;
+  /** Seller webhook outbox (Postgres mode); absent -> no seller webhooks are queued. */
+  webhooks?: WebhookOutbox;
   /** Injectable clock for deterministic tests. */
   now: () => Date;
 }

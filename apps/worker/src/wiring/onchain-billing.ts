@@ -21,6 +21,10 @@ import {
   PgCheckoutRepository,
   PgDunningStore,
   PgOnchainBillingStore,
+  PgWebhookOutbox,
+  emitWebhookSafely,
+  paymentConfirmedWebhook,
+  subscriptionChargedWebhook,
 } from "@settlekit/persistence";
 import type { Env } from "@settlekit/chains";
 import type { WorkerStore } from "../stores.js";
@@ -39,6 +43,7 @@ export interface WorkerOnchainBillingDeps {
 export async function buildWorkerOnchainBilling(deps: WorkerOnchainBillingDeps): Promise<OnchainBillingRuntime | null> {
   const { stores, db, logger } = deps;
   const now = deps.now ?? (() => new Date());
+  const webhooks = db ? new PgWebhookOutbox(db) : null;
   const hooks = createAccessHooks(
     {
       async getSubscription(id) {
@@ -57,6 +62,16 @@ export async function buildWorkerOnchainBilling(deps: WorkerOnchainBillingDeps):
         await stores.upsertPayment(payment);
       },
       queueDelivery: createOnchainDeliveryQueue({ stores, env: deps.env, now }),
+      async onCharged(sub, charge, period, paymentId) {
+        await emitWebhookSafely(webhooks, subscriptionChargedWebhook(sub, charge, period, paymentId));
+        const payment = paymentId ? await stores.getPayment(paymentId) : undefined;
+        if (payment) {
+          await emitWebhookSafely(
+            webhooks,
+            paymentConfirmedWebhook(payment, { productIds: [sub.productId], ...(sub.customerEmail ? { customerEmail: sub.customerEmail } : {}) }),
+          );
+        }
+      },
     },
     { now, onError: (message, meta) => logger.warn(message, meta) },
   );

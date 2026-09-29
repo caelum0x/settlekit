@@ -15,6 +15,7 @@
 import { confirmPayment } from "@settlekit/payments";
 import { errorMessage } from "../logger.js";
 import { verifyPaymentOnChain } from "./payment-verification.js";
+import { emitPaymentConfirmed } from "./webhook-events.js";
 import type { Job, JobContext, JobResult } from "./types.js";
 
 export const paymentConfirmJob: Job = {
@@ -69,6 +70,7 @@ export const paymentConfirmJob: Job = {
           ctx.now(),
         );
         await ctx.stores.upsertPayment(confirmed);
+        await emitPaymentConfirmed(ctx, confirmed, session);
         processed += 1;
 
         // Make the matching delivery run executable now the payment settled.

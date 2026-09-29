@@ -12,7 +12,13 @@ import {
   createAccessHooks,
   type OnchainBillingRuntime,
 } from "@settlekit/onchain-billing";
-import { DEFAULT_MERCHANT_ID, PgOnchainBillingStore } from "@settlekit/persistence";
+import {
+  DEFAULT_MERCHANT_ID,
+  PgOnchainBillingStore,
+  emitWebhookSafely,
+  paymentConfirmedWebhook,
+  subscriptionChargedWebhook,
+} from "@settlekit/persistence";
 import { createHyperCoreClient, createHyperCoreUsdSender, loadHyperCoreConfig, type HyperCoreUsdSender } from "@settlekit/hyperliquid";
 import type { AppContext } from "../context.js";
 import { deliverOnchainSubscription } from "./delivery.js";
@@ -39,6 +45,16 @@ export async function buildApiOnchainBilling(
     },
     async queueDelivery(delivery) {
       await deliverOnchainSubscription(ctx, delivery);
+    },
+    async onCharged(sub, charge, period, paymentId) {
+      await emitWebhookSafely(ctx.webhookOutbox, subscriptionChargedWebhook(sub, charge, period, paymentId));
+      const payment = paymentId ? await ctx.payments.findById(paymentId) : null;
+      if (payment) {
+        await emitWebhookSafely(
+          ctx.webhookOutbox,
+          paymentConfirmedWebhook(payment, { productIds: [sub.productId], ...(sub.customerEmail ? { customerEmail: sub.customerEmail } : {}) }),
+        );
+      }
     },
   }, {
     onError: (message, meta) => console.warn(`[onchain-billing] ${message}`, meta),

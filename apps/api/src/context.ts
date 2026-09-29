@@ -170,6 +170,8 @@ import type { DeliveryGrantSink } from "./wiring/delivery-clients.js";
 import { loadAgentPayments, type AgentPaymentsRuntime } from "./agent-payments/config.js";
 import type { OnchainBillingRuntime } from "@settlekit/onchain-billing";
 import { buildApiOnchainBilling } from "./onchain-billing/runtime.js";
+import { createWebhookOutbox } from "./webhooks/outbox.js";
+import type { WebhookOutbox } from "@settlekit/persistence";
 
 /** The fully-wired set of services + stores shared across requests. */
 export interface AppContext {
@@ -194,6 +196,8 @@ export interface AppContext {
   readonly deliveryClients: DeliveryClients;
   readonly webhookEndpoints: EntityStore<WebhookEndpoint>;
   readonly webhookEvents: EntityStore<WebhookEvent>;
+  /** Signed seller webhooks (payment / subscription / refund events). */
+  readonly webhookOutbox: WebhookOutbox;
 
   // Access / key services.
   readonly apiKeys: ApiKeyService;
@@ -411,6 +415,9 @@ export async function createContext(): Promise<AppContext> {
     ...(process.env.MERCHANT_WEBSITE ? { website: process.env.MERCHANT_WEBSITE } : {}),
   };
 
+  const webhookEndpointStore = pick<EntityStore<WebhookEndpoint>>(db, (d) => new PgWebhookEndpointStore(d), () => new InMemoryEntityStore<WebhookEndpoint>());
+  const webhookEventStore = pick<EntityStore<WebhookEvent>>(db, (d) => new PgWebhookEventStore(d), () => new InMemoryEntityStore<WebhookEvent>());
+
   const base: Omit<AppContext, "onchainBilling"> = {
     db,
     persistent: db !== null,
@@ -427,8 +434,9 @@ export async function createContext(): Promise<AppContext> {
     deliveryRuns: pick<EntityStore<DeliveryRun>>(db, (d) => new PgDeliveryRunStore(d), () => new InMemoryEntityStore<DeliveryRun>()),
     deliveryRegistry: createDefaultRegistry(),
     deliveryClients: integrations.deliveryClients,
-    webhookEndpoints: pick<EntityStore<WebhookEndpoint>>(db, (d) => new PgWebhookEndpointStore(d), () => new InMemoryEntityStore<WebhookEndpoint>()),
-    webhookEvents: pick<EntityStore<WebhookEvent>>(db, (d) => new PgWebhookEventStore(d), () => new InMemoryEntityStore<WebhookEvent>()),
+    webhookEndpoints: webhookEndpointStore,
+    webhookEvents: webhookEventStore,
+    webhookOutbox: createWebhookOutbox(db, webhookEndpointStore, webhookEventStore),
 
     apiKeys: new ApiKeyService(apiKeyStore),
     licenses: new LicenseService(licenseStore, { tokenSecret: config.licenseTokenSecret }),

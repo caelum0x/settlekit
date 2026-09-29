@@ -29,6 +29,8 @@ import {
   PgPaymentRepository,
   PgProductStore,
   PgPriceStore,
+  PgWebhookOutbox,
+  type WebhookOutbox,
 } from "@settlekit/persistence";
 import type { CheckoutSession, DeliveryAction, Price, Product } from "@settlekit/common";
 import { createReference } from "@settlekit/solana";
@@ -46,6 +48,8 @@ export interface CheckoutBackend {
    * shared with the API; in-process mutex when absent).
    */
   readonly tagLock?: TagLock;
+  /** Seller webhook outbox (Postgres mode only; the worker delivers). */
+  readonly webhooks?: WebhookOutbox;
   /** Whether this backend is Postgres-backed (real catalog) or seeded. */
   readonly persistent: boolean;
   findProduct(id: string): Promise<Product | undefined>;
@@ -79,6 +83,7 @@ function createPostgresBackend(databaseUrl: string): CheckoutBackend {
     entitlements: new PgEntitlementRepository(db),
     // Same key namespace as the API so both apps serialize on one lock.
     tagLock: { withLock: (key, fn) => withAdvisoryLock(db, `zcash-tag:${key}`, fn) },
+    webhooks: new PgWebhookOutbox(db),
     persistent: true,
     async findProduct(id) {
       return (await products.findById(id)) ?? undefined;
