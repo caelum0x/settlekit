@@ -26,6 +26,7 @@ import type {
 } from "@settlekit/settlement-core";
 import type { RoyaltyLegStore } from "@settlekit/citation-toll";
 import type { StreamStore } from "@settlekit/streaming";
+import type { OnchainBillingRuntime } from "@settlekit/onchain-billing";
 import type { WorkerConfig } from "../config.js";
 import type { WorkerStore } from "../stores.js";
 import type { Logger } from "../logger.js";
@@ -80,6 +81,8 @@ export interface JobContext {
   royaltyLegStore?: RoyaltyLegStore;
   /** Stream records to refund reserved-but-unused balances from. */
   streamStore?: StreamStore;
+  /** Onchain subscriptions + refunds; absent -> the subscription-charge job no-ops. */
+  onchainBilling?: OnchainBillingRuntime;
   /** Injectable clock for deterministic tests. */
   now: () => Date;
 }

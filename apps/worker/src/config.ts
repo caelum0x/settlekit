@@ -52,6 +52,8 @@ export interface JobIntervals {
   routeWatchMs: number;
   /** How often pending GitHub entitlements from checkout are re-delivered. */
   githubDeliveryRetryMs: number;
+  /** How often due onchain subscription periods are charged. */
+  subscriptionChargeMs: number;
 }
 
 /** Circle developer-controlled wallets used to reconcile executed payouts. */
@@ -301,6 +303,7 @@ export function loadConfig(env: Env = process.env): WorkerConfig {
     zcashWatchMs: intInRange(env, "WORKER_ZCASH_WATCH_INTERVAL_MS", 90_000, 30_000, 3_600_000),
     routeWatchMs: intInRange(env, "WORKER_ROUTE_WATCH_INTERVAL_MS", 20_000, 5_000, 3_600_000),
     githubDeliveryRetryMs: intInRange(env, "WORKER_GITHUB_RETRY_INTERVAL_MS", 120_000, 10_000, 86_400_000),
+    subscriptionChargeMs: intInRange(env, "WORKER_SUBSCRIPTION_CHARGE_INTERVAL_MS", 300_000, 10_000, 86_400_000),
   };
 
   const circleWallets: CircleWalletsConfig | null =

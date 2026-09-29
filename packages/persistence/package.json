@@ -18,6 +18,7 @@
   "dependencies": {
     "@settlekit/common": "workspace:*",
     "@settlekit/database": "workspace:*",
+    "@settlekit/onchain-billing": "workspace:*",
     "@settlekit/settlement-core": "workspace:*",
     "@settlekit/attribution": "workspace:*",
     "@settlekit/citation-toll": "workspace:*",

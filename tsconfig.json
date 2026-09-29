@@ -30,6 +30,7 @@
     { "path": "./packages/paymaster" },
     { "path": "./packages/stablefx" },
     { "path": "./packages/x402" },
+    { "path": "./packages/x402-facilitator" },
     { "path": "./packages/webhooks" },
     { "path": "./packages/risk" },
     { "path": "./packages/notifications" },

@@ -42,6 +42,12 @@ export interface SettlementRequirements {
   requireMemo?: boolean;
   /** Locked quote (Zcash). */
   settlementQuote?: SettlementQuote;
+  /**
+   * The tx is the destination fill an any-token route provider reported for
+   * the session: its solver sent it, so reference / payer / memo bindings do
+   * not apply; verifiers bind it by payTo, amount and block time (notBefore).
+   */
+  routedFill?: boolean;
 }
 
 export interface SettlementResult {

@@ -2,6 +2,26 @@
 
 Example integrations for SaaS plans, GitHub repo sales, paid APIs, bundles, and agent services.
 
+## Agent purchases on every chain (x402 v2 + MPP)
+
+Runnable against a live SettleKit API (they spend real stablecoins on mainnet;
+set `SETTLEKIT_CHAIN_ENV=testnet` for testnets). Unset `PRODUCT_ID` to call the
+sample paid resource instead of buying.
+
+```sh
+# Solana via PayAI
+AGENT_SOLANA_SECRET_KEY='[..64 bytes..]' PRODUCT_ID=prod_... pnpm --filter @settlekit/examples agent-buy-solana
+# EVM: base | arbitrum (PayAI), ethereum | hyperevm | robinhood (self-hosted facilitator)
+AGENT_EVM_PRIVATE_KEY=0x... PRODUCT_ID=prod_... pnpm --filter @settlekit/examples agent-buy-evm hyperevm
+# Tempo via MPP (mppx)
+AGENT_TEMPO_PRIVATE_KEY=0x... PRODUCT_ID=prod_... pnpm --filter @settlekit/examples agent-buy-tempo
+```
+
+Common env: `SETTLEKIT_API_URL` (default `http://localhost:8787`), `AGENT_MAX_USD`
+(per-payment cap, default 5), `AGENT_EMAIL` / `AGENT_GITHUB_USERNAME` /
+`AGENT_DISCORD_USER_ID` for products whose delivery needs them. Sources:
+`src/agent-buy-{solana,evm,tempo}.ts`.
+
 ## Lepton nanopayments — the whole economy in one command
 
 ```sh

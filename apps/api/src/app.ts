@@ -63,6 +63,9 @@ import { leptonRoutes } from "./routes/lepton.js";
 import { fundRoutes } from "./routes/fund.js";
 import { merchantRoutes } from "./routes/merchant.js";
 import { publicRoutes } from "./routes/public.js";
+import { x402AgentRoutes } from "./routes/x402-agent.js";
+import { mppTempoRoutes } from "./routes/mpp-tempo.js";
+import { onchainBillingRoutes } from "./routes/onchain-billing.js";
 
 /** Build the full SettleKit API app. Pass a context to share/isolate state. */
 export function createApp(ctx: AppContext): Hono<AppEnv> {
@@ -115,6 +118,10 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
   // x402 paid APIs are PUBLIC: the USDC payment IS the authorization, so these
   // are mounted outside the API-key guard (humans + AI agents pay per call).
   app.route("/v1/paid", x402Routes());
+
+  // Agent payments are PUBLIC too: x402 v2 on every chain + MPP on Tempo.
+  app.route("/v1/x402", x402AgentRoutes(ctx.agentPayments));
+  app.route("/v1/mpp", mppTempoRoutes(ctx.agentPayments));
 
   // Lepton hackathon demo is PUBLIC: self-contained, in-memory nanopayment
   // modules (agent economy, citation tolls, streaming). No API key, no DB.
@@ -210,6 +217,7 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
   v1.route("/mint", mintRoutes());
   v1.route("/user-wallets", userWalletRoutes());
   v1.route("/onchain-escrow", onchainEscrowRoutes());
+  v1.route("/onchain-billing", onchainBillingRoutes());
   // paymaster + gas-station share one router (paths are /paymaster/* and /gas-station/*).
   v1.route("/", paymasterRoutes());
 

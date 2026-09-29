@@ -11,3 +11,4 @@ export * from "./registry.js";
 export * from "./runner.js";
 export * from "./retry.js";
 export * from "./handlers/index.js";
+export * from "./product-actions.js";

@@ -17,7 +17,10 @@
     "erc8183-job": "node --import tsx src/erc8183-job.ts",
     "build": "tsc -b",
     "typecheck": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run",
+    "agent-buy-solana": "node --import tsx src/agent-buy-solana.ts",
+    "agent-buy-evm": "node --import tsx src/agent-buy-evm.ts",
+    "agent-buy-tempo": "node --import tsx src/agent-buy-tempo.ts"
   },
   "dependencies": {
     "@settlekit/app-kit": "workspace:*",
@@ -35,7 +38,14 @@
     "@settlekit/saas": "workspace:*",
     "@settlekit/settlement-core": "workspace:*",
     "@settlekit/x402": "workspace:*",
-    "@settlekit/x402-client": "workspace:*"
+    "@settlekit/x402-client": "workspace:*",
+    "@x402/core": "~2.27.0",
+    "@x402/evm": "~2.27.0",
+    "@x402/svm": "~2.27.0",
+    "@x402/fetch": "~2.27.0",
+    "@solana/kit": "5.5.1",
+    "mppx": "^0.11.0",
+    "viem": "^2.54.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

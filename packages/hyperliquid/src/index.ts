@@ -13,3 +13,4 @@ export * from "./ledger.js";
 export * from "./verify.js";
 export * from "./client.js";
 export * from "./settlement.js";
+export * from "./usd-send.js";

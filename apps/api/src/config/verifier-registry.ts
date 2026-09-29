@@ -19,9 +19,15 @@ import {
   type SettlementVerifier,
   type ZcashConfig,
 } from "@settlekit/chains";
-import type { PaymentNetwork } from "@settlekit/common";
+import { toBaseUnits, type PaymentNetwork } from "@settlekit/common";
 import { createHyperCoreClient, createHyperCoreSettlementVerifier, type HyperliquidTransport } from "@settlekit/hyperliquid";
-import { createKitSolanaRpc, createSolanaPaymentVerifier, type SolanaRpc } from "@settlekit/solana";
+import {
+  createKitSolanaRpc,
+  createSolanaPaymentVerifier,
+  isSolanaSignature,
+  verifySplTransfer,
+  type SolanaRpc,
+} from "@settlekit/solana";
 import {
   createBlockchairExplorer,
   createCoinbaseSource,
@@ -85,10 +91,40 @@ function buildEvm(chain: EvmChainRuntimeConfig, rpc: FullEvmRpc): { primary: Evm
   return { primary, settlement: createEvmSettlementVerifier(primary, extra) };
 }
 
+/** Allowed skew between session creation and a routed Solana fill's block time (matches checkout/worker). */
+export const ROUTED_FILL_SKEW_MS = 120_000;
+
+/**
+ * A route provider's Solana fill carries no Solana Pay reference, so it is
+ * bound by payTo, mint, amount and block time (>= session creation - skew).
+ */
+async function verifyRoutedSolanaFill(
+  rpc: SolanaRpc,
+  mint: string,
+  proof: { txHash: string },
+  requirements: { payTo: string; amount: string; notBefore?: string },
+): Promise<{ ok: boolean; reason?: string; retryable?: boolean }> {
+  if (!isSolanaSignature(proof.txHash)) return { ok: false, reason: "Malformed Solana transaction signature" };
+  const notBefore = requirements.notBefore ? new Date(requirements.notBefore).getTime() : Number.NaN;
+  if (Number.isNaN(notBefore)) return { ok: false, reason: "routed fill needs the session creation time" };
+  const result = await verifySplTransfer(rpc, {
+    signature: proof.txHash,
+    mint,
+    recipientOwner: requirements.payTo,
+    minAmount: toBaseUnits(requirements.amount),
+    commitment: "confirmed",
+  });
+  if (!result.ok) return { ok: false, reason: result.message, ...(result.reason === "not_found" ? { retryable: true } : {}) };
+  if (result.blockTime === null) return { ok: false, reason: "fill has no block time yet", retryable: true };
+  if (result.blockTime * 1000 < notBefore - ROUTED_FILL_SKEW_MS) return { ok: false, reason: "fill predates the checkout session" };
+  return { ok: true };
+}
+
 /** Adapt the x402-shaped Solana verifier to the settlement contract. */
 function solanaVerifier(config: NonNullable<ApiConfig["solana"]>, rpc?: SolanaRpc): SettlementVerifier {
+  const solanaRpc = rpc ?? createKitSolanaRpc(config.rpcUrl);
   const verify = createSolanaPaymentVerifier({
-    rpc: rpc ?? createKitSolanaRpc(config.rpcUrl),
+    rpc: solanaRpc,
     mint: config.usdcMint,
     commitment: "confirmed",
   });
@@ -96,6 +132,7 @@ function solanaVerifier(config: NonNullable<ApiConfig["solana"]>, rpc?: SolanaRp
     if (proof.network !== "solana" || requirements.network !== "solana") {
       return { ok: false, reason: `Unsupported network: ${proof.network}` };
     }
+    if (requirements.routedFill === true) return verifyRoutedSolanaFill(solanaRpc, config.usdcMint, proof, requirements);
     return verify(
       { ...proof, network: "solana" },
       { ...requirements, scheme: "x402", network: "solana", asset: requirements.asset as "USDC" },

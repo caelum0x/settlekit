@@ -21,6 +21,8 @@ export * from "./auth.js";
 export * from "./agent-economy.js";
 export * from "./worker.js";
 export * from "./lepton.js";
+export * from "./onchain-billing.js";
+export * from "./x402.js";
 
 import {
   leptonSources,
@@ -126,6 +128,8 @@ import {
   workerEmailLedger,
   workerDunningAttempts,
 } from "./worker.js";
+import { onchainSubscriptions, onchainCharges, onchainEscrowPayments } from "./onchain-billing.js";
+import { x402Nonces } from "./x402.js";
 
 /**
  * The schema object handed to `drizzle(client, { schema })`. Keys are the
@@ -202,6 +206,10 @@ export const schema = {
   workerWebhookJobs,
   workerEmailLedger,
   workerDunningAttempts,
+  onchainSubscriptions,
+  onchainCharges,
+  onchainEscrowPayments,
+  x402Nonces,
   leptonSources,
   leptonCitations,
   leptonRoyaltyLegs,

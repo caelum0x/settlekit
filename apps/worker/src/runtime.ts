@@ -20,7 +20,7 @@ import type { DiscordApi } from "@settlekit/discord";
 import type { HttpSender } from "@settlekit/webhooks";
 import { createEmailClient, type EmailTransport } from "@settlekit/notifications";
 import type { WorkerConfig } from "./config.js";
-import { createDb } from "@settlekit/database";
+import { createDb, type Database } from "@settlekit/database";
 import { InMemoryWorkerStore, type WorkerStore } from "./stores.js";
 import { PgWorkerStore } from "./db/pg-worker-store.js";
 import {
@@ -40,6 +40,7 @@ import type {
 } from "@settlekit/settlement-core";
 import type { RoyaltyLegStore } from "@settlekit/citation-toll";
 import type { StreamStore } from "@settlekit/streaming";
+import type { OnchainBillingRuntime } from "@settlekit/onchain-billing";
 import { createWalletsClient, type WalletsClient } from "@settlekit/circle-wallets";
 import { createLogger, type Logger } from "./logger.js";
 import { createArcSettlementProvider } from "./settlement/arc-provider.js";
@@ -62,6 +63,7 @@ import {
   zcashWatchJob,
   routeWatchJob,
   githubDeliveryRetryJob,
+  subscriptionChargeJob,
   type JobContext,
 } from "./jobs/index.js";
 
@@ -70,6 +72,8 @@ export interface RuntimeDeps {
   config: WorkerConfig;
   githubApi: GitHubApi;
   discordApi: DiscordApi;
+  /** Shared database handle (boot passes the one its stores already use). */
+  db?: Database | null;
   /** Pre-built stores (defaults to a fresh in-memory layer). */
   stores?: WorkerStore;
   /** Override the Arc RPC transport (tests inject canned receipts). */
@@ -104,6 +108,8 @@ export interface RuntimeDeps {
   royaltyLegStore?: RoyaltyLegStore;
   /** Override the stream store (defaults to Pg when a DB is set). */
   streamStore?: StreamStore;
+  /** Onchain billing runtime (built async by buildWorkerOnchainBilling). */
+  onchainBilling?: OnchainBillingRuntime | null;
   /** Override the clock (deterministic tests). */
   now?: () => Date;
 }
@@ -123,7 +129,7 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
   // was injected); the process-local in-memory store otherwise. The same db
   // handle backs the delivery stores so worker-issued license/API keys/file
   // grants persist to the tables the API reads.
-  const db = !deps.stores && deps.config.database ? createDb(deps.config.database.url) : null;
+  const db = deps.db ?? (!deps.stores && deps.config.database ? createDb(deps.config.database.url) : null);
   const stores = deps.stores ?? (db ? new PgWorkerStore(db) : new InMemoryWorkerStore());
   const logger = deps.logger ?? createLogger({ app: "worker" });
   const now = deps.now ?? (() => new Date());
@@ -271,6 +277,7 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     ...(settlementProvider !== undefined ? { settlementProvider } : {}),
     ...(royaltyLegStore !== undefined ? { royaltyLegStore } : {}),
     ...(streamStore !== undefined ? { streamStore } : {}),
+    ...(deps.onchainBilling ? { onchainBilling: deps.onchainBilling } : {}),
     now,
   };
 
@@ -325,6 +332,8 @@ export function buildRuntime(deps: RuntimeDeps): WorkerRuntime {
     { job: routeWatchJob, intervalMs: intervals.routeWatchMs },
     // No-op until a GitHub App installation id is configured.
     { job: githubDeliveryRetryJob, intervalMs: intervals.githubDeliveryRetryMs },
+    // No-op until onchain billing is configured (operator key / checkout URL).
+    { job: subscriptionChargeJob, intervalMs: intervals.subscriptionChargeMs },
   ];
 
   const scheduler = new Scheduler(scheduled, ctx, logger);

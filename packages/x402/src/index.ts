@@ -43,3 +43,6 @@ export type {
   X402Network,
   X402Scheme,
 } from "./types.js";
+
+// Spec-compliant x402 v2 (x402-foundation @x402/core) helpers.
+export * from "./v2/index.js";

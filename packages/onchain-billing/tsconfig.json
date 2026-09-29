@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "composite": true,
+    "types": ["node"]
+  },
+  "references": [
+    { "path": "../chains" },
+    { "path": "../common" },
+    { "path": "../dunning" },
+    { "path": "../notifications" },
+    { "path": "../payments" },
+    { "path": "../solana" }
+  ],
+  "include": ["src/**/*"],
+  "exclude": ["dist", "node_modules", "**/*.test.ts"]
+}
