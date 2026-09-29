@@ -29,7 +29,8 @@ import {
   PgProductStore,
   PgPriceStore,
 } from "@settlekit/persistence";
-import type { DeliveryAction, Price, Product } from "@settlekit/common";
+import type { CheckoutSession, DeliveryAction, Price, Product } from "@settlekit/common";
+import { createReference } from "@settlekit/solana";
 import { deriveDeliveryAction } from "./delivery-action";
 import { seedCatalog } from "./seed";
 
@@ -110,9 +111,11 @@ function createSeedBackend(): CheckoutBackend {
   }
   for (const [id, name] of Object.entries(seeded.merchants)) merchantNames.set(id, name);
 
-  // Seed one open session per demo product via the real domain factory.
+  // Seed one open session per demo product via the real domain factory. The
+  // session accepts every network with a receiving address; the picker only
+  // offers the ones this checkout can verify.
   for (const item of seeded.products) {
-    const session = createCheckoutSession({
+    const draft = createCheckoutSession({
       organizationId: item.product.organizationId,
       merchantId: item.product.merchantId,
       items: [{ lineItem: { productId: item.product.id, priceId: item.price.id, quantity: 1 }, price: item.price }],
@@ -120,6 +123,12 @@ function createSeedBackend(): CheckoutBackend {
       network: item.network,
       ttlDays: 365,
     });
+    const session: CheckoutSession = {
+      ...draft,
+      acceptedNetworks: item.acceptedNetworks,
+      payToByNetwork: item.payToByNetwork,
+      ...(item.acceptedNetworks.includes("solana") ? { paymentReference: createReference() } : {}),
+    };
     void checkouts.save(session);
     seededSessionIds.push(session.id);
   }

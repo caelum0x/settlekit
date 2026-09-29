@@ -9,7 +9,12 @@ import type {
   Money,
   PaymentNetwork,
   Product,
+  SettlementQuote,
 } from "@settlekit/common";
+
+import type { NetworkOption } from "./network-options";
+
+export type { NetworkOption } from "./network-options";
 
 /** A single required buyer field the checkout form must collect. */
 export interface CollectedFieldSpec {
@@ -52,6 +57,14 @@ export interface CheckoutSessionView {
   expiresAt: string;
   expired: boolean;
   merchantName: string;
+  /** The session's current network with labels + availability. */
+  networkOption: NetworkOption;
+  /** Accepted networks this checkout can take payment on right now. */
+  networkOptions: NetworkOption[];
+  /** Locked ZEC quote (Zcash sessions). */
+  settlementQuote: SettlementQuote | null;
+  /** Wallet bound as the payer, if declared. */
+  payerAddress: string | null;
 }
 
 /** A delivered entitlement / access surfaced on the success page. */
@@ -82,6 +95,12 @@ export interface ReceiptView {
   /** Block explorer link for `txHash` ("" when unknown). */
   explorerUrl: string;
   network: PaymentNetwork;
+  /** Display name of the settlement network, e.g. "Base Sepolia". */
+  networkName: string;
+  /** Asset actually paid (USDC, USDG, USDC.e, pathUSD, ZEC). */
+  asset: string;
+  /** What was paid on-chain, e.g. "25 USDG" or "0.01738 ZEC (25 USD)". */
+  settledLabel: string;
   amount: Money;
   confirmedAt: string;
   lines: OrderLine[];
@@ -119,6 +138,14 @@ export type SolanaStatusResponse =
 
 export interface ApiError {
   error: string;
+  code?: string;
+}
+
+/** POST network response. */
+export interface NetworkSelectResponse {
+  network: PaymentNetwork;
+  payToAddress: string;
+  settlementQuote: SettlementQuote | null;
 }
 
 /** Internal: a product + its delivery action, used for seeding. */

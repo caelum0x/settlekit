@@ -3,8 +3,6 @@ import { notFound, redirect } from "next/navigation";
 
 import { getReceipt, ApiClientError } from "@/lib/api";
 import {
-  formatMoney,
-  formatNetwork,
   formatTimestamp,
   truncateMiddle,
 } from "@/lib/format";
@@ -58,12 +56,12 @@ export default async function SuccessPage({ params }: PageProps) {
         <div className="divider" />
         <div className="payto-row">
           <span className="label">Paid</span>
-          <span className="line-amount">{formatMoney(receipt.amount)}</span>
+          <span className="line-amount">{receipt.settledLabel}</span>
         </div>
         <div className="payto-row">
           <span className="label">Network</span>
           <span className="badge badge-network">
-            {formatNetwork(receipt.network)}
+            {receipt.networkName}
           </span>
         </div>
         <div className="payto-row">

@@ -6,6 +6,15 @@
  * objects (not mocks) used to render live checkout sessions. In production this
  * data would come from @settlekit/database; here it is constructed in-process
  * so the hosted checkout app runs standalone.
+ *
+ * Demo sessions accept every network. They stay fail closed: the picker only
+ * offers a network this checkout can verify (see ./network-options), and the
+ * placeholder EVM address is only ever offered on test networks. Solana and
+ * Zcash are accepted only when a real receiving address is configured:
+ *
+ *   CHECKOUT_DEMO_EVM_PAY_TO      EVM receiving address (default: placeholder, testnets only)
+ *   CHECKOUT_DEMO_SOLANA_PAY_TO   Solana wallet address (devnet or mainnet)
+ *   CHECKOUT_DEMO_ZCASH_PAY_TO    Zcash transparent t1/t3 address (mainnet)
  */
 import {
   generateId,
@@ -23,6 +32,8 @@ export interface SeededProduct {
   deliveryAction: DeliveryAction;
   payToAddress: string;
   network: PaymentNetwork;
+  acceptedNetworks: PaymentNetwork[];
+  payToByNetwork: Partial<Record<PaymentNetwork, string>>;
 }
 
 export interface SeededCatalog {
@@ -33,8 +44,38 @@ export interface SeededCatalog {
 const NOW = new Date("2026-01-01T00:00:00.000Z");
 const ORG = "org_settlekit_demo";
 const MERCHANT = "mch_acme_dev_tools";
-const PAY_TO = "0x9f2A4b6C8d0E2f4A6b8C0d2E4f6A8b0C2d4E6f80";
+/** Placeholder EVM receiver (EIP-55 checksummed). Only offered on testnets. */
+export const DEMO_EVM_PAY_TO = "0x9f2A4B6C8D0E2f4A6b8C0D2E4f6A8B0c2D4e6F80";
 const NETWORK: PaymentNetwork = "base";
+const EVM_NETWORKS: readonly PaymentNetwork[] = ["base", "ethereum", "arbitrum", "robinhood", "hyperevm", "tempo", "arc"];
+
+type Env = Readonly<Record<string, string | undefined>>;
+
+function read(env: Env, key: string): string | undefined {
+  const value = env[key]?.trim();
+  return value ? value : undefined;
+}
+
+/** Demo receiving addresses: the primary payTo, accepted networks and overrides. */
+export function demoPaymentRouting(env: Env = process.env): {
+  payToAddress: string;
+  acceptedNetworks: PaymentNetwork[];
+  payToByNetwork: Partial<Record<PaymentNetwork, string>>;
+} {
+  const evm = read(env, "CHECKOUT_DEMO_EVM_PAY_TO") ?? DEMO_EVM_PAY_TO;
+  const solana = read(env, "CHECKOUT_DEMO_SOLANA_PAY_TO");
+  const zcash = read(env, "CHECKOUT_DEMO_ZCASH_PAY_TO");
+  const payToByNetwork: Partial<Record<PaymentNetwork, string>> = {
+    ...(solana ? { solana } : {}),
+    ...(zcash ? { zcash } : {}),
+  };
+  const acceptedNetworks: PaymentNetwork[] = [
+    ...EVM_NETWORKS,
+    ...(solana ? (["solana"] as const) : []),
+    ...(zcash ? (["zcash"] as const) : []),
+  ];
+  return { payToAddress: evm, acceptedNetworks, payToByNetwork };
+}
 
 function product(
   id: string,
@@ -73,7 +114,14 @@ function price(productId: string, amount: string): Price {
 }
 
 /** Build the seeded catalog. */
-export function seedCatalog(): SeededCatalog {
+export function seedCatalog(env: Env = process.env): SeededCatalog {
+  const routing = demoPaymentRouting(env);
+  const pay = {
+    payToAddress: routing.payToAddress,
+    network: NETWORK,
+    acceptedNetworks: routing.acceptedNetworks,
+    payToByNetwork: routing.payToByNetwork,
+  };
   const repoProd = product(
     "prod_private_repo_starter",
     "Atlas Starter Kit (Private Repo)",
@@ -124,15 +172,13 @@ export function seedCatalog(): SeededCatalog {
         repoId: "acme-dev/atlas-starter",
         permission: "pull",
       },
-      payToAddress: PAY_TO,
-      network: NETWORK,
+      ...pay,
     },
     {
       product: licenseProd,
       price: price(licenseProd.id, "79"),
       deliveryAction: { type: "license_key_create", policyId: "pol_pro_3m" },
-      payToAddress: PAY_TO,
-      network: NETWORK,
+      ...pay,
     },
     {
       product: apiProd,
@@ -141,8 +187,7 @@ export function seedCatalog(): SeededCatalog {
         type: "api_key_create",
         scopes: ["inference:read", "inference:invoke"],
       },
-      payToAddress: PAY_TO,
-      network: NETWORK,
+      ...pay,
     },
     {
       product: fileProd,
@@ -151,8 +196,7 @@ export function seedCatalog(): SeededCatalog {
         type: "file_access_grant",
         fileId: "file_atlas_embeddings_v3",
       },
-      payToAddress: PAY_TO,
-      network: NETWORK,
+      ...pay,
     },
     {
       product: discordProd,
@@ -162,8 +206,7 @@ export function seedCatalog(): SeededCatalog {
         guildId: "884213000000000000",
         roleId: "884213999999999999",
       },
-      payToAddress: PAY_TO,
-      network: NETWORK,
+      ...pay,
     },
   ];
 

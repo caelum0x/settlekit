@@ -13,6 +13,7 @@ import { NextResponse } from "next/server";
 import { toRouteError } from "@/lib/errors";
 import { prepareSolanaPayment } from "@/lib/solana-checkout";
 import { publicOrigin } from "@/lib/origin";
+import { assertSameOrigin } from "@/lib/same-origin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -22,6 +23,12 @@ interface RouteContext {
 }
 
 export async function POST(request: Request, context: RouteContext): Promise<NextResponse> {
+  try {
+    assertSameOrigin(request);
+  } catch (error) {
+    const { status, error: message } = toRouteError(error, "Cross-site requests are not allowed.");
+    return NextResponse.json({ error: message }, { status });
+  }
   let body: unknown;
   try {
     body = await request.json();

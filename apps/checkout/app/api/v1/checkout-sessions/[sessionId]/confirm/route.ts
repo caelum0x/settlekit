@@ -9,8 +9,11 @@
  * receipt + delivered access.
  *
  * The hash format is checked per network (EVM 0x-hex, Solana base58
- * signature). Confirmation fails closed: an unverifiable network is 422, a
- * hash that already settled another checkout is 409.
+ * signature, Zcash 64-hex txid). Confirmation fails closed: an unverifiable
+ * network is 422, a hash that already settled another checkout is 409. A
+ * payment that is found but not final yet is 425 (`payment_pending`: poll
+ * again); a Zcash payment made after its quote expired is 409
+ * (`payment_under_review`). Error bodies carry `{ error, code }`.
  */
 import { NextResponse } from "next/server";
 
@@ -21,7 +24,8 @@ import {
   getDeliveredAccess,
   getConfirmedPayment,
 } from "@/lib/store";
-import { toRouteError } from "@/lib/errors";
+import { errorReply } from "@/lib/route-helpers";
+import { assertSameOrigin } from "@/lib/same-origin";
 import { requiredFieldsForDelivery, sanitizeFields, validateFields } from "@/lib/fields";
 import { isWellFormedTxHash, txHashFormatHint } from "@/lib/tx-hash";
 import { buildReceiptView } from "@/lib/views";
@@ -39,6 +43,11 @@ export async function POST(
   context: RouteContext,
 ): Promise<NextResponse> {
   const { sessionId } = context.params;
+  try {
+    assertSameOrigin(request);
+  } catch (error) {
+    return errorReply(error, "Cross-site requests are not allowed.", "confirm");
+  }
 
   const resolved = await getResolvedSession(sessionId);
   if (!resolved) {
@@ -103,8 +112,6 @@ export async function POST(
       status: 201,
     });
   } catch (error) {
-    const { status, error: message } = toRouteError(error, "Failed to confirm payment.");
-    if (status === 500) console.error("[checkout] confirm failed:", error);
-    return NextResponse.json({ error: message }, { status });
+    return errorReply(error, "Failed to confirm payment.", "confirm");
   }
 }

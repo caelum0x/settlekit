@@ -9,22 +9,39 @@
  * HTTP status + server message, so callers can branch on 404 (not found) /
  * 410 (expired) without string matching.
  */
+import type { PaymentNetwork } from "@settlekit/common";
+
+import type { EvmPaymentParams } from "./evm-checkout";
 import type {
   CheckoutSessionView,
   ConfirmPaymentRequest,
+  NetworkSelectResponse,
   ReceiptView,
   SolanaPayUrlResponse,
   SolanaStatusResponse,
   SolanaTxResponse,
 } from "./types";
+import type { ZcashStatusResponse, ZcashUriResponse } from "./zcash-checkout";
 
 export class ApiClientError extends Error {
   constructor(
     public readonly status: number,
     message: string,
+    /** Machine-readable checkout error code, when the server sent one. */
+    public readonly code?: string,
   ) {
     super(message);
     this.name = "ApiClientError";
+  }
+
+  /** Found on-chain but not final yet: poll again. */
+  get pending(): boolean {
+    return this.code === "payment_pending";
+  }
+
+  /** Paid after the quote expired: held for manual review. */
+  get underReview(): boolean {
+    return this.code === "payment_under_review";
   }
 
   get notFound(): boolean {
@@ -73,7 +90,9 @@ async function request<T>(
       body && typeof body === "object" && "error" in body
         ? String((body as { error: unknown }).error)
         : `Request failed with status ${res.status}`;
-    throw new ApiClientError(res.status, message);
+    const code =
+      body && typeof body === "object" && "code" in body ? String((body as { code: unknown }).code) : undefined;
+    throw new ApiClientError(res.status, message, code);
   }
 
   return body as T;
@@ -156,4 +175,46 @@ export function requestSolanaTransaction(
 /** Poll whether the session's Solana payment has landed (confirms it if so). */
 export function getSolanaStatus(sessionId: string): Promise<SolanaStatusResponse> {
   return request<SolanaStatusResponse>(solanaPath(sessionId, "status"));
+}
+
+function sessionPath(sessionId: string, leaf: string): string {
+  return `/api/v1/checkout-sessions/${encodeURIComponent(sessionId)}/${leaf}`;
+}
+
+/** Switch the session to another accepted network (locks a ZEC quote for Zcash). */
+export function selectCheckoutNetwork(sessionId: string, network: PaymentNetwork): Promise<NetworkSelectResponse> {
+  return request<NetworkSelectResponse>(sessionPath(sessionId, "network"), {
+    method: "POST",
+    body: JSON.stringify({ network }),
+  });
+}
+
+/** Wallet parameters for paying on the session's EVM network. */
+export function getEvmParams(sessionId: string): Promise<EvmPaymentParams> {
+  return request<EvmPaymentParams>(sessionPath(sessionId, "evm/params"));
+}
+
+/** Save delivery fields and bind the connected wallet as payer. */
+export function declareEvmPayer(
+  sessionId: string,
+  payer: string,
+  fields: Record<string, string>,
+): Promise<{ payerAddress: string }> {
+  return request<{ payerAddress: string }>(sessionPath(sessionId, "evm/payer"), {
+    method: "POST",
+    body: JSON.stringify({ payer, fields }),
+  });
+}
+
+/** Save delivery fields and get the ZIP-321 request for the locked quote. */
+export function requestZcashUri(sessionId: string, fields: Record<string, string>): Promise<ZcashUriResponse> {
+  return request<ZcashUriResponse>(sessionPath(sessionId, "zcash/uri"), {
+    method: "POST",
+    body: JSON.stringify({ fields }),
+  });
+}
+
+/** Poll the session's Zcash payment status. */
+export function getZcashStatus(sessionId: string): Promise<ZcashStatusResponse> {
+  return request<ZcashStatusResponse>(sessionPath(sessionId, "zcash/status"));
 }

@@ -31,7 +31,7 @@ export async function GET(_request: Request, context: RouteContext): Promise<Nex
     return NextResponse.json<SolanaStatusResponse>({
       status: "paid",
       txHash,
-      explorerUrl: txHash ? explorerTxUrl("solana", txHash, configuredSolanaCluster()) : "",
+      explorerUrl: txHash ? explorerTxUrl("solana", txHash, { solanaCluster: configuredSolanaCluster() }) : "",
     });
   } catch (error) {
     const { status, error: message } = toRouteError(error, "Could not check the Solana network. Retrying.");
