@@ -5,7 +5,9 @@ import {
   boolean,
   jsonb,
   index,
+  uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 import { merchants, customers } from "./accounts.js";
 import { prices } from "./catalog.js";
 import {
@@ -86,7 +88,11 @@ export const payments = pgTable(
     checkoutSessionIdx: index("payments_checkout_session_id_idx").on(
       table.checkoutSessionId,
     ),
-    txHashIdx: index("payments_tx_hash_idx").on(table.txHash),
+    // One on-chain transaction settles at most one payment (replay guard);
+    // partial so the many pending rows without a hash never collide.
+    txHashUnique: uniqueIndex("payments_tx_hash_unique_idx")
+      .on(table.txHash)
+      .where(sql`${table.txHash} IS NOT NULL`),
   }),
 );
 

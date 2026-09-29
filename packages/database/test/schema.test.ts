@@ -1,5 +1,9 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { getTableName, getTableColumns } from "drizzle-orm";
+import { getTableConfig } from "drizzle-orm/pg-core";
 import {
   schema,
   organizations,
@@ -300,5 +304,26 @@ describe("column presence", () => {
     expect(getTableColumns(downloadGrants).fileId).toBeDefined();
     expect(getTableColumns(downloadGrants).downloadToken).toBeDefined();
     expect(getTableColumns(downloadGrants).status).toBeDefined();
+  });
+});
+
+describe("payments tx hash uniqueness", () => {
+  it("declares a unique partial index on payments.tx_hash", () => {
+    const { indexes } = getTableConfig(payments);
+    const unique = indexes.find((idx) => idx.config.name === "payments_tx_hash_unique_idx");
+    expect(unique?.config.unique).toBe(true);
+    expect(unique?.config.where).toBeDefined();
+    expect(indexes.some((idx) => idx.config.name === "payments_tx_hash_idx")).toBe(false);
+  });
+
+  it("ships a journaled migration creating the partial unique index", () => {
+    const dir = join(dirname(fileURLToPath(import.meta.url)), "..", "drizzle");
+    const journal = JSON.parse(readFileSync(join(dir, "meta", "_journal.json"), "utf8")) as {
+      entries: Array<{ tag: string }>;
+    };
+    const tag = "0009_payments_tx_hash_unique";
+    expect(journal.entries.map((e) => e.tag)).toContain(tag);
+    const sqlText = readFileSync(join(dir, `${tag}.sql`), "utf8");
+    expect(sqlText).toMatch(/CREATE UNIQUE INDEX[^;]*"payments_tx_hash_unique_idx"[^;]*WHERE "payments"\."tx_hash" IS NOT NULL/);
   });
 });
