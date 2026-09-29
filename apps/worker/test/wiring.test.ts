@@ -31,7 +31,7 @@ import { InMemoryWorkerStore } from "../src/stores.js";
 const TEST_ENV: Record<string, string> = {
   ARC_RPC_URL: "http://localhost:8545",
   ARC_USDC_ADDRESS: "0x1111111111111111111111111111111111111111",
-  ARC_CHAIN_ID: "8453",
+  ARC_CHAIN_ID: "5042002",
   ARC_MIN_CONFIRMATIONS: "2",
   RESEND_API_KEY: "re_test_key",
   EMAIL_FROM: "SettleKit <receipts@settlekit.dev>",
@@ -148,11 +148,14 @@ function createInMemoryWebhookSender(): HttpSender & { requests: WebhookRequest[
 const MERCHANT_PAY_TO = "0x3333333333333333333333333333333333333333" as Hex;
 
 /** Arc RPC double returning a successful USDC transfer receipt to the merchant. */
+/** A well-formed Arc tx hash for the canned receipt. */
+const ARC_TX_HASH = `0x${"ab".repeat(32)}` as Hex;
+
 function createArcRpc(config: WorkerConfig, fromAddr: Hex, amountBase: bigint): ArcRpc {
   const transferTopic = "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef" as Hex;
   const pad = (hex: string): Hex => `0x${hex.replace(/^0x/, "").padStart(64, "0")}` as Hex;
   const receipt: ArcTransactionReceipt = {
-    transactionHash: "0xabc" as Hex,
+    transactionHash: ARC_TX_HASH,
     blockNumber: 100n,
     status: "success",
     from: fromAddr,
@@ -172,6 +175,15 @@ function createArcRpc(config: WorkerConfig, fromAddr: Hex, amountBase: bigint): 
     },
     async getBlockNumber(): Promise<bigint> {
       return 105n;
+    },
+    async estimateFeesPerGas() {
+      return { maxFeePerGas: 1n, maxPriorityFeePerGas: 1n };
+    },
+    async getChainId(): Promise<number> {
+      return config.arc.chainId;
+    },
+    async getBlockTimestamp(): Promise<bigint> {
+      return BigInt(Math.floor(Date.now() / 1000));
     },
   };
 }
@@ -290,7 +302,7 @@ describe("worker delivery-clients wiring", () => {
       customerId: "cus_1",
       amount: money("1.00", "USDC"),
       network: "arc",
-      txHash: "0xabc",
+      txHash: ARC_TX_HASH,
       confirmations: 0,
       status: "pending",
       createdAt: toIso(now),

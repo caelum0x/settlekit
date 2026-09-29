@@ -8,7 +8,9 @@
  * production code path and the tested code path identical.
  */
 
-import { createArcClient, type ArcClient, type ArcRpc } from "@settlekit/arc";
+import { createArcClient, type ArcClient, type ArcRpc, type FullEvmRpc } from "@settlekit/arc";
+import { createChainRpc, createEvmVerifier, type EvmChainKey, type EvmVerifier } from "@settlekit/chains";
+import { createBlockchairExplorer, type FetchLike, type ZcashExplorer } from "@settlekit/zcash";
 import { createKitSolanaRpc, type SolanaRpc } from "@settlekit/solana";
 import { createDefaultRegistry, DeliveryRunner } from "@settlekit/delivery";
 import type { GitHubApi } from "@settlekit/github";
@@ -55,6 +57,7 @@ import {
   leptonSettlementReconcileJob,
   leptonPayoutSweepJob,
   leptonStreamRefundJob,
+  zcashWatchJob,
   type JobContext,
 } from "./jobs/index.js";
 
@@ -69,6 +72,10 @@ export interface RuntimeDeps {
   arcRpc?: ArcRpc;
   /** Override the Solana RPC transport (tests inject canned transactions). */
   solanaRpc?: SolanaRpc;
+  /** Override EVM RPCs per chain (tests inject canned receipts). */
+  evmRpcs?: Partial<Record<EvmChainKey, FullEvmRpc>>;
+  /** Override the Zcash explorer (tests inject recorded responses). */
+  zcashExplorer?: ZcashExplorer;
   /** Override the email transport (tests inject an in-memory transport). */
   emailTransport?: EmailTransport;
   /** Override the outbound webhook HTTP sender (tests inject an in-memory one). */
@@ -127,6 +134,20 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     ? {
         rpc: deps.solanaRpc ?? createKitSolanaRpc(deps.config.solana.rpcUrl),
         usdcMint: deps.config.solana.usdcMint,
+      }
+    : undefined;
+
+  const evm = buildEvmVerifiers(deps);
+  const zcash = deps.config.zcash
+    ? {
+        explorer:
+          deps.zcashExplorer ??
+          createBlockchairExplorer({
+            fetch: globalThis.fetch as FetchLike,
+            baseUrl: deps.config.zcash.explorerUrl,
+            ...(deps.config.zcash.apiKey ? { apiKey: deps.config.zcash.apiKey } : {}),
+          }),
+        minConfirmations: deps.config.zcash.minConfirmations,
       }
     : undefined;
 
@@ -223,6 +244,8 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     clients,
     arc,
     ...(solana !== undefined ? { solana } : {}),
+    evm,
+    ...(zcash !== undefined ? { zcash } : {}),
     email,
     githubApi: deps.githubApi,
     discordApi: deps.discordApi,
@@ -237,6 +260,29 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
   };
 
   return { ctx, stores, arc, logger };
+}
+
+function isFullEvmRpc(rpc: ArcRpc | undefined): rpc is FullEvmRpc {
+  return rpc !== undefined && rpc.getChainId !== undefined && rpc.getBlockTimestamp !== undefined;
+}
+
+/**
+ * One verifier per enabled EVM chain. Arc payments move onto the same path;
+ * an injected `arcRpc` that implements the full EvmRpc also backs Arc here.
+ */
+function buildEvmVerifiers(deps: RuntimeDeps): Partial<Record<EvmChainKey, EvmVerifier>> {
+  const verifiers: Partial<Record<EvmChainKey, EvmVerifier>> = {};
+  for (const chain of Object.values(deps.config.evm.enabled)) {
+    if (chain === undefined) continue;
+    const injected = deps.evmRpcs?.[chain.key] ?? (chain.key === "arc" && isFullEvmRpc(deps.arcRpc) ? deps.arcRpc : undefined);
+    verifiers[chain.key] = createEvmVerifier({
+      spec: chain.spec,
+      rpc: injected ?? createChainRpc(chain.spec, chain.rpcUrl),
+      minConfirmations: chain.minConfirmations,
+      tokenAddress: chain.tokenAddress,
+    });
+  }
+  return verifiers;
 }
 
 /** Build the full runtime including the configured scheduler. */
@@ -258,6 +304,8 @@ export function buildRuntime(deps: RuntimeDeps): WorkerRuntime {
     { job: leptonSettlementReconcileJob, intervalMs: intervals.payoutReconcileMs },
     { job: leptonPayoutSweepJob, intervalMs: intervals.payoutReconcileMs },
     { job: leptonStreamRefundJob, intervalMs: intervals.payoutReconcileMs },
+    // No-op (no network calls) unless Zcash is enabled AND open Zcash sessions exist.
+    { job: zcashWatchJob, intervalMs: intervals.zcashWatchMs },
   ];
 
   const scheduler = new Scheduler(scheduled, ctx, logger);

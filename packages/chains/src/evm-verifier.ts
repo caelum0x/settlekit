@@ -31,6 +31,7 @@ export class ChainIdMismatchError extends Error {
 
 export type EvmFailureCode =
   | "chain_mismatch"
+  | "rpc_unavailable"
   | "malformed"
   | "not_found"
   | "reverted"
@@ -143,17 +144,24 @@ export function createEvmVerifier(options: EvmVerifierOptions): EvmVerifier {
     return { ok: true, from: picked.from, amountBase: picked.value, confirmations, blockNumber: receipt.blockNumber, blockTime };
   }
 
-  async function verify(params: EvmVerifyParams): Promise<EvmVerification> {
-    if (!TX_HASH_RE.test(params.txHash)) return fail("malformed", "malformed transaction hash");
-    try {
-      await assertChainId();
-    } catch (error) {
-      return fail("chain_mismatch", error instanceof Error ? error.message : String(error));
-    }
+  async function verifyOnChain(params: EvmVerifyParams): Promise<EvmVerification> {
+    await assertChainId();
     const receipt = await rpc.getTransactionReceipt(params.txHash.toLowerCase() as Hex);
     if (receipt === null) return fail("not_found", "transaction not found or not yet mined", true);
     if (receipt.status !== "success") return fail("reverted", "transaction reverted");
     return checkReceipt(receipt, params);
+  }
+
+  async function verify(params: EvmVerifyParams): Promise<EvmVerification> {
+    if (!TX_HASH_RE.test(params.txHash)) return fail("malformed", "malformed transaction hash");
+    try {
+      return await verifyOnChain(params);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (error instanceof ChainIdMismatchError) return fail("chain_mismatch", message);
+      // Transport failures never confirm; the same tx may verify once the RPC answers.
+      return fail("rpc_unavailable", `${spec.name} RPC unavailable: ${message}`, true);
+    }
   }
 
   return { spec, minConfirmations, assertChainId, verify };

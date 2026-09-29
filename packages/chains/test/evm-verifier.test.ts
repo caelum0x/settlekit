@@ -99,6 +99,14 @@ describe.each(CASES)("createEvmVerifier on %s", (name, key, env) => {
     expect(result).toMatchObject({ ok: false, code: "payer_mismatch" });
   });
 
+  it("reports an unreachable RPC as retryable, never as paid", async () => {
+    const record = recorded(name);
+    const spec = getEvmChain(key, env)!;
+    const down = { ...replayRpc(record), getTransactionReceipt: async () => Promise.reject(new Error("ECONNRESET")) };
+    const verifier = createEvmVerifier({ spec, rpc: down });
+    expect(await verifier.verify(setup(name, key, env).params)).toMatchObject({ ok: false, code: "rpc_unavailable", retryable: true });
+  });
+
   it("rejects malformed hashes without touching the RPC", async () => {
     const { verifier, params } = setup(name, key, env);
     expect(await verifier.verify({ ...params, txHash: "0xdeadbeef" })).toMatchObject({ ok: false, code: "malformed" });

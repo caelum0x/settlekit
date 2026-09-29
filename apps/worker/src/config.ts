@@ -9,6 +9,13 @@
 
 import { isArcAddress, type ArcAddress } from "@settlekit/arc";
 import {
+  ChainConfigError,
+  loadEvmChains,
+  loadZcashConfig,
+  type EvmChainsConfig,
+  type ZcashConfig,
+} from "@settlekit/chains";
+import {
   getSolanaCluster,
   isSolanaAddress,
   parseSolanaCluster,
@@ -37,6 +44,8 @@ export interface JobIntervals {
   accessEmailMs: number;
   /** How often executed-but-unsettled payouts are reconciled against Circle. */
   payoutReconcileMs: number;
+  /** How often open Zcash sessions' addresses are checked for payments. */
+  zcashWatchMs: number;
 }
 
 /** Circle developer-controlled wallets used to reconcile executed payouts. */
@@ -127,6 +136,14 @@ export interface WorkerConfig {
   arc: ArcConfig;
   /** Solana payment verification; null when SOLANA_CLUSTER is unset. */
   solana: SolanaWorkerConfig | null;
+  /**
+   * Enabled EVM chains (SETTLEKIT_CHAIN_ENV, ENABLED_EVM_CHAINS, per-chain
+   * overrides; ARC_CHAIN_ID / BASE_RPC_URL aliases). Payments on any other
+   * EVM chain stay pending (fail closed).
+   */
+  evm: EvmChainsConfig;
+  /** Transparent Zcash verification + watching; null unless ZCASH_ENABLED. */
+  zcash: ZcashConfig | null;
   email: EmailConfig;
   github: GithubConfig;
   discord: DiscordConfig;
@@ -205,6 +222,15 @@ function requireArcAddress(env: Env, key: string): ArcAddress {
   return value;
 }
 
+function loadChains(env: Env): { evm: EvmChainsConfig; zcash: ZcashConfig | null } {
+  try {
+    return { evm: loadEvmChains(env), zcash: loadZcashConfig(env) };
+  } catch (error) {
+    if (error instanceof ChainConfigError) throw new ConfigError(error.message);
+    throw error;
+  }
+}
+
 function loadSolana(env: Env): SolanaWorkerConfig | null {
   const clusterRaw = env.SOLANA_CLUSTER?.trim();
   if (clusterRaw === undefined || clusterRaw.length === 0) return null;
@@ -246,6 +272,7 @@ export function loadConfig(env: Env = process.env): WorkerConfig {
     dunningEmailMs: intInRange(env, "WORKER_DUNNING_EMAIL_INTERVAL_MS", 3_600_000, 1_000, 86_400_000),
     accessEmailMs: intInRange(env, "WORKER_ACCESS_EMAIL_INTERVAL_MS", 60_000, 1_000, 86_400_000),
     payoutReconcileMs: intInRange(env, "WORKER_PAYOUT_RECONCILE_INTERVAL_MS", 60_000, 1_000, 86_400_000),
+    zcashWatchMs: intInRange(env, "WORKER_ZCASH_WATCH_INTERVAL_MS", 90_000, 30_000, 3_600_000),
   };
 
   const circleWallets: CircleWalletsConfig | null =
@@ -291,6 +318,7 @@ export function loadConfig(env: Env = process.env): WorkerConfig {
       minConfirmations: intInRange(env, "ARC_MIN_CONFIRMATIONS", 3, 1, 1_000),
     },
     solana: loadSolana(env),
+    ...loadChains(env),
     email: {
       apiKey: requireString(env, "RESEND_API_KEY"),
       from: optionalString(env, "EMAIL_FROM", "SettleKit <receipts@settlekit.dev>"),

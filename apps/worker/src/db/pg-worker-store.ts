@@ -122,6 +122,23 @@ export class PgWorkerStore implements WorkerStore {
     return unpackDoc<CheckoutSession>(rows[0]) ?? undefined;
   }
 
+  async openCheckoutSessions(): Promise<CheckoutSession[]> {
+    const rows = await this.db
+      .select({ metadata: checkoutSessions.metadata })
+      .from(checkoutSessions)
+      .where(eq(checkoutSessions.status, "open"));
+    return unpackDocs<CheckoutSession>(rows);
+  }
+
+  async paymentByTxHash(txHash: string): Promise<Payment | undefined> {
+    const rows = await this.db
+      .select({ metadata: payments.metadata })
+      .from(payments)
+      .where(eq(payments.txHash, txHash))
+      .limit(1);
+    return unpackDoc<Payment>(rows[0]) ?? undefined;
+  }
+
   async pendingPayments(): Promise<Payment[]> {
     const rows = await this.db
       .select({ metadata: payments.metadata })

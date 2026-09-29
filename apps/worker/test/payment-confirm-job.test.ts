@@ -74,6 +74,8 @@ function arcRpcPaying(recipient: Hex, amountBase: bigint): ArcRpc {
     getTransactionReceipt: async () => receipt,
     getBlockNumber: async () => 105n,
     estimateFeesPerGas: async () => ({ maxFeePerGas: 1n, maxPriorityFeePerGas: 1n }),
+    getChainId: async () => 5_042_002,
+    getBlockTimestamp: async () => BigInt(Math.floor(Date.now() / 1000)),
   };
 }
 

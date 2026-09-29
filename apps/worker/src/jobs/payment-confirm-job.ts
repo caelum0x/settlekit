@@ -4,9 +4,10 @@
  * For every pending payment that carries an on-chain transaction hash, this job
  * loads the payment's checkout session and verifies the transfer on the
  * payment's own network against the session's payTo address (see
- * ./payment-verification.ts): Arc via the real {@link ArcClient}, Solana via
- * `@settlekit/solana`. Networks the worker cannot verify stay pending (fail
- * closed). Once verified it advances the payment via `@settlekit/payments`
+ * ./payment-verification.ts): every enabled EVM chain (Arc included) via
+ * `@settlekit/chains`, Solana via `@settlekit/solana`, Zcash via
+ * `@settlekit/zcash`. Networks the worker cannot verify stay pending (fail
+ * closed); late Zcash payments are logged for manual review. Once verified it advances the payment via `@settlekit/payments`
  * `confirmPayment` and, if the payment has a queued delivery run, flips that
  * run to runnable so the delivery job picks it up on its next tick.
  */
@@ -42,6 +43,14 @@ export const paymentConfirmJob: Job = {
         }
 
         const verification = await verifyPaymentOnChain(ctx, payment, txHash, session);
+        if (verification.status === "review") {
+          ctx.logger.warn("payment needs manual review", {
+            paymentId: payment.id,
+            network: payment.network,
+            reason: verification.reason,
+          });
+          continue;
+        }
         if (verification.status !== "confirmed") {
           ctx.logger.debug("payment not confirmed on-chain", {
             paymentId: payment.id,
