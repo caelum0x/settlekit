@@ -54,6 +54,7 @@
     "@settlekit/marketplace-core": "workspace:*",
     "@settlekit/notifications": "workspace:*",
     "@settlekit/onchain": "workspace:*",
+    "@settlekit/onchain-billing": "workspace:*",
     "@settlekit/oss-fund": "workspace:*",
     "@settlekit/paymaster": "workspace:*",
     "@settlekit/payments": "workspace:*",

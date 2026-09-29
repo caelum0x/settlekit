@@ -63,6 +63,7 @@ import { leptonRoutes } from "./routes/lepton.js";
 import { fundRoutes } from "./routes/fund.js";
 import { x402AgentRoutes } from "./routes/x402-agent.js";
 import { mppTempoRoutes } from "./routes/mpp-tempo.js";
+import { onchainBillingRoutes } from "./routes/onchain-billing.js";
 
 /** Build the full SettleKit API app. Pass a context to share/isolate state. */
 export function createApp(ctx: AppContext): Hono<AppEnv> {
@@ -207,6 +208,7 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
   v1.route("/mint", mintRoutes());
   v1.route("/user-wallets", userWalletRoutes());
   v1.route("/onchain-escrow", onchainEscrowRoutes());
+  v1.route("/onchain-billing", onchainBillingRoutes());
   // paymaster + gas-station share one router (paths are /paymaster/* and /gas-station/*).
   v1.route("/", paymasterRoutes());
 

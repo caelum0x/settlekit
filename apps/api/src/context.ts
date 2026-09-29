@@ -167,6 +167,8 @@ import { buildIntegrations, type PaymentVerifiers, type ZcashRuntime } from "./c
 import type { EvmVerifier } from "@settlekit/chains";
 import type { DeliveryGrantSink } from "./wiring/delivery-clients.js";
 import { loadAgentPayments, type AgentPaymentsRuntime } from "./agent-payments/config.js";
+import type { OnchainBillingRuntime } from "@settlekit/onchain-billing";
+import { buildApiOnchainBilling } from "./onchain-billing/runtime.js";
 
 /** The fully-wired set of services + stores shared across requests. */
 export interface AppContext {
@@ -293,6 +295,8 @@ export interface AppContext {
   readonly platformFeeSchedule: PlatformFeeSchedule;
   /** x402 (every chain) + MPP (Tempo) agent payments; null when unconfigured. */
   readonly agentPayments: AgentPaymentsRuntime | null;
+  /** Onchain subscriptions, Base escrow and per-network refunds; null when unconfigured. */
+  readonly onchainBilling: OnchainBillingRuntime | null;
 }
 
 /** Pick the Postgres implementation when `db` is set, else the in-memory one. */
@@ -404,7 +408,7 @@ export async function createContext(): Promise<AppContext> {
     ...(process.env.MERCHANT_WEBSITE ? { website: process.env.MERCHANT_WEBSITE } : {}),
   };
 
-  return {
+  const base: Omit<AppContext, "onchainBilling"> = {
     db,
     persistent: db !== null,
 
@@ -550,6 +554,7 @@ export async function createContext(): Promise<AppContext> {
     platformFeeSchedule,
     agentPayments: loadAgentPayments(process.env),
   };
+  return { ...base, onchainBilling: await buildApiOnchainBilling(base) };
 }
 
 /** Hono `Variables` binding: the context is attached to every request. */
