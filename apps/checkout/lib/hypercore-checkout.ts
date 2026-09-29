@@ -195,12 +195,20 @@ export async function settleHyperCoreSubmission(
     const payment = await getConfirmedPayment(sessionId, deps);
     if (payment?.txHash) return { status: "paid", txHash: payment.txHash, explorerUrl: explorer(payment.txHash) };
   }
-  if (session.network !== "hypercore" || session.payerAddress === undefined) {
+  const submission = session.hypercoreSubmission;
+  if (session.network !== "hypercore" || session.payerAddress === undefined || submission === undefined) {
     throw new CheckoutError("session_not_payable", "No HyperCore transfer was submitted for this checkout.");
   }
   if (!Number.isSafeInteger(nonce) || nonce <= 0) throw new CheckoutError("invalid_request", "nonce must be the signed action time.");
+  if (nonce !== submission.nonce) {
+    throw new CheckoutError("invalid_request", "nonce does not match the transfer submitted for this checkout.");
+  }
+  // Match exactly the persisted action: by hash once seen, else by its
+  // signer + nonce (never a client-chosen nonce).
   const found = await verifyHyperCoreTransfer(hypercore.runtime.client, {
-    submitted: { sender: session.payerAddress, nonce },
+    ...(submission.hash !== undefined
+      ? { txHash: submission.hash }
+      : { submitted: { sender: submission.sender, nonce: submission.nonce } }),
     payTo: hyperCorePayTo(session),
     expectedBase: toBaseUnits(session.amount.amount),
     notBefore: new Date(session.createdAt),
@@ -209,6 +217,9 @@ export async function settleHyperCoreSubmission(
   if (!found.ok) {
     if (found.retryable) return { status: "waiting", nonce, message: found.reason };
     return { status: "failed", reason: found.reason };
+  }
+  if (submission.hash === undefined) {
+    await deps.backend.checkouts.save({ ...session, hypercoreSubmission: { ...submission, hash: found.hash } });
   }
   try {
     const { payment } = await recordAndConfirm(sessionId, found.hash, deps);
@@ -245,6 +256,8 @@ export async function submitHyperCorePayment(
   await deps.backend.checkouts.save({
     ...session,
     payerAddress: signer,
+    // Persist the exact action so status polls match it (not a client nonce).
+    hypercoreSubmission: { sender: signer, nonce: action.time },
     collectedFields: { ...session.collectedFields, ...sanitizeFields(specs, input.fields) },
   });
 

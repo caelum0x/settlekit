@@ -6,7 +6,10 @@
  *       sender + nonce) and is a USDC transfer (usdSend / send / spotSend);
  *   (b) destination == payTo;
  *   (c) amount >= expected (6-decimal base units, rounded down);
- *   (d) time >= notBefore minus {@link HYPERCORE_CLOCK_SKEW_MS};
+ *   (d) time >= notBefore minus {@link HYPERCORE_CLOCK_SKEW_MS} when looked up
+ *       by hash; when matched by the submitted action instead, time >=
+ *       notBefore with NO skew and within a narrow window after the signed
+ *       nonce, so the fallback can never claim an earlier transfer;
  *   (e) when a payer is bound, the sender is that payer;
  *   (f) hash uniqueness is enforced by the caller's payment store (409).
  *
@@ -18,7 +21,9 @@ import { usdcTransferOf, usdToBaseUnits, type LedgerUpdate, type UsdcCredit } fr
 
 export const HYPERCORE_CLOCK_SKEW_MS = 120_000;
 /** How long after its nonce a submitted usdSend may take to land in the ledger. */
-export const HYPERCORE_MATCH_WINDOW_MS = 10 * 60_000;
+export const HYPERCORE_MATCH_WINDOW_MS = 2 * 60_000;
+/** How far before its (wallet-clock) nonce a submitted usdSend may be stamped. */
+export const HYPERCORE_NONCE_SKEW_MS = 30_000;
 
 const HASH_RE = /^0x[0-9a-fA-F]{64}$/;
 
@@ -59,9 +64,9 @@ function fail(code: HyperCoreFailureCode, reason: string, retryable = false): Hy
   return { ok: false, code, reason, retryable };
 }
 
-function checkCredit(credit: UsdcCredit, params: HyperCoreVerifyParams): HyperCoreVerification {
+function checkCredit(credit: UsdcCredit, params: HyperCoreVerifyParams, skewMs = HYPERCORE_CLOCK_SKEW_MS): HyperCoreVerification {
   if (credit.to !== params.payTo.toLowerCase()) return fail("wrong_destination", "transfer does not pay the payTo address");
-  if (credit.time < params.notBefore.getTime() - HYPERCORE_CLOCK_SKEW_MS) {
+  if (credit.time < params.notBefore.getTime() - skewMs) {
     return fail("too_old", "transfer happened before the checkout session was created");
   }
   if (params.payer !== undefined && credit.from !== params.payer.toLowerCase()) {
@@ -87,18 +92,22 @@ function bySubmission(updates: readonly LedgerUpdate[], params: HyperCoreVerifyP
   const { sender, nonce } = params.submitted as { sender: string; nonce: number };
   const from = sender.toLowerCase();
   const payTo = params.payTo.toLowerCase();
+  // No negative skew here: a transfer stamped before the session cannot be
+  // the one this checkout submitted, however close in time.
+  const notBefore = params.notBefore.getTime();
   const candidates = updates
     .map(usdcTransferOf)
     .filter((credit): credit is UsdcCredit => credit !== null && credit.from === from && credit.to === payTo)
+    .filter((credit) => credit.time >= notBefore)
     .filter((credit) =>
       credit.nonce !== undefined
         ? credit.nonce === nonce
-        : credit.time >= nonce - HYPERCORE_CLOCK_SKEW_MS && credit.time <= nonce + HYPERCORE_MATCH_WINDOW_MS,
+        : credit.time >= nonce - HYPERCORE_NONCE_SKEW_MS && credit.time <= nonce + HYPERCORE_MATCH_WINDOW_MS,
     )
     .sort((a, b) => Math.abs(a.time - nonce) - Math.abs(b.time - nonce));
   const first = candidates[0];
   if (first === undefined) return fail("not_found", "the submitted transfer is not in the payee's ledger yet", true);
-  const checked = candidates.map((credit) => checkCredit(credit, params));
+  const checked = candidates.map((credit) => checkCredit(credit, params, 0));
   return checked.find((result) => result.ok) ?? (checked[0] as HyperCoreVerification);
 }
 

@@ -134,6 +134,13 @@ export interface CheckoutSession {
    * must originate from it (payer binding).
    */
   payerAddress?: string;
+  /**
+   * HyperCore: the usdSend this checkout submitted (signer + signed action
+   * time/nonce), persisted at submit so status polls match exactly that
+   * action; `hash` once the ledger entry was found (later polls look it up
+   * by hash).
+   */
+  hypercoreSubmission?: { sender: string; nonce: number; hash?: string };
   /** Networks the buyer may choose between (defaults to `[network]`). */
   acceptedNetworks?: PaymentNetwork[];
   /** Per-network payTo override; `payToAddress` applies to `network`. */

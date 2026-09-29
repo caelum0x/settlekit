@@ -206,6 +206,39 @@ describe("verifyHyperCoreTransfer by submitted action", () => {
     expect(result).toMatchObject({ ok: false, code: "not_found" });
   });
 
+  // The buyer's LAST usdSend in the fixture (nothing from it lands later).
+  const LAST_USDSEND_TIME = 1790690222639;
+
+  it("never claims a transfer made before the session on the submission path (no skew)", async () => {
+    // 1s before the session: the hash path tolerates clock skew, the
+    // submission-window fallback must not (it could claim an earlier payment).
+    const result = await verifyHyperCoreTransfer(source(INCOMING), {
+      submitted: { sender: BUYER, nonce: LAST_USDSEND_TIME },
+      payTo: PAYEE,
+      expectedBase: 1n,
+      notBefore: new Date(LAST_USDSEND_TIME + 1_000),
+    });
+    expect(result).toMatchObject({ ok: false, code: "not_found" });
+  });
+
+  it("only matches a transfer landing shortly after the signed nonce", async () => {
+    const notBefore = new Date(LAST_USDSEND_TIME - 6 * 60_000);
+    const late = await verifyHyperCoreTransfer(source(INCOMING), {
+      submitted: { sender: BUYER, nonce: LAST_USDSEND_TIME - 5 * 60_000 },
+      payTo: PAYEE,
+      expectedBase: 1n,
+      notBefore,
+    });
+    expect(late).toMatchObject({ ok: false, code: "not_found" });
+    const beforeNonce = await verifyHyperCoreTransfer(source(INCOMING), {
+      submitted: { sender: BUYER, nonce: LAST_USDSEND_TIME + 60_000 },
+      payTo: PAYEE,
+      expectedBase: 1n,
+      notBefore,
+    });
+    expect(beforeNonce).toMatchObject({ ok: false, code: "not_found" });
+  });
+
   it("reports underpayment of the matched transfer", async () => {
     const result = await verifyHyperCoreTransfer(source(INCOMING), {
       submitted: { sender: BUYER, nonce: USDSEND_TIME },
