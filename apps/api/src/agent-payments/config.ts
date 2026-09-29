@@ -156,7 +156,14 @@ export interface LoadAgentPaymentsOptions {
 /** Build the runtime from env, or null when no network can be offered and MPP is off. */
 export function loadAgentPayments(env: Env = process.env, options: LoadAgentPaymentsOptions = {}): AgentPaymentsRuntime | null {
   const notes: string[] = [];
-  const loaded = options.localFacilitator === undefined ? loadFacilitatorFromEnv(env) : null;
+  // The relayer only settles to this deployment's own EVM recipients unless
+  // X402_FACILITATOR_ALLOWED_PAY_TO says otherwise.
+  const ownRecipients = Object.keys(env)
+    .filter((key) => key === "X402_EVM_PAY_TO" || /^X402_PAY_TO_(?!SOLANA$)[A-Z]+$/.test(key))
+    .map((key) => readEnv(env, key))
+    .filter((value): value is string => value !== undefined);
+  const loaded =
+    options.localFacilitator === undefined ? loadFacilitatorFromEnv(env, { defaultAllowedPayTo: ownRecipients }) : null;
   const local = options.localFacilitator === undefined ? (loaded?.facilitator ?? null) : options.localFacilitator;
   if (loaded) notes.push(...loaded.skipped.map((reason) => `local facilitator skipped ${reason}`));
 

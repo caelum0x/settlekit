@@ -5,7 +5,8 @@
  *   X402_FACILITATOR_NETWORKS         comma list (default ethereum,hyperevm,robinhood)
  *   X402_FACILITATOR_ALLOW_EXPERIMENTAL  1 to enable Tempo Permit2 / Robinhood testnet
  *   X402_FACILITATOR_MAX_AMOUNT       max USD per settlement (default 100)
- *   X402_FACILITATOR_ALLOWED_PAY_TO   comma list of recipient addresses (default: any)
+ *   X402_FACILITATOR_ALLOWED_PAY_TO   comma list of recipient addresses (default: the
+ *                                     caller's defaultAllowedPayTo, else any)
  *   X402_FACILITATOR_KILL             1 refuses every verify/settle (read per call)
  *   X402_GAS_MAX_FEE_<KEY>            per-settlement fee cap, native base units
  *   X402_GAS_DAILY_BUDGET_<KEY>       rolling 24h fee cap, native base units
@@ -93,7 +94,12 @@ export interface FacilitatorFromEnv {
  * unset. Networks that cannot be enabled are skipped with a reason rather
  * than silently relayed.
  */
-export function loadFacilitatorFromEnv(env: Env = process.env): FacilitatorFromEnv | null {
+export interface LoadFacilitatorOptions {
+  /** Recipient allowlist used when X402_FACILITATOR_ALLOWED_PAY_TO is unset. */
+  defaultAllowedPayTo?: readonly string[];
+}
+
+export function loadFacilitatorFromEnv(env: Env = process.env, options: LoadFacilitatorOptions = {}): FacilitatorFromEnv | null {
   const privateKey = readEnv(env, "X402_RELAYER_PRIVATE_KEY");
   if (privateKey === undefined) return null;
   if (!isHex(privateKey) || privateKey.length !== 66) {
@@ -128,10 +134,11 @@ export function loadFacilitatorFromEnv(env: Env = process.env): FacilitatorFromE
     networks: Object.fromEntries(enabled.map(({ asset, budget }) => [asset.caip2, budget])),
   });
   const maxAmount = BigInt(toAtomicAmount(readEnv(env, "X402_FACILITATOR_MAX_AMOUNT") ?? "100", 6));
-  const allowedPayTo = (readEnv(env, "X402_FACILITATOR_ALLOWED_PAY_TO") ?? "")
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
+  const configured = readEnv(env, "X402_FACILITATOR_ALLOWED_PAY_TO");
+  const allowedPayTo =
+    configured !== undefined
+      ? configured.split(",").map((part) => part.trim()).filter(Boolean)
+      : [...(options.defaultAllowedPayTo ?? [])];
 
   // Mixed environments are allowed per network (e.g. HyperEVM mainnet with
   // Robinhood testnet), so build one facilitator per environment in use.

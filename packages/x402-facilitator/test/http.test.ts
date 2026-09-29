@@ -102,6 +102,16 @@ describe("loadFacilitatorFromEnv", () => {
     expect(loaded?.facilitator.killed()).toBe(true);
   });
 
+  it("defaults the recipient allowlist to the caller's own payTo addresses", async () => {
+    const loaded = loadFacilitatorFromEnv(
+      { X402_RELAYER_PRIVATE_KEY: key, SETTLEKIT_CHAIN_ENV: "mainnet", X402_FACILITATOR_NETWORKS: "hyperevm" },
+      { defaultAllowedPayTo: ["0x1111111111111111111111111111111111111111"] },
+    );
+    const requirements = requirementsFor(HYPEREVM, "1000000", "0x2222222222222222222222222222222222222222");
+    const result = await loaded?.facilitator.verify(await signPayment(requirements), requirements);
+    expect(result).toMatchObject({ isValid: false, invalidReason: "recipient_not_allowed" });
+  });
+
   it("rejects a malformed relayer key", () => {
     expect(() => loadFacilitatorFromEnv({ X402_RELAYER_PRIVATE_KEY: "0x1234" })).toThrow(/32-byte/);
   });
