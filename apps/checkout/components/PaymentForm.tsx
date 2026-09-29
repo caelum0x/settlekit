@@ -6,7 +6,7 @@ import type { PaymentNetwork } from "@settlekit/common";
 
 import { confirmCheckoutPayment, ApiClientError } from "@/lib/api";
 import { validateFields } from "@/lib/fields";
-import { formatNetwork, truncateMiddle } from "@/lib/format";
+import { truncateMiddle } from "@/lib/format";
 import { isWellFormedTxHash, txHashFormatHint } from "@/lib/tx-hash";
 import type { CollectedFieldSpec } from "@/lib/types";
 import { CopyButton } from "./CopyButton";
@@ -16,23 +16,34 @@ interface PaymentFormProps {
   amountLabel: string;
   payToAddress: string;
   network: PaymentNetwork;
+  /** Display name of the network, e.g. "Base Sepolia". */
+  networkName: string;
+  /** Settlement asset, e.g. "USDC", "USDG", "USDC.e", "ZEC". */
+  assetLabel: string;
   requiredFields: CollectedFieldSpec[];
   initialValues: Record<string, string>;
+  /** Optional heading line override (the default explains send-then-paste). */
+  intro?: string;
 }
 
 /**
- * Buyer-facing payment form. Collects required delivery fields, shows the USDC
- * amount + pay-to address with a copy button, accepts the on-chain tx hash, and
- * POSTs to the SettleKit API to confirm. On success, navigates to the access
- * page. All validation runs client-side first, then the server re-validates.
+ * Buyer-facing manual payment form. Collects required delivery fields, shows
+ * the amount + pay-to address with a copy button, accepts the on-chain tx hash,
+ * and POSTs to the SettleKit API to confirm. On success, navigates to the
+ * access page. A transfer that is found but not final yet is reported as
+ * pending (submit again shortly), never as a failure. All validation runs
+ * client-side first, then the server re-validates.
  */
 export function PaymentForm({
   sessionId,
   amountLabel,
   payToAddress,
   network,
+  networkName,
+  assetLabel,
   requiredFields,
   initialValues,
+  intro,
 }: PaymentFormProps) {
   const router = useRouter();
 
@@ -48,6 +59,7 @@ export function PaymentForm({
   const [txHash, setTxHash] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, boolean>>({});
 
   const onFieldChange = useCallback((key: string, value: string) => {
@@ -61,6 +73,7 @@ export function PaymentForm({
     async (event: React.FormEvent<HTMLFormElement>) => {
       event.preventDefault();
       setError(null);
+      setNotice(null);
 
       const messages = validateFields(requiredFields, fields);
       if (messages.length > 0) {
@@ -75,7 +88,7 @@ export function PaymentForm({
       }
 
       if (!isWellFormedTxHash(network, txHash)) {
-        setError(`Enter the transaction hash of your USDC payment: ${txHashFormatHint(network)}.`);
+        setError(`Enter the transaction hash of your ${assetLabel} payment: ${txHashFormatHint(network)}.`);
         return;
       }
 
@@ -93,14 +106,20 @@ export function PaymentForm({
             router.push(`/c/${sessionId}/expired`);
             return;
           }
-          setError(err.message);
+          if (err.pending) {
+            setNotice(`Not final yet (${err.message.replace(/\.$/, "")}). Submit again in a moment.`);
+          } else if (err.underReview) {
+            setNotice(err.message);
+          } else {
+            setError(err.message);
+          }
         } else {
           setError("Could not confirm payment. Please try again.");
         }
         setSubmitting(false);
       }
     },
-    [requiredFields, fields, txHash, network, sessionId, router],
+    [requiredFields, fields, txHash, network, assetLabel, sessionId, router],
   );
 
   return (
@@ -111,10 +130,19 @@ export function PaymentForm({
         </div>
       ) : null}
 
+      {notice ? (
+        <div className="alert alert-info" role="status">
+          {notice}
+        </div>
+      ) : null}
+
       <div className="alert alert-info">
-        Send exactly <strong>{amountLabel}</strong> on{" "}
-        <strong>{formatNetwork(network)}</strong> to the address below, then
-        paste your transaction hash to unlock access.
+        {intro ?? (
+          <>
+            Send exactly <strong>{amountLabel}</strong> on <strong>{networkName}</strong> to the address below,
+            then paste your transaction hash to unlock access.
+          </>
+        )}
       </div>
 
       <div className="payto" style={{ marginBottom: 20 }}>
@@ -126,7 +154,7 @@ export function PaymentForm({
           {payToAddress}
         </div>
         <div className="muted" style={{ fontSize: 12, marginTop: 6 }}>
-          {truncateMiddle(payToAddress)} · {formatNetwork(network)} · USDC
+          {truncateMiddle(payToAddress)} · {networkName} · {assetLabel}
         </div>
       </div>
 
@@ -157,13 +185,13 @@ export function PaymentForm({
           }`}
           type="text"
           value={txHash}
-          placeholder={network === "solana" ? "Signature…" : "0x…"}
+          placeholder={network === "solana" ? "Signature…" : network === "zcash" ? "64 hex characters" : "0x…"}
           autoComplete="off"
           spellCheck={false}
           onChange={(e) => setTxHash(e.target.value)}
         />
         <div className="help">
-          Paste the on-chain hash of your USDC transfer. We verify it before
+          Paste the on-chain hash of your {assetLabel} transfer. We verify it before
           delivering access.
         </div>
       </div>

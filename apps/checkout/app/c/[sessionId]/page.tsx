@@ -1,9 +1,11 @@
 import { notFound, redirect } from "next/navigation";
 
 import { getCheckoutSession, ApiClientError } from "@/lib/api";
-import { formatMoney, formatNetwork, formatExpiry } from "@/lib/format";
+import { badgeDescription, badgeText, formatAmount, formatExpiry, formatMoney } from "@/lib/format";
 import { OrderSummary } from "@/components/OrderSummary";
-import { PaymentForm } from "@/components/PaymentForm";
+import { NetworkPicker } from "@/components/NetworkPicker";
+import { EvmPay } from "@/components/EvmPay";
+import { ZcashPay } from "@/components/ZcashPay";
 import { WalletPay } from "@/components/WalletPay";
 import { BridgePay } from "@/components/BridgePay";
 import { SolanaPay } from "@/components/SolanaPay";
@@ -16,9 +18,10 @@ interface PageProps {
 
 /**
  * Hosted checkout page. Server-fetches the checkout session from the SettleKit
- * API, renders the order summary + pay-to details, and mounts the client
- * PaymentForm. Expired sessions redirect to the /expired page; completed
- * sessions redirect to /success.
+ * API, renders the order summary, a network picker (accepted networks this
+ * checkout can verify) and the flow for the chosen network: SolanaPay,
+ * EvmPay (every EVM chain) or ZcashPay. Expired sessions redirect to the
+ * /expired page; completed sessions redirect to /success.
  */
 export default async function CheckoutPage({ params }: PageProps) {
   const { sessionId } = params;
@@ -41,9 +44,11 @@ export default async function CheckoutPage({ params }: PageProps) {
     redirect(`/c/${sessionId}/expired`);
   }
 
-  // Solana sessions pay through Solana Pay (QR or wallet); the Arc-specific
-  // wallet and bridge options only apply to EVM sessions.
-  const isSolana = session.network === "solana";
+  const option = session.networkOption;
+  const family = option.family;
+  const amountLabel = `${formatAmount(session.amount.amount)} ${option.asset}`;
+  // The Arc demo wallet + bridge cards only apply to Arc sessions.
+  const isArc = session.network === "arc";
 
   return (
     <div>
@@ -55,15 +60,23 @@ export default async function CheckoutPage({ params }: PageProps) {
 
       <div className="card">
         <h2>Payment</h2>
+        <NetworkPicker sessionId={session.id} current={session.network} options={session.networkOptions} />
         <div className="payto">
           <div className="payto-row">
             <span className="label">Amount due</span>
-            <span className="line-amount">{formatMoney(session.amount)}</span>
+            <span className="line-amount">
+              {family === "zcash" ? `${formatMoney(session.amount)} in ZEC` : amountLabel}
+            </span>
           </div>
           <div className="payto-row">
             <span className="label">Network</span>
-            <span className="badge badge-network">
-              {formatNetwork(session.network)}
+            <span className="network-badges">
+              <span className="badge badge-network">{option.name}</span>
+              {option.badges.map((badge) => (
+                <span key={badge} className={`badge badge-${badge}`} title={badgeDescription(badge)}>
+                  {badgeText(badge)}
+                </span>
+              ))}
             </span>
           </div>
           <div className="payto-row">
@@ -74,26 +87,42 @@ export default async function CheckoutPage({ params }: PageProps) {
           </div>
         </div>
 
-        {isSolana ? (
+        {!option.available ? (
+          <div className="alert alert-error" role="alert">
+            {option.name} is not available on this checkout: {option.unavailableReason}
+            {session.networkOptions.length > 0 ? " Choose another network above." : ""}
+          </div>
+        ) : family === "solana" ? (
           <SolanaPay
             sessionId={session.id}
-            amountLabel={formatMoney(session.amount)}
+            amountLabel={amountLabel}
+            requiredFields={session.requiredFields}
+            initialValues={session.collectedFields}
+          />
+        ) : family === "zcash" ? (
+          <ZcashPay
+            key={session.network}
+            sessionId={session.id}
+            usdLabel={formatMoney(session.amount)}
             requiredFields={session.requiredFields}
             initialValues={session.collectedFields}
           />
         ) : (
-          <PaymentForm
+          <EvmPay
+            key={session.network}
             sessionId={session.id}
-            amountLabel={formatMoney(session.amount)}
-            payToAddress={session.payToAddress}
             network={session.network}
+            networkName={option.name}
+            assetLabel={option.asset}
+            amountLabel={amountLabel}
+            payToAddress={session.payToAddress}
             requiredFields={session.requiredFields}
             initialValues={session.collectedFields}
           />
         )}
       </div>
 
-      {isSolana ? null : (
+      {isArc && option.available ? (
         <>
           <div className="card">
             <h2>Pay with wallet</h2>
@@ -105,7 +134,7 @@ export default async function CheckoutPage({ params }: PageProps) {
             <BridgePay amount={session.amount.amount} />
           </div>
         </>
-      )}
+      ) : null}
     </div>
   );
 }

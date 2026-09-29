@@ -20,6 +20,8 @@ const nextConfig = {
     "@settlekit/github",
     "@settlekit/discord",
     "@settlekit/solana",
+    "@settlekit/chains",
+    "@settlekit/zcash",
   ],
   experimental: {
     // Trace from the MONOREPO ROOT, not this app dir — otherwise Next omits the

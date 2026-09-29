@@ -138,23 +138,22 @@ export function buildAddChainParams(input: AddChainInput): AddEthereumChainParam
   };
 }
 
-function errorCode(error: unknown): number | undefined {
-  if (error === null || typeof error !== "object") return undefined;
+/** Provider error codes, including ones some mobile wallets nest. */
+function errorCodes(error: unknown): number[] {
+  if (error === null || typeof error !== "object") return [];
   const direct = (error as { code?: unknown }).code;
-  if (typeof direct === "number") return direct;
-  // Some mobile wallets nest the provider error.
   const nested = (error as { data?: { originalError?: { code?: unknown } } }).data?.originalError?.code;
-  return typeof nested === "number" ? nested : undefined;
+  return [direct, nested].filter((code): code is number => typeof code === "number");
 }
 
 /** EIP-3326: the wallet does not know the chain yet. */
 export function isUnknownChainError(error: unknown): boolean {
-  return errorCode(error) === 4902;
+  return errorCodes(error).includes(4902);
 }
 
 /** EIP-1193: the buyer rejected the request. */
 export function isUserRejection(error: unknown): boolean {
-  return errorCode(error) === 4001;
+  return errorCodes(error).includes(4001);
 }
 
 /** Current chain id of the wallet. */
@@ -258,4 +257,26 @@ export function sendTransfer(client: WalletClient, account: Address | Account, c
     return client.writeContract({ account, chain: null, address: call.address, abi: call.abi, functionName: call.functionName, args: call.args });
   }
   return client.writeContract({ account, chain: null, address: call.address, abi: call.abi, functionName: call.functionName, args: call.args });
+}
+
+// --- mobile wallets (EIP-681) ----------------------------------------------------
+
+export interface Eip681TransferInput {
+  token: Hex;
+  chainId: number;
+  payTo: Hex;
+  amountBase: string;
+}
+
+/**
+ * EIP-681 ERC-20 transfer request for mobile wallets (QR):
+ * `ethereum:<token>@<chainId>/transfer?address=<payTo>&uint256=<baseUnits>`.
+ * The buyer then pastes the resulting hash; verification is unchanged.
+ */
+export function buildEip681TransferUri(input: Eip681TransferInput): string {
+  if (!/^\d+$/.test(input.amountBase) || BigInt(input.amountBase) <= 0n) {
+    throw new RangeError("amountBase must be a positive integer string");
+  }
+  if (!Number.isSafeInteger(input.chainId) || input.chainId <= 0) throw new RangeError("invalid chain id");
+  return `ethereum:${input.token}@${input.chainId}/transfer?address=${input.payTo}&uint256=${input.amountBase}`;
 }
