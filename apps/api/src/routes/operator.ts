@@ -11,6 +11,7 @@
  *   GET  /v1/operator/escalations                escalations (?status=)
  *   POST /v1/operator/escalations/:id/approve    owner only
  *   POST /v1/operator/escalations/:id/reject     owner only
+ *   GET  /v1/operator/state                      vault buckets, spend vs caps, pending escalations
  *   GET  /v1/operator/policy                     policy + on-chain drift
  *   PUT  /v1/operator/policy                     owner only; refuses drift
  *
@@ -144,6 +145,13 @@ function privateRoutes(runtime: () => OperatorRuntime): Hono<AppEnv> {
     const body = await parseBody(c, rejectSchema);
     const id = c.req.param("id");
     return guarded(async () => data(c, jsonView(await flight.run(`esc:${id}`, () => runtime().service.reject(orgId, id, ownerId(c), body.reason)))));
+  });
+
+  app.get("/state", async (c) => {
+    const orgId = org(c);
+    const rt = runtime();
+    const state = await guarded(() => rt.state());
+    return data(c, { ...state, orgId, executor: rt.executorKind, vault: rt.config.vault?.address ?? null, explorerUrl: rt.config.explorerUrl });
   });
 
   app.get("/policy", async (c) => {

@@ -36,6 +36,7 @@ export * from "./circle-entity-secret.js";
 export * from "./notifier.js";
 export * from "./bills.js";
 export * from "./proof.js";
+export * from "./state.js";
 export * from "./verify.js";
 export * from "./policy-admin.js";
 export * from "./runtime-config.js";

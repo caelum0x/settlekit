@@ -26,6 +26,7 @@ import { createDiscordWebhookChannel, createEmailChannel, createEscalationNotifi
 import { PgOperatorStore, type SqlClient } from "./pg-store.js";
 import { PolicyAdmin } from "./policy-admin.js";
 import { computeProof, type OperatorProof } from "./proof.js";
+import { buildOperatorState, type OperatorState } from "./state.js";
 import { loadOperatorConfig, type Env, type OperatorConfig, type SignerConfig } from "./runtime-config.js";
 import { createCounterpartyScreener } from "./screening.js";
 import { OperatorService } from "./service.js";
@@ -47,6 +48,8 @@ export interface OperatorRuntime {
   readonly executorKind: ExecutorKind;
   readonly engineName: string;
   proof(): Promise<OperatorProof>;
+  /** Vault balances (on-chain when a vault is configured), spend vs caps, pending escalations. */
+  state(): Promise<OperatorState>;
   verify(decisionId: string): Promise<DecisionVerification | null>;
 }
 
@@ -159,6 +162,14 @@ export function createOperatorRuntime(env: Env, fallbackOrgId: string, overrides
     executorKind: built.kind,
     engineName: engine.name,
     proof: () => computeProof(store, { now: now(), explorerUrl: config.explorerUrl }),
+    async state() {
+      const [snapshot, caps, pending] = await Promise.all([
+        built.executor.snapshot(),
+        built.executor.caps(),
+        store.listEscalations(config.orgId, "pending"),
+      ]);
+      return buildOperatorState({ orgId: config.orgId, snapshot, caps, pendingEscalations: pending.length, now: now() });
+    },
     async verify(decisionId) {
       const record = await findDecision(store, decisionId);
       if (!record) return null;

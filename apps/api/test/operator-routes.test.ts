@@ -131,6 +131,24 @@ describe("operator routes", () => {
     expect(s.vault.escalation(1)?.status).toBe("Approved");
   });
 
+  it("serves vault state: buckets, spend vs caps and pending escalations", async () => {
+    await call(s.app, "POST", "/v1/operator/events", sale(), AGENT_KEY);
+    await call(s.app, "POST", "/v1/operator/bills", { payee: VENDOR, amountUsdc: "120", dueAt: T0.toISOString(), description: "Hosting" }, AGENT_KEY);
+    await call(s.app, "POST", "/v1/operator/bills", { payee: STRANGER, amountUsdc: "75", dueAt: T0.toISOString(), description: "New contractor" }, AGENT_KEY);
+    const state = await call(s.app, "GET", "/v1/operator/state", undefined, AGENT_KEY);
+    expect(state.status).toBe(200);
+    expect(state.json.data).toMatchObject({
+      orgId: DEFAULT_ORG_ID,
+      executor: "local-simulation",
+      vault: null,
+      spentToday: "120",
+      caps: { perTxCap: "1000", dailyCap: "1500", escalateAbove: "500" },
+      pendingEscalations: 1,
+    });
+    expect(Object.keys(state.json.data.buckets)).toEqual(["OPERATING", "TAX", "YIELD", "REFUND"]);
+    expect((await call(s.app, "GET", "/v1/operator/state", undefined, OTHER_ORG_KEY)).status).toBe(403);
+  });
+
   it("serves policy and refuses drift from the vault", async () => {
     const got = await call(s.app, "GET", "/v1/operator/policy", undefined, AGENT_KEY);
     expect(got.json.data).toMatchObject({ executor: "local-simulation", engine: "heuristic", drift: [] });
