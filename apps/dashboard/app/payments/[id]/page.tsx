@@ -5,7 +5,8 @@ import { formatDateTime, humanize } from "@/lib/format";
 import { formatUsd } from "@/lib/merchant-types";
 import { PageHeader, Card, StatusBadge, ErrorBanner } from "@/components/ui";
 import { NetworkChip, SourceTag } from "@/components/NetworkBadge";
-import { RefundForm } from "@/components/RefundForm";
+import { RefundForm, type RefundAutomation } from "@/components/RefundForm";
+import { billing } from "@/lib/billing";
 
 export const dynamic = "force-dynamic";
 
@@ -22,6 +23,11 @@ export default async function PaymentDetailPage({ params }: { params: { id: stri
     );
   }
   const title = p.products.map((x) => x.name).join(", ") || "Payment";
+  // 404 = onchain billing is off on this deployment: refunds are recorded manually.
+  const route = p.status === "confirmed" ? await billing.refundRoute(p.id) : null;
+  const automation: RefundAutomation | null = route?.data
+    ? { automated: route.data.automated, to: route.data.to, needsRecipient: route.data.needsRecipient, reason: route.data.reason }
+    : null;
 
   return (
     <>
@@ -39,6 +45,7 @@ export default async function PaymentDetailPage({ params }: { params: { id: stri
               asset={p.asset}
               networkName={p.networkName}
               buyerWallet={p.buyer.wallet}
+              automation={automation}
             />
           ) : (
             <StatusBadge status={p.status} />
@@ -147,9 +154,18 @@ export default async function PaymentDetailPage({ params }: { params: { id: stri
                 {r.txHash ? (
                   <>
                     {" "}
-                    · <span className="mono">{r.txHash}</span>
+                    ·{" "}
+                    {r.explorerUrl ? (
+                      <a className="link mono" href={r.explorerUrl} target="_blank" rel="noreferrer">
+                        {r.txHash}
+                      </a>
+                    ) : (
+                      <span className="mono">{r.txHash}</span>
+                    )}
                   </>
-                ) : null}
+                ) : (
+                  <span className="muted"> · no transaction recorded</span>
+                )}
               </li>
             ))}
           </ul>

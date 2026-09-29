@@ -1189,3 +1189,21 @@ details[open] > .nav-summary::after {
   align-items: center;
   font-size: 12px;
 }
+
+/* --- Subscriptions / refunds ---------------------------------------------- */
+.inline-actions {
+  display: inline-flex;
+  gap: 6px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+.btn-small {
+  padding: 4px 10px;
+  font-size: 12px;
+}
+.refund-mode {
+  display: flex;
+  gap: 16px;
+  margin-bottom: 10px;
+}

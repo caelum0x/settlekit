@@ -3,6 +3,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { refundPaymentAction, type RefundInput } from "@/lib/merchant-actions";
+import { sendRefundAction } from "@/lib/billing-actions";
+
+/** Whether the SettleKit operator wallet can send this refund (GET /v1/onchain-billing/refunds/route). */
+export interface RefundAutomation {
+  automated: boolean;
+  /** Buyer wallet already known (subscription pull, escrow, bound payer). */
+  to: string | null;
+  needsRecipient: boolean;
+  /** Why it cannot be sent automatically. */
+  reason: string | null;
+}
 
 interface RefundFormProps {
   paymentId: string;
@@ -10,22 +21,46 @@ interface RefundFormProps {
   asset: string;
   networkName: string;
   buyerWallet: string | null;
+  automation: RefundAutomation | null;
 }
 
+type Mode = "send" | "manual";
+
 /**
- * Refund a confirmed payment. SettleKit never holds funds, so the merchant
- * sends the refund from their own wallet and records it here (optionally with
- * the transaction id); access granted by the payment is revoked by default.
+ * Refund a confirmed payment. When the operator wallet is configured for the
+ * payment's network, "Send refund" moves the funds on-chain (Base escrow
+ * payments refund through the escrow) and records the transaction. Otherwise
+ * the seller sends it from their own wallet and records the hash here
+ * ("I refunded manually"). Access granted by the payment is revoked by default.
  */
-export function RefundForm({ paymentId, amountUsd, asset, networkName, buyerWallet }: RefundFormProps) {
+export function RefundForm({ paymentId, amountUsd, asset, networkName, buyerWallet, automation }: RefundFormProps) {
   const router = useRouter();
+  const canSend = automation?.automated === true;
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<Mode>(canSend ? "send" : "manual");
   const [reason, setReason] = useState<RefundInput["reason"]>("customer_request");
   const [amount, setAmount] = useState(amountUsd);
   const [txHash, setTxHash] = useState("");
+  const [to, setTo] = useState(automation?.to ?? buyerWallet ?? "");
   const [revokeAccess, setRevokeAccess] = useState(true);
   const [pending, setPending] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [sent, setSent] = useState<{ txHash: string; explorerUrl: string | null } | null>(null);
+
+  if (sent) {
+    return (
+      <div className="form-message ok" role="status">
+        Refund sent.{" "}
+        {sent.explorerUrl ? (
+          <a className="link mono" href={sent.explorerUrl} target="_blank" rel="noreferrer">
+            View transaction
+          </a>
+        ) : (
+          <span className="mono">{sent.txHash}</span>
+        )}
+      </div>
+    );
+  }
 
   if (!open) {
     return (
@@ -39,6 +74,23 @@ export function RefundForm({ paymentId, amountUsd, asset, networkName, buyerWall
     event.preventDefault();
     setPending(true);
     setError(null);
+    if (mode === "send") {
+      const result = await sendRefundAction({
+        paymentId,
+        amount: amount.trim(),
+        reason,
+        revokeAccess,
+        ...(to.trim() && to.trim() !== automation?.to ? { to: to.trim() } : {}),
+      });
+      setPending(false);
+      if (result.error || !result.data) {
+        setError(result.error ?? "The refund was not sent.");
+        return;
+      }
+      setSent({ txHash: result.data.execution.txHash, explorerUrl: result.data.execution.explorerUrl });
+      router.refresh();
+      return;
+    }
     const result = await refundPaymentAction(paymentId, {
       reason,
       revokeAccess,
@@ -56,16 +108,33 @@ export function RefundForm({ paymentId, amountUsd, asset, networkName, buyerWall
 
   return (
     <form className="form refund-form" onSubmit={submit}>
-      <p className="muted">
-        Send {asset} back to the buyer on {networkName} from your wallet
-        {buyerWallet ? (
-          <>
-            {" "}
-            (buyer wallet <span className="mono">{buyerWallet}</span>)
-          </>
-        ) : null}
-        , then record it here.
-      </p>
+      <div className="refund-mode" role="radiogroup" aria-label="Refund method">
+        <label className="checkbox-row">
+          <input type="radio" name="refund-mode" checked={mode === "send"} disabled={!canSend} onChange={() => setMode("send")} />
+          <span>Send refund on-chain</span>
+        </label>
+        <label className="checkbox-row">
+          <input type="radio" name="refund-mode" checked={mode === "manual"} onChange={() => setMode("manual")} />
+          <span>I refunded manually</span>
+        </label>
+      </div>
+      {mode === "send" ? (
+        <p className="muted">
+          SettleKit sends {asset} on {networkName} back to the buyer from the operator wallet and records the transaction.
+        </p>
+      ) : (
+        <p className="muted">
+          {canSend ? "" : `${automation?.reason ?? "Automatic refunds are not set up for this network."} `}
+          Send {asset} back to the buyer on {networkName} from your wallet
+          {buyerWallet ? (
+            <>
+              {" "}
+              (buyer wallet <span className="mono">{buyerWallet}</span>)
+            </>
+          ) : null}
+          , then record the transaction here.
+        </p>
+      )}
       <div className="form-row">
         <div className="field">
           <label htmlFor="r-amount">Amount (USD)</label>
@@ -81,10 +150,18 @@ export function RefundForm({ paymentId, amountUsd, asset, networkName, buyerWall
           </select>
         </div>
       </div>
-      <div className="field">
-        <label htmlFor="r-tx">Refund transaction (optional)</label>
-        <input id="r-tx" className="input mono" value={txHash} onChange={(e) => setTxHash(e.target.value)} placeholder="Transaction hash of the refund you sent" />
-      </div>
+      {mode === "send" && (automation?.needsRecipient || !automation?.to) ? (
+        <div className="field">
+          <label htmlFor="r-to">Buyer wallet</label>
+          <input id="r-to" className="input mono" value={to} onChange={(e) => setTo(e.target.value)} placeholder="Address the refund is sent to" required />
+        </div>
+      ) : null}
+      {mode === "manual" ? (
+        <div className="field">
+          <label htmlFor="r-tx">Refund transaction</label>
+          <input id="r-tx" className="input mono" value={txHash} onChange={(e) => setTxHash(e.target.value)} placeholder="Transaction hash of the refund you sent" />
+        </div>
+      ) : null}
       <label className="checkbox-row">
         <input type="checkbox" checked={revokeAccess} onChange={(e) => setRevokeAccess(e.target.checked)} />
         <span>Revoke the access this payment granted</span>
@@ -95,7 +172,7 @@ export function RefundForm({ paymentId, amountUsd, asset, networkName, buyerWall
           Cancel
         </button>
         <button type="submit" className="btn btn-primary" disabled={pending}>
-          {pending ? "Recording..." : "Record refund"}
+          {pending ? (mode === "send" ? "Sending..." : "Recording...") : mode === "send" ? `Send ${amount || amountUsd} ${asset}` : "Record refund"}
         </button>
       </div>
     </form>

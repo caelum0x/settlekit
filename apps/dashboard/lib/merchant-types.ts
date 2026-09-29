@@ -131,6 +131,7 @@ export interface PaymentDetail extends PaymentView {
     reason: string;
     status: string;
     txHash?: string;
+    explorerUrl?: string | null;
     createdAt: string;
   }[];
 }
