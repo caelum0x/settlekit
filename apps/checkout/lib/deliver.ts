@@ -8,7 +8,9 @@
  *  - license keys  -> @settlekit/license-keys createLicenseKey
  *  - api keys      -> @settlekit/api-keys issueApiKey
  *  - file download -> @settlekit/file-delivery generateSignedDownloadUrl
- *  - github invite -> @settlekit/common GitHub grant record + invite URL
+ *  - github access -> the REAL GitHub App invite run once by ./fulfill; this
+ *                     module only renders its stored outcome (active invite
+ *                     or pending) and never fabricates an invite link
  *  - discord role  -> @settlekit/common Discord role grant record
  *
  * These run server-side and are deterministic for a given session (so the
@@ -19,8 +21,9 @@ import { createHmac } from "node:crypto";
 import { createLicenseKey } from "@settlekit/license-keys";
 import { issueApiKey } from "@settlekit/api-keys";
 import { generateSignedDownloadUrl } from "@settlekit/file-delivery";
-import type { DeliveryAction, Payment, Product } from "@settlekit/common";
+import type { DeliveryAction, Entitlement, Payment, Product } from "@settlekit/common";
 
+import { resolveRepoTarget } from "./github-delivery";
 import { DEMO_DOWNLOAD_BASE, DEMO_ORG, DEMO_SECRET } from "./seed";
 import type { DeliveredAccess } from "./types";
 
@@ -33,17 +36,31 @@ function derivedId(prefix: string, seed: string): string {
   return `${prefix}_${hex}`;
 }
 
+/** The entitlement id fulfillment stores for a payment (stable per payment). */
+export function entitlementIdForPayment(payment: Payment): string {
+  return derivedId("ent", payment.id);
+}
+
+/** Stored fulfillment state the GitHub artifacts are rendered from. */
+export interface FulfillmentState {
+  /** The payment's entitlement, once fulfillment has run. */
+  entitlement?: Entitlement;
+  /** Whether a GitHub App is configured on this deployment. */
+  githubReady: boolean;
+}
+
 /**
  * Build the delivered access list for a confirmed payment. Pure + deterministic
- * given (payment, action, product, fields).
+ * given (payment, action, product, fields, fulfillment state).
  */
 export function materializeDelivery(
   payment: Payment,
   action: DeliveryAction,
   product: Product,
   fields: Record<string, string>,
+  state: FulfillmentState = { githubReady: false },
 ): DeliveredAccess[] {
-  const entitlementId = derivedId("ent", payment.id);
+  const entitlementId = entitlementIdForPayment(payment);
 
   switch (action.type) {
     case "license_key_create":
@@ -53,9 +70,9 @@ export function materializeDelivery(
     case "file_access_grant":
       return [fileDownloadAccess(payment, action, product)];
     case "github_invite":
-      return [githubInviteAccess(action, product, fields)];
+      return [githubInviteAccess(action, product, fields, state)];
     case "github_team_add":
-      return [githubTeamAccess(action, fields)];
+      return [githubTeamAccess(action, fields, state)];
     case "discord_role_add":
       return [discordRoleAccess(action, fields)];
     default:
@@ -151,30 +168,50 @@ function fileDownloadAccess(
   };
 }
 
+/** Pending GitHub access: payment recorded, invite not (yet) sent. */
+function githubPending(title: string, state: FulfillmentState): DeliveredAccess {
+  return {
+    kind: "github_invite",
+    title,
+    value: state.githubReady ? "Invite not sent yet" : "Pending setup",
+    isLink: false,
+    pending: true,
+    detail: state.githubReady
+      ? "Your payment is confirmed, but GitHub did not accept the invite. The merchant will resend it; no action is needed from you."
+      : "Your payment is confirmed. The merchant has not finished connecting GitHub, so your invite will be sent once setup is complete.",
+  };
+}
+
 function githubInviteAccess(
   action: Extract<DeliveryAction, { type: "github_invite" }>,
   product: Product,
   fields: Record<string, string>,
+  state: FulfillmentState,
 ): DeliveredAccess {
+  const title = "GitHub repository invite";
+  const target = resolveRepoTarget(action.repoId, product);
+  if (state.entitlement?.status !== "active" || !target) return githubPending(title, state);
   const username = fields.githubUsername ?? "";
-  const [owner, repo] = parseRepo(action.repoId, product);
   return {
     kind: "github_invite",
-    title: "GitHub repository invite",
-    value: `https://github.com/${owner}/${repo}/invitations`,
+    title,
+    value: `https://github.com/${target.owner}/${target.repo}/invitations`,
     isLink: true,
-    detail: `Invite sent to @${username} for ${owner}/${repo} (${action.permission ?? "pull"}). Accept it from your GitHub notifications.`,
+    detail: `Invite sent to @${username} for ${target.owner}/${target.repo} (${action.permission ?? "pull"}). Accept it from your GitHub notifications.`,
   };
 }
 
 function githubTeamAccess(
   action: Extract<DeliveryAction, { type: "github_team_add" }>,
   fields: Record<string, string>,
+  state: FulfillmentState,
 ): DeliveredAccess {
+  const title = "GitHub team access";
+  if (state.entitlement?.status !== "active") return githubPending(title, state);
   const username = fields.githubUsername ?? "";
   return {
     kind: "github_invite",
-    title: "GitHub team access",
+    title,
     value: `https://github.com/orgs/${action.orgLogin}/teams/${action.teamSlug}`,
     isLink: true,
     detail: `@${username} added to ${action.orgLogin}/${action.teamSlug}.`,
@@ -193,23 +230,6 @@ function discordRoleAccess(
     isLink: true,
     detail: `Role ${action.roleId} granted to user ${userId} in guild ${action.guildId}. Open Discord to see the new channels.`,
   };
-}
-
-/** Resolve repo owner/name from the action's repoId or product metadata. */
-function parseRepo(repoId: string, product: Product): [string, string] {
-  if (repoId.includes("/")) {
-    const [owner, repo] = repoId.split("/");
-    return [owner ?? "owner", repo ?? "repo"];
-  }
-  const owner =
-    typeof product.metadata.repoOwner === "string"
-      ? product.metadata.repoOwner
-      : "owner";
-  const repo =
-    typeof product.metadata.repoName === "string"
-      ? product.metadata.repoName
-      : repoId;
-  return [owner, repo];
 }
 
 export { DEMO_ORG };

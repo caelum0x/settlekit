@@ -9,6 +9,8 @@ import {
 } from "@settlekit/common";
 
 import { requiredFieldsForDelivery } from "./fields";
+import { explorerTxUrl } from "./format";
+import { configuredSolanaCluster } from "./solana";
 import type {
   CheckoutSessionView,
   DeliveredAccess,
@@ -65,6 +67,9 @@ export function buildReceiptView(
     sessionId: resolved.session.id,
     paymentId: payment.id,
     txHash: payment.txHash ?? "",
+    explorerUrl: payment.txHash
+      ? explorerTxUrl(payment.network, payment.txHash, configuredSolanaCluster())
+      : "",
     network: payment.network,
     amount: payment.amount,
     confirmedAt: payment.confirmedAt ?? payment.createdAt,

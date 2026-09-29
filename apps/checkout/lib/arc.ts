@@ -8,9 +8,9 @@
  * configured minimum confirmations before the payment is accepted. This closes
  * the trust gap where any well-formed hash would otherwise settle a session.
  *
- * When Arc is NOT configured (the standalone demo deployment with no RPC), this
- * returns `null` and the caller falls back to recording the payment at one
- * confirmation — the same posture as the API's null `arcVerifier`.
+ * FAIL CLOSED: when Arc is NOT configured (no ARC_RPC_URL / ARC_USDC_ADDRESS)
+ * verification returns a failed outcome — a transaction hash alone is never
+ * evidence of payment, so an unconfigured checkout cannot settle Arc sessions.
  */
 import { createArcClient, type Hex } from "@settlekit/arc";
 import type { Money } from "@settlekit/common";
@@ -53,17 +53,23 @@ export interface OnChainVerification {
 const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
 
 /**
- * Verify a USDC transfer for a checkout payment. Returns `null` when Arc is not
- * configured (caller uses the demo fallback); otherwise returns the verification
- * outcome with the real observed confirmation count.
+ * Verify a USDC transfer for a checkout payment and return the outcome with the
+ * real observed confirmation count. Unconfigured Arc is a failed outcome.
  */
 export async function verifyOnChainPayment(input: {
   txHash: string;
   payTo: string;
   amount: Money;
-}): Promise<OnChainVerification | null> {
+}): Promise<OnChainVerification> {
   const config = loadArcConfig();
-  if (!config) return null;
+  if (!config) {
+    return {
+      ok: false,
+      confirmations: 0,
+      minConfirmations: 0,
+      reason: "Arc payments are not configured on this checkout (ARC_RPC_URL / ARC_USDC_ADDRESS unset).",
+    };
+  }
 
   if (!TX_HASH_RE.test(input.txHash)) {
     return { ok: false, confirmations: 0, minConfirmations: config.minConfirmations, reason: "Malformed transaction hash" };

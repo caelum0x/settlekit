@@ -37,7 +37,9 @@ export function AccessList({ access }: AccessListProps) {
             <span>{item.title}</span>
           </div>
 
-          {item.isLink ? (
+          {item.pending ? (
+            <div className="access-pending">{item.value}</div>
+          ) : item.isLink ? (
             <a
               className="link"
               href={item.value}

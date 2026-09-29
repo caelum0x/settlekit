@@ -68,6 +68,8 @@ export interface DeliveredAccess {
   value: string;
   /** Whether `value` is a URL that should render as a link. */
   isLink: boolean;
+  /** Paid but not yet delivered (e.g. GitHub App setup pending). */
+  pending?: boolean;
   /** Secondary human-readable detail. */
   detail?: string;
 }
@@ -77,6 +79,8 @@ export interface ReceiptView {
   sessionId: string;
   paymentId: string;
   txHash: string;
+  /** Block explorer link for `txHash` ("" when unknown). */
+  explorerUrl: string;
   network: PaymentNetwork;
   amount: Money;
   confirmedAt: string;
@@ -90,6 +94,28 @@ export interface ConfirmPaymentRequest {
   txHash: string;
   fields: Record<string, string>;
 }
+
+/** POST solana/pay-url response: the Solana Pay request for this session. */
+export interface SolanaPayUrlResponse {
+  /** Solana Pay transfer-request URL (QR payload, works in any Solana Pay wallet). */
+  transferUrl: string;
+  /** Solana Pay transaction-request URL (server-built transaction); https origins only. */
+  transactionUrl: string | null;
+  reference: string;
+  cluster: "mainnet" | "devnet";
+}
+
+/** POST solana/tx response (Solana Pay transaction-request shape). */
+export interface SolanaTxResponse {
+  /** Unsigned base64 wire transaction; the buyer's wallet signs + sends it. */
+  transaction: string;
+  message: string;
+}
+
+/** GET solana/status response. */
+export type SolanaStatusResponse =
+  | { status: "pending" }
+  | { status: "paid"; txHash: string; explorerUrl: string };
 
 export interface ApiError {
   error: string;

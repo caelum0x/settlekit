@@ -6,7 +6,6 @@ import {
   formatMoney,
   formatNetwork,
   formatTimestamp,
-  explorerTxUrl,
   truncateMiddle,
 } from "@/lib/format";
 import { OrderSummary } from "@/components/OrderSummary";
@@ -47,7 +46,9 @@ export default async function SuccessPage({ params }: PageProps) {
       <div className="card center">
         <div className="big-status">Payment confirmed</div>
         <p className="muted">
-          Your USDC payment settled and access has been delivered.
+          {receipt.access.some((item) => item.pending)
+            ? "Your USDC payment settled. Some access is still pending; details below."
+            : "Your USDC payment settled and access has been delivered."}
         </p>
       </div>
 
@@ -71,15 +72,17 @@ export default async function SuccessPage({ params }: PageProps) {
         </div>
         <div className="payto-row">
           <span className="label">Transaction</span>
-          {receipt.txHash ? (
+          {receipt.txHash && receipt.explorerUrl ? (
             <a
               className="link mono"
-              href={explorerTxUrl(receipt.network, receipt.txHash)}
+              href={receipt.explorerUrl}
               target="_blank"
               rel="noreferrer"
             >
               {truncateMiddle(receipt.txHash, 10, 8)}
             </a>
+          ) : receipt.txHash ? (
+            <span className="mono">{truncateMiddle(receipt.txHash, 10, 8)}</span>
           ) : (
             <span className="muted">—</span>
           )}

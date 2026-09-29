@@ -20,9 +20,11 @@ import {
   type CheckoutRepository,
   type PaymentRepository,
 } from "@settlekit/payments";
+import { InMemoryEntitlementRepository, type EntitlementRepository } from "@settlekit/entitlements";
 import { createDb, merchants, eq } from "@settlekit/database";
 import {
   PgCheckoutRepository,
+  PgEntitlementRepository,
   PgPaymentRepository,
   PgProductStore,
   PgPriceStore,
@@ -35,6 +37,8 @@ import { seedCatalog } from "./seed";
 export interface CheckoutBackend {
   readonly checkouts: CheckoutRepository;
   readonly payments: PaymentRepository;
+  /** Entitlements granted by confirmed payments (also the fulfillment ledger). */
+  readonly entitlements: EntitlementRepository;
   /** Whether this backend is Postgres-backed (real catalog) or seeded. */
   readonly persistent: boolean;
   findProduct(id: string): Promise<Product | undefined>;
@@ -65,6 +69,7 @@ function createPostgresBackend(databaseUrl: string): CheckoutBackend {
   return {
     checkouts: new PgCheckoutRepository(db),
     payments: new PgPaymentRepository(db),
+    entitlements: new PgEntitlementRepository(db),
     persistent: true,
     async findProduct(id) {
       return (await products.findById(id)) ?? undefined;
@@ -122,6 +127,7 @@ function createSeedBackend(): CheckoutBackend {
   return {
     checkouts,
     payments,
+    entitlements: new InMemoryEntitlementRepository(),
     persistent: false,
     async findProduct(id) {
       return products.get(id);

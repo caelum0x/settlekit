@@ -7,6 +7,10 @@
  * records + confirms the on-chain payment via the real @settlekit/payments
  * lifecycle, completes the session, materializes delivery, and returns the
  * receipt + delivered access.
+ *
+ * The hash format is checked per network (EVM 0x-hex, Solana base58
+ * signature). Confirmation fails closed: an unverifiable network is 422, a
+ * hash that already settled another checkout is 409.
  */
 import { NextResponse } from "next/server";
 
@@ -17,7 +21,9 @@ import {
   getDeliveredAccess,
   getConfirmedPayment,
 } from "@/lib/store";
+import { toRouteError } from "@/lib/errors";
 import { requiredFieldsForDelivery, sanitizeFields, validateFields } from "@/lib/fields";
+import { isWellFormedTxHash, txHashFormatHint } from "@/lib/tx-hash";
 import { buildReceiptView } from "@/lib/views";
 import type { ConfirmPaymentRequest } from "@/lib/types";
 
@@ -27,9 +33,6 @@ export const runtime = "nodejs";
 interface RouteContext {
   params: { sessionId: string };
 }
-
-/** Basic on-chain tx hash shape check (0x + 64 hex), tolerant of casing. */
-const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
 
 export async function POST(
   request: Request,
@@ -70,9 +73,10 @@ export async function POST(
   }
 
   const txHash = typeof payload?.txHash === "string" ? payload.txHash.trim() : "";
-  if (!TX_HASH_RE.test(txHash)) {
+  const network = resolved.session.network;
+  if (!isWellFormedTxHash(network, txHash)) {
     return NextResponse.json(
-      { error: "A valid transaction hash (0x + 64 hex characters) is required." },
+      { error: `A valid transaction hash is required: ${txHashFormatHint(network)}.` },
       { status: 400 },
     );
   }
@@ -99,8 +103,8 @@ export async function POST(
       status: 201,
     });
   } catch (error) {
-    const message =
-      error instanceof Error ? error.message : "Failed to confirm payment.";
-    return NextResponse.json({ error: message }, { status: 409 });
+    const { status, error: message } = toRouteError(error, "Failed to confirm payment.");
+    if (status === 500) console.error("[checkout] confirm failed:", error);
+    return NextResponse.json({ error: message }, { status });
   }
 }

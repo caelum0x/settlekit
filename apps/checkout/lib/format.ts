@@ -27,17 +27,27 @@ export function formatNetwork(network: PaymentNetwork): string {
       return "Base";
     case "ethereum":
       return "Ethereum";
+    case "solana":
+      return "Solana";
     default:
       return network;
   }
 }
 
+/** Solana cluster a checkout settles on (mirrors @settlekit/solana, client-safe). */
+export type SolanaClusterName = "mainnet" | "devnet";
+
 /** Block explorer base for a network + tx hash. */
 export function explorerTxUrl(
   network: PaymentNetwork,
   txHash: string,
+  solanaCluster: SolanaClusterName = "mainnet",
 ): string {
   switch (network) {
+    case "solana":
+      return `https://solscan.io/tx/${encodeURIComponent(txHash)}${
+        solanaCluster === "devnet" ? "?cluster=devnet" : ""
+      }`;
     case "base":
       return `https://basescan.org/tx/${txHash}`;
     case "ethereum":

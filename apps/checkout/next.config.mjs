@@ -19,6 +19,7 @@ const nextConfig = {
     "@settlekit/file-delivery",
     "@settlekit/github",
     "@settlekit/discord",
+    "@settlekit/solana",
   ],
   experimental: {
     // Trace from the MONOREPO ROOT, not this app dir — otherwise Next omits the

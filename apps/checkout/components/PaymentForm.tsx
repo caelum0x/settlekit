@@ -7,6 +7,7 @@ import type { PaymentNetwork } from "@settlekit/common";
 import { confirmCheckoutPayment, ApiClientError } from "@/lib/api";
 import { validateFields } from "@/lib/fields";
 import { formatNetwork, truncateMiddle } from "@/lib/format";
+import { isWellFormedTxHash, txHashFormatHint } from "@/lib/tx-hash";
 import type { CollectedFieldSpec } from "@/lib/types";
 import { CopyButton } from "./CopyButton";
 
@@ -18,8 +19,6 @@ interface PaymentFormProps {
   requiredFields: CollectedFieldSpec[];
   initialValues: Record<string, string>;
 }
-
-const TX_HASH_RE = /^0x[0-9a-fA-F]{64}$/;
 
 /**
  * Buyer-facing payment form. Collects required delivery fields, shows the USDC
@@ -56,7 +55,7 @@ export function PaymentForm({
     setFieldErrors((prev) => ({ ...prev, [key]: false }));
   }, []);
 
-  const txHashValid = TX_HASH_RE.test(txHash.trim());
+  const txHashValid = isWellFormedTxHash(network, txHash);
 
   const onSubmit = useCallback(
     async (event: React.FormEvent<HTMLFormElement>) => {
@@ -75,10 +74,8 @@ export function PaymentForm({
         return;
       }
 
-      if (!TX_HASH_RE.test(txHash.trim())) {
-        setError(
-          "Enter the transaction hash of your USDC payment (0x followed by 64 hex characters).",
-        );
+      if (!isWellFormedTxHash(network, txHash)) {
+        setError(`Enter the transaction hash of your USDC payment: ${txHashFormatHint(network)}.`);
         return;
       }
 
@@ -103,7 +100,7 @@ export function PaymentForm({
         setSubmitting(false);
       }
     },
-    [requiredFields, fields, txHash, sessionId, router],
+    [requiredFields, fields, txHash, network, sessionId, router],
   );
 
   return (
@@ -160,7 +157,7 @@ export function PaymentForm({
           }`}
           type="text"
           value={txHash}
-          placeholder="0x…"
+          placeholder={network === "solana" ? "Signature…" : "0x…"}
           autoComplete="off"
           spellCheck={false}
           onChange={(e) => setTxHash(e.target.value)}
