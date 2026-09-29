@@ -19,13 +19,11 @@ import {
   type SolanaCluster,
 } from "@settlekit/solana";
 
-/** Raised when an environment group is partially set or a value is malformed. */
-export class ConfigError extends Error {
-  constructor(message: string) {
-    super(message);
-    this.name = "ConfigError";
-  }
-}
+import type { EvmChainsConfig, ZcashConfig } from "@settlekit/chains";
+import { ConfigError } from "./errors.js";
+import { loadChainGroups } from "./chain-env.js";
+
+export { ConfigError };
 
 type Env = Record<string, string | undefined>;
 
@@ -47,7 +45,11 @@ export interface ArcConfig {
 export const BASE_CHAIN_ID = 8453;
 export const BASE_USDC_ADDRESS: ArcAddress = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
 
-/** Base (generic EVM USDC) verification reader, enabled by BASE_RPC_URL. */
+/**
+ * Legacy Base group, enabled by BASE_RPC_URL (Base mainnet). Verification now
+ * runs from {@link ApiConfig.evm}, where BASE_RPC_URL is an alias for
+ * enabling Base.
+ */
 export interface BaseConfig {
   rpcUrl: string;
   usdcAddress: ArcAddress;
@@ -164,6 +166,10 @@ export interface ApiConfig {
   database: DatabaseConfig | null;
   arc: ArcConfig | null;
   base: BaseConfig | null;
+  /** Enabled EVM chains for payment verification (others fail closed). */
+  evm: EvmChainsConfig;
+  /** Transparent Zcash settlement; null unless ZCASH_ENABLED. */
+  zcash: ZcashConfig | null;
   solana: SolanaConfig | null;
   circle: CircleConfig | null;
   circleWallets: CircleWalletsConfig | null;
@@ -179,6 +185,7 @@ export interface ApiConfig {
   hasDatabase: boolean;
   hasArc: boolean;
   hasBase: boolean;
+  hasZcash: boolean;
   hasSolana: boolean;
   hasCircle: boolean;
   hasCircleWallets: boolean;
@@ -502,6 +509,7 @@ export function loadConfig(env: Env = process.env): ApiConfig {
   const database = loadDatabase(env);
   const arc = loadArc(env);
   const base = loadBase(env);
+  const chains = loadChainGroups(env);
   const solana = loadSolana(env);
   const circle = loadCircle(env);
   const circleWallets = loadCircleWallets(env);
@@ -532,6 +540,8 @@ export function loadConfig(env: Env = process.env): ApiConfig {
     database,
     arc,
     base,
+    evm: chains.evm,
+    zcash: chains.zcash,
     solana,
     circle,
     circleWallets,
@@ -546,6 +556,7 @@ export function loadConfig(env: Env = process.env): ApiConfig {
     hasDatabase: database !== null,
     hasArc: arc !== null,
     hasBase: base !== null,
+    hasZcash: chains.zcash !== null,
     hasSolana: solana !== null,
     hasCircle: circle !== null,
     hasCircleWallets: circleWallets !== null,

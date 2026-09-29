@@ -67,7 +67,12 @@ describe("checkEvmChainIds", () => {
     const bad = createEvmVerifier({ spec: getEvmChain("tempo", "mainnet")!, rpc: replayRpc(record) });
     const results = await checkEvmChainIds([good, bad]);
     expect(results[0]).toEqual({ key: "base", ok: true });
-    expect(results[1]).toMatchObject({ key: "tempo", ok: false, error: expect.stringMatching(/mismatch/) });
+    const unreachable = createEvmVerifier({
+      spec,
+      rpc: { ...replayRpc(record), getChainId: async () => Promise.reject(new Error("ECONNREFUSED")) },
+    });
+    expect((await checkEvmChainIds([unreachable]))[0]).toMatchObject({ ok: false, mismatch: false });
+    expect(results[1]).toMatchObject({ key: "tempo", ok: false, mismatch: true, error: expect.stringMatching(/mismatch/) });
   });
 });
 

@@ -21,6 +21,14 @@ import type { EvmChainSpec, Hex } from "./registry.js";
 
 export const CLOCK_SKEW_MS = 120_000;
 
+/** The RPC endpoint serves a different chain than the spec (never retryable). */
+export class ChainIdMismatchError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ChainIdMismatchError";
+  }
+}
+
 export type EvmFailureCode =
   | "chain_mismatch"
   | "malformed"
@@ -107,7 +115,7 @@ export function createEvmVerifier(options: EvmVerifierOptions): EvmVerifier {
     if (chainVerified) return;
     const actual = await rpc.getChainId();
     if (actual !== spec.chainId) {
-      throw new Error(`${spec.name} RPC chain id mismatch: expected ${spec.chainId}, endpoint serves ${actual}`);
+      throw new ChainIdMismatchError(`${spec.name} RPC chain id mismatch: expected ${spec.chainId}, endpoint serves ${actual}`);
     }
     chainVerified = true;
   }

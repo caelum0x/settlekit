@@ -26,10 +26,12 @@ import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { requireOrg } from "../http/tenant.js";
 import { screenAddressOrThrow } from "../compliance/screen.js";
+import { checkPayTo, isValidTxHash, txHashFormatHint } from "@settlekit/chains";
 import {
   assertTxHashUnused,
-  normalizeTxHash,
+  requireTxHash,
   requireVerifier,
+  sessionCheck,
   verifyOnChainOrThrow,
 } from "./payment-verification.js";
 
@@ -44,11 +46,20 @@ const confirmSchema = z.object({
   minConfirmations: z.number().int().positive().optional(),
 });
 
-const EVM_TX_HASH_RE = /^0x[a-fA-F0-9]{64}$/;
-const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
-/** Base58 (no 0/O/I/l): Solana signatures are 64 bytes, addresses 32. */
-const SOLANA_SIGNATURE_RE = /^[1-9A-HJ-NP-Za-km-z]{64,88}$/;
-const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+/**
+ * Networks a direct deposit can be observed on. Zcash is excluded: its
+ * amount is only meaningful against a checkout session's locked quote.
+ */
+const OBSERVABLE_NETWORKS = [
+  "solana",
+  "arc",
+  "base",
+  "ethereum",
+  "arbitrum",
+  "robinhood",
+  "hyperevm",
+  "tempo",
+] as const;
 
 const observeSchema = z
   .object({
@@ -59,7 +70,7 @@ const observeSchema = z
     to: z.string().min(1),
     amount: z.string().regex(/^\d+(\.\d+)?$/, "must be a decimal amount"),
     asset: z.enum(["USDC", "EURC", "USYC"]).default("USDC"),
-    network: z.enum(["solana", "arc", "base", "ethereum"]).default("arc"),
+    network: z.enum(OBSERVABLE_NETWORKS).default("arc"),
     /** Sender, if the indexer decoded it; screened when present. */
     from: z.string().optional(),
     /** Optional customer attribution; defaults to a synthetic direct-payment id. */
@@ -67,19 +78,14 @@ const observeSchema = z
     confirmations: z.number().int().nonnegative().default(0),
   })
   .superRefine((body, ctx) => {
-    // Hash/address formats depend on the chain: base58 on Solana, 0x on EVM.
-    const solana = body.network === "solana";
-    const txRe = solana ? SOLANA_SIGNATURE_RE : EVM_TX_HASH_RE;
-    const addrRe = solana ? SOLANA_ADDRESS_RE : EVM_ADDRESS_RE;
-    const kind = solana ? "a base58 Solana" : "a 0x";
-    if (!txRe.test(body.txHash)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["txHash"], message: `must be ${kind} tx hash` });
+    // Hash/address formats depend on the chain (@settlekit/chains rules).
+    if (!isValidTxHash(body.network, body.txHash)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["txHash"], message: `must be ${txHashFormatHint(body.network)}` });
     }
-    if (!addrRe.test(body.to)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["to"], message: `must be ${kind} address` });
-    }
-    if (body.from !== undefined && !addrRe.test(body.from)) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["from"], message: `must be ${kind} address` });
+    const to = checkPayTo(body.network, body.to);
+    if (!to.ok) ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["to"], message: to.reason });
+    if (body.from !== undefined && !checkPayTo(body.network, body.from).ok) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["from"], message: `must be a valid ${body.network} address` });
     }
   });
 
@@ -98,7 +104,7 @@ export function paymentRoutes(): Hono<AppEnv> {
       });
     }
 
-    const txHash = body.txHash !== undefined ? normalizeTxHash(session.network, body.txHash) : undefined;
+    const txHash = body.txHash !== undefined ? requireTxHash(session.network, body.txHash) : undefined;
     if (txHash !== undefined) await assertTxHashUnused(ctx, txHash);
 
     const payment = recordPendingPayment({
@@ -136,21 +142,16 @@ export function paymentRoutes(): Hono<AppEnv> {
     if (!session) throw conflict("checkout session vanished", { id: payment.checkoutSessionId });
 
     // Verify the transfer ON-CHAIN before confirming, on EVERY network: the tx
-    // must have moved at least the invoiced USDC to the session's payTo (and,
-    // on Solana, carry the session's reference). No verifier for the network
+    // must have paid the session's payTo for this network at least the
+    // invoiced amount (Zcash: exactly the locked quote), no earlier than the
+    // session, from the declared payer, carrying the session's Solana
+    // reference / Tempo memo where applicable. No verifier for the network
     // means the payment cannot be confirmed (fail closed), and a tx hash can
     // back only one payment, so one transfer never settles two sessions.
-    const txHash = normalizeTxHash(payment.network, body.txHash);
+    requireVerifier(ctx, payment.network);
+    const txHash = requireTxHash(payment.network, body.txHash);
     await assertTxHashUnused(ctx, txHash, payment.id);
-    await verifyOnChainOrThrow(ctx, {
-      network: payment.network,
-      txHash,
-      amount: session.amount.amount,
-      asset: session.amount.currency,
-      payTo: session.payToAddress,
-      resource: `checkout_session:${session.id}`,
-      ...(session.paymentReference !== undefined ? { reference: session.paymentReference } : {}),
-    });
+    await verifyOnChainOrThrow(ctx, sessionCheck(session, payment.network, txHash));
 
     const confirmed = confirmPayment(
       payment,
@@ -198,7 +199,7 @@ export function paymentRoutes(): Hono<AppEnv> {
 
     // Fail closed: without a verifier for the network nothing can be credited.
     requireVerifier(ctx, body.network);
-    const txHash = normalizeTxHash(body.network, body.txHash);
+    const txHash = requireTxHash(body.network, body.txHash);
 
     // Idempotency: this org already recorded the transfer -> return it. A hash
     // recorded by ANY other payment (another org/session) is a replay -> 409.

@@ -11,19 +11,9 @@
  * have stores can pass their own sink via {@link BuildIntegrationsOptions}.
  */
 
-import {
-  money,
-  type DiscordRoleGrant,
-  type GitHubRepoAccessGrant,
-  type PaymentNetwork,
-} from "@settlekit/common";
-import {
-  createArcClient,
-  getArcChain,
-  isArcAsset,
-  type ArcAddress,
-  type ArcClient,
-} from "@settlekit/arc";
+import { type DiscordRoleGrant, type GitHubRepoAccessGrant } from "@settlekit/common";
+import { createArcClient, type ArcClient } from "@settlekit/arc";
+import type { EvmVerifier } from "@settlekit/chains";
 import { createWalletsClient } from "@settlekit/circle-wallets";
 import { createScreeningClient, type ScreeningClient } from "@settlekit/compliance";
 import {
@@ -43,8 +33,15 @@ import type { ApiKeyStore } from "@settlekit/api-keys";
 import type { GrantStore } from "@settlekit/file-delivery";
 import type { DeliveryClients } from "@settlekit/delivery";
 import type { PaymentVerifier } from "@settlekit/x402";
-import { createKitSolanaRpc, createSolanaPaymentVerifier } from "@settlekit/solana";
 import type { ApiConfig } from "./env.js";
+import {
+  buildVerifierRegistry,
+  type PaymentVerifiers,
+  type VerifierRegistryDeps,
+  type ZcashRuntime,
+} from "./verifier-registry.js";
+
+export type { PaymentVerifiers, ZcashRuntime } from "./verifier-registry.js";
 import {
   createDeliveryClients,
   type DeliveryGrantSink,
@@ -68,6 +65,10 @@ export interface Integrations {
    * NO way to confirm payments: confirm/observe fail closed for it.
    */
   verifiers: PaymentVerifiers;
+  /** Raw EVM verifiers, for the boot-time chain-id assertion. */
+  evmVerifiers: readonly EvmVerifier[];
+  /** Zcash quote + explorer services, or null when Zcash is disabled. */
+  zcash: ZcashRuntime | null;
   /** Raw Arc client (verify / fee-estimate / confirmations), or null when unset. */
   arc: ArcClient | null;
   /** Real Circle REST client, or null when Circle is unset. */
@@ -79,9 +80,6 @@ export interface Integrations {
   /** Real email client, or null when email is unset. */
   email: EmailClient | null;
 }
-
-/** Per-network on-chain verifier registry (absent network = fail closed). */
-export type PaymentVerifiers = Readonly<Partial<Record<PaymentNetwork, PaymentVerifier>>>;
 
 /** Optional injection points for {@link buildIntegrations}. */
 export interface BuildIntegrationsOptions {
@@ -95,6 +93,8 @@ export interface BuildIntegrationsOptions {
   licenseStore?: LicenseStore;
   apiKeyStore?: ApiKeyStore;
   fileGrantStore?: GrantStore;
+  /** Inject chain RPCs / fetch for the verifier registry (tests). */
+  chains?: VerifierRegistryDeps;
 }
 
 /** A `DeliveryGrantSink` backed by plain in-memory maps. */
@@ -120,64 +120,6 @@ function createInMemoryGrantSink(): DeliveryGrantSink {
       }
       return undefined;
     },
-  };
-}
-
-/**
- * Build an x402 {@link PaymentVerifier} over a real {@link ArcClient}. Confirms
- * the proof's transaction transferred at least the advertised amount to the
- * configured `payTo` address with enough confirmations. The client is a
- * generic EVM USDC reader, so the same verifier serves Base (`network`).
- */
-function buildEvmVerifier(
-  arc: ArcClient,
-  minConfirmations: number,
-  network: "arc" | "base" = "arc",
-): PaymentVerifier {
-  const chain = network === "arc" ? getArcChain(arc.config.chainId) : undefined;
-
-  return async (proof, requirements) => {
-    if (proof.network !== network || requirements.network !== network) {
-      return { ok: false, reason: `Unsupported network: ${proof.network}` };
-    }
-    if (!/^0x[a-fA-F0-9]{64}$/.test(proof.txHash)) {
-      return { ok: false, reason: "Malformed transaction hash" };
-    }
-
-    const txHash = proof.txHash as `0x${string}`;
-    const to = requirements.payTo as ArcAddress;
-    const minAmount = money(requirements.amount, requirements.asset);
-    // Widen to string: requirements.asset is typed as the literal "USDC", but
-    // EURC/USYC settlements flow through the same verifier at runtime.
-    const asset: string = requirements.asset;
-
-    // Resolve which token to look for. USDC uses the configured USDC address;
-    // other Arc stablecoins (EURC/USYC) resolve their contract from the chain
-    // definition so they settle through the same on-chain verification path.
-    let result;
-    if (asset === "USDC") {
-      result = await arc.verifyUsdcTransfer({ txHash, to, minAmount });
-    } else if (chain && isArcAsset(asset) && chain.tokens[asset]) {
-      result = await arc.verifyTokenTransfer({
-        txHash,
-        token: chain.tokens[asset].address,
-        to,
-        minAmount,
-      });
-    } else {
-      return { ok: false, reason: `Unsupported settlement asset on ${network}: ${asset}` };
-    }
-
-    if (!result.confirmed) {
-      return { ok: false, reason: `No matching ${asset} transfer found` };
-    }
-    if (result.confirmations < minConfirmations) {
-      return {
-        ok: false,
-        reason: `Insufficient confirmations: ${result.confirmations} < ${minConfirmations}`,
-      };
-    }
-    return { ok: true };
   };
 }
 
@@ -252,34 +194,7 @@ export function buildIntegrations(
         chainId: config.arc.chainId,
       })
     : null;
-  const arcVerifier =
-    arcClient && config.arc ? buildEvmVerifier(arcClient, config.arc.minConfirmations) : null;
-
-  const baseVerifier = config.base
-    ? buildEvmVerifier(
-        createArcClient({
-          rpcUrl: config.base.rpcUrl,
-          usdcAddress: config.base.usdcAddress,
-          chainId: config.base.chainId,
-        }),
-        config.base.minConfirmations,
-        "base",
-      )
-    : null;
-
-  const solanaVerifier = config.solana
-    ? createSolanaPaymentVerifier({
-        rpc: createKitSolanaRpc(config.solana.rpcUrl),
-        mint: config.solana.usdcMint,
-        commitment: "confirmed",
-      })
-    : null;
-
-  const verifiers: PaymentVerifiers = {
-    ...(arcVerifier ? { arc: arcVerifier } : {}),
-    ...(baseVerifier ? { base: baseVerifier } : {}),
-    ...(solanaVerifier ? { solana: solanaVerifier } : {}),
-  };
+  const registry = buildVerifierRegistry(config, options.chains);
 
   const circle = config.circle
     ? createCircleClient({
@@ -319,8 +234,10 @@ export function buildIntegrations(
     deliveryClients,
     githubAccessClient,
     discordApi,
-    arcVerifier,
-    verifiers,
+    arcVerifier: registry.arcVerifier,
+    verifiers: registry.verifiers,
+    evmVerifiers: registry.evmVerifiers,
+    zcash: registry.zcash,
     arc: arcClient,
     circle,
     payoutExecutor,

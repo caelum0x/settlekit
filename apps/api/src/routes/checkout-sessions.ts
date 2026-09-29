@@ -9,7 +9,8 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { notFound, validationError, type PaymentNetwork } from "@settlekit/common";
+import { notFound, validationError, PAYMENT_NETWORKS, type CheckoutSession, type PaymentNetwork } from "@settlekit/common";
+import { checkPayTo } from "@settlekit/chains";
 import {
   cancelSession,
   collectFields,
@@ -17,13 +18,15 @@ import {
   expireSession,
   type PricedLineItem,
 } from "@settlekit/payments";
-import { createReference, isSolanaAddress } from "@settlekit/solana";
-import type { AppEnv } from "../context.js";
+import { createReference } from "@settlekit/solana";
+import type { AppContext, AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { requireOrg } from "../http/tenant.js";
+import { payToFor } from "./payment-verification.js";
+import { lockZcashQuoteFor } from "./zcash-quote.js";
 
-const NETWORKS = ["solana", "arc", "base", "ethereum"] as const;
+const NETWORKS = PAYMENT_NETWORKS as unknown as readonly [PaymentNetwork, ...PaymentNetwork[]];
 
 const lineItemSchema = z.object({
   priceId: z.string().min(1),
@@ -41,22 +44,57 @@ const createSchema = z
     items: z.array(lineItemSchema).min(1),
     payToAddress: z.string().min(1),
     network: z.enum(NETWORKS),
+    /** Networks the buyer may pick from; must include `network`. */
+    acceptedNetworks: z.array(z.enum(NETWORKS)).min(1).optional(),
+    /** Per-network payTo (e.g. a Solana wallet and an EVM wallet). */
+    payToByNetwork: z.record(z.enum(NETWORKS), z.string().min(1)).optional(),
     successUrl: z.string().url().optional(),
     cancelUrl: z.string().url().optional(),
     collectedFields: z.record(z.string()).optional(),
     ttlDays: z.number().int().positive().optional(),
   })
   .superRefine((body, ctx) => {
-    // A Solana session must pay a real base58 wallet: USDC sent to a malformed
-    // address is unrecoverable, and verification matches the owner exactly.
-    if (body.network === "solana" && !isSolanaAddress(body.payToAddress)) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        path: ["payToAddress"],
-        message: "must be a base58 Solana wallet address for network solana",
-      });
+    // Every payable network needs a valid destination for ITS chain: funds
+    // sent to a malformed address are unrecoverable, and verification matches
+    // the recipient exactly.
+    const accepted = body.acceptedNetworks ?? [body.network];
+    if (!accepted.includes(body.network)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["acceptedNetworks"], message: "must include network" });
+    }
+    if (new Set(accepted).size !== accepted.length) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["acceptedNetworks"], message: "must not repeat a network" });
+    }
+    for (const network of accepted) {
+      const payTo = body.payToByNetwork?.[network] ?? body.payToAddress;
+      const check = checkPayTo(network, payTo);
+      if (!check.ok) {
+        const path = body.payToByNetwork?.[network] !== undefined ? ["payToByNetwork", network] : ["payToAddress"];
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path, message: check.reason });
+      }
+    }
+    for (const network of Object.keys(body.payToByNetwork ?? {}) as PaymentNetwork[]) {
+      if (!accepted.includes(network)) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["payToByNetwork", network], message: "network is not accepted" });
+      }
     }
   });
+
+/**
+ * Attach per-network payment bindings: a Solana Pay reference when Solana is
+ * payable (the paying tx must include it) and a locked ZEC quote when Zcash
+ * is payable (the buyer owes exactly that many zatoshis).
+ */
+async function withNetworkBindings(ctx: AppContext, session: CheckoutSession): Promise<CheckoutSession> {
+  const accepted = session.acceptedNetworks ?? [session.network];
+  const withReference = accepted.includes("solana") ? { ...session, paymentReference: createReference() } : session;
+  if (!accepted.includes("zcash")) return withReference;
+  const payTo = payToFor(withReference, "zcash");
+  const zcashNetwork = ctx.zcash?.network ?? "mainnet";
+  const check = checkPayTo("zcash", payTo, { zcashNetwork });
+  if (!check.ok) throw validationError(`invalid Zcash payTo: ${check.reason}`, { network: "zcash" });
+  const settlementQuote = await lockZcashQuoteFor(ctx, withReference, payTo);
+  return { ...withReference, settlementQuote };
+}
 
 const collectSchema = z.object({
   fields: z.record(z.string()),
@@ -100,10 +138,11 @@ export function checkoutRoutes(): Hono<AppEnv> {
       ...(body.collectedFields !== undefined ? { collectedFields: body.collectedFields } : {}),
       ...(body.ttlDays !== undefined ? { ttlDays: body.ttlDays } : {}),
     });
-    // Solana sessions get a fresh Solana Pay reference; the paying transaction
-    // must include it, binding the on-chain transfer to this session.
-    const session =
-      body.network === "solana" ? { ...draft, paymentReference: createReference() } : draft;
+    const session = await withNetworkBindings(ctx, {
+      ...draft,
+      ...(body.acceptedNetworks !== undefined ? { acceptedNetworks: body.acceptedNetworks } : {}),
+      ...(body.payToByNetwork !== undefined ? { payToByNetwork: body.payToByNetwork } : {}),
+    });
 
     const saved = await ctx.checkouts.save(session);
     return created(c, saved);

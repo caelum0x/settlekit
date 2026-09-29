@@ -9,7 +9,7 @@
 
 import { toBaseUnits, type PaymentNetwork, type SettlementQuote } from "@settlekit/common";
 import { verifyZcashTransparent, type ZcashExplorer } from "@settlekit/zcash";
-import type { EvmVerifier } from "./evm-verifier.js";
+import { ChainIdMismatchError, type EvmVerifier } from "./evm-verifier.js";
 
 export interface SettlementProof {
   txHash: string;
@@ -141,6 +141,8 @@ export function createZcashSettlementVerifier(options: ZcashSettlementOptions): 
 export interface ChainIdCheck {
   key: string;
   ok: boolean;
+  /** True when the endpoint answered with a different chain id (fatal at boot). */
+  mismatch?: boolean;
   error?: string;
 }
 
@@ -152,7 +154,12 @@ export async function checkEvmChainIds(verifiers: readonly EvmVerifier[]): Promi
         await verifier.assertChainId();
         return { key: verifier.spec.key, ok: true };
       } catch (error) {
-        return { key: verifier.spec.key, ok: false, error: error instanceof Error ? error.message : String(error) };
+        return {
+          key: verifier.spec.key,
+          ok: false,
+          mismatch: error instanceof ChainIdMismatchError,
+          error: error instanceof Error ? error.message : String(error),
+        };
       }
     }),
   );

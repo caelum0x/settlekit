@@ -5,6 +5,7 @@
 import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
 import { createContext } from "./context.js";
+import { assertChainIdsAtBoot } from "./config/boot-checks.js";
 
 /** Create the server (without starting it) — handy for embedding / testing. */
 export async function createServer() {
@@ -21,7 +22,9 @@ function log(message: string, fields: Record<string, unknown> = {}): void {
 
 /** Start listening. Returns the running server handle. */
 export async function startServer(port = Number(process.env.PORT ?? 8787)) {
-  const app = await createServer();
+  const ctx = await createContext();
+  await assertChainIdsAtBoot(ctx.evmVerifiers, log);
+  const app = createApp(ctx);
   const server = serve({ fetch: app.fetch, port }, (info) => {
     log("api listening", { port: info.port, url: `http://localhost:${info.port}` });
   });

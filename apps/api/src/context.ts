@@ -163,7 +163,8 @@ import {
   type AgentJobStore,
 } from "@settlekit/persistence";
 import { loadConfig } from "./config/env.js";
-import { buildIntegrations, type PaymentVerifiers } from "./config/integrations.js";
+import { buildIntegrations, type PaymentVerifiers, type ZcashRuntime } from "./config/integrations.js";
+import type { EvmVerifier } from "@settlekit/chains";
 import type { DeliveryGrantSink } from "./wiring/delivery-clients.js";
 
 /** The fully-wired set of services + stores shared across requests. */
@@ -209,6 +210,10 @@ export interface AppContext {
    * CLOSED for a network with no verifier — a tx hash alone never settles.
    */
   readonly verifiers: PaymentVerifiers;
+  /** Enabled EVM chain verifiers (boot asserts each RPC's chain id). */
+  readonly evmVerifiers: readonly EvmVerifier[];
+  /** Zcash quote/explorer services; null when ZCASH_ENABLED is unset. */
+  readonly zcash: ZcashRuntime | null;
   /** Raw Arc client for verify / fee-estimate / confirmations. */
   readonly arc: ArcClient | null;
   readonly circle: CircleClient | null;
@@ -452,6 +457,8 @@ export async function createContext(): Promise<AppContext> {
 
     arcVerifier: integrations.arcVerifier,
     verifiers: integrations.verifiers,
+    evmVerifiers: integrations.evmVerifiers,
+    zcash: integrations.zcash,
     arc: integrations.arc,
     circle: integrations.circle,
     payoutExecutor: integrations.payoutExecutor,

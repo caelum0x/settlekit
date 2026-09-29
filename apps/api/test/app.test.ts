@@ -11,7 +11,8 @@ import { describe, it, expect, beforeEach } from "vitest";
 import type { Hono } from "hono";
 import { createApp } from "../src/app.js";
 import { createContext, type AppEnv } from "../src/context.js";
-import type { PaymentVerifier } from "@settlekit/x402";
+import { randomBytes } from "node:crypto";
+import type { SettlementVerifier } from "@settlekit/chains";
 
 const BOOTSTRAP = "test-bootstrap-key";
 
@@ -20,8 +21,13 @@ const BOOTSTRAP = "test-bootstrap-key";
  * an on-chain verifier, so these flow tests register one that accepts any
  * proof whose network matches the challenged session.
  */
-const baseChainDouble: PaymentVerifier = async (proof, requirements) =>
+const baseChainDouble: SettlementVerifier = async (proof, requirements) =>
   proof.network === requirements.network ? { ok: true } : { ok: false, reason: "network mismatch" };
+
+/** A fresh, well-formed EVM transaction hash (each settles one payment). */
+function evmTxHash(): string {
+  return `0x${randomBytes(32).toString("hex")}`;
+}
 
 async function authedApp(): Promise<Hono<AppEnv>> {
   process.env.API_BOOTSTRAP_KEY = BOOTSTRAP;
@@ -84,7 +90,7 @@ async function makeConfirmedPayment(
     merchantId: "mch_1",
     customerId,
     items: [{ priceId, productId, quantity: 1 }],
-    payToAddress: "0xMerchantWallet",
+    payToAddress: "0x1111111111111111111111111111111111111111",
     network: "base",
   });
   const sessionId = checkout.json.data.id as string;
@@ -93,7 +99,7 @@ async function makeConfirmedPayment(
   });
   const paymentId = payment.json.data.id as string;
   await call(app, "POST", `/v1/payments/${paymentId}/confirm`, {
-    txHash: "0xdeadbeef",
+    txHash: evmTxHash(),
     confirmations: 3,
   });
   return { paymentId, customerId };
@@ -155,7 +161,7 @@ describe("SettleKit API", () => {
       merchantId: "mch_1",
       customerId,
       items: [{ priceId, productId, quantity: 1 }],
-      payToAddress: "0xMerchantWallet",
+      payToAddress: "0x1111111111111111111111111111111111111111",
       network: "base",
     });
     expect(checkout.status).toBe(201);
@@ -172,7 +178,7 @@ describe("SettleKit API", () => {
 
     // 6. Confirm the payment -> session completed + entitlement granted.
     const confirmed = await call(app, "POST", `/v1/payments/${paymentId}/confirm`, {
-      txHash: "0xabc123",
+      txHash: evmTxHash(),
       confirmations: 3,
     });
     expect(confirmed.status).toBe(200);

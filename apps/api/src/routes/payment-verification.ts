@@ -6,21 +6,37 @@
  *     payment. A tx hash alone is never evidence of payment.
  *   - A transaction hash settles at most ONE payment (global uniqueness), so a
  *     single on-chain transfer cannot be replayed across sessions or orgs.
- *   - EVM hashes are case-insensitive and normalized to lowercase; Solana
- *     signatures are case-sensitive base58 and kept verbatim.
+ *   - Tx ids are validated and normalized per network (@settlekit/chains):
+ *     EVM and Zcash lowercase, Solana signatures verbatim.
+ *   - Session bindings travel to the verifier: payTo for the network, the
+ *     session creation time (block time must not predate it), the declared
+ *     payer, the session id (Tempo memo) and the locked Zcash quote.
  */
-import { conflict, validationError, type Payment, type PaymentNetwork } from "@settlekit/common";
-import { X402_SCHEME, type PaymentRequirements, type PaymentVerifier } from "@settlekit/x402";
+import {
+  conflict,
+  validationError,
+  type CheckoutSession,
+  type Payment,
+  type PaymentNetwork,
+  type SettlementQuote,
+} from "@settlekit/common";
+import { parseTxHash, txHashFormatHint, type SettlementVerifier } from "@settlekit/chains";
+import { X402_SCHEME } from "@settlekit/x402";
 import type { AppContext } from "../context.js";
 
-/** Canonical storage form of a tx hash on `network`. */
-export function normalizeTxHash(network: PaymentNetwork, txHash: string): string {
-  const trimmed = txHash.trim();
-  return network === "solana" ? trimmed : trimmed.toLowerCase();
+export { normalizeTxHash } from "@settlekit/chains";
+
+/** Validate + normalize `txHash` for `network`, or throw a 400. */
+export function requireTxHash(network: PaymentNetwork, txHash: string): string {
+  const parsed = parseTxHash(network, txHash);
+  if (parsed === null) {
+    throw validationError(`txHash must be ${txHashFormatHint(network)} for network ${network}`, { network });
+  }
+  return parsed;
 }
 
 /** The verifier for `network`, or a validation error (fail closed). */
-export function requireVerifier(ctx: AppContext, network: PaymentNetwork): PaymentVerifier {
+export function requireVerifier(ctx: AppContext, network: PaymentNetwork): SettlementVerifier {
   const verifier = ctx.verifiers[network];
   if (!verifier) {
     throw validationError(
@@ -60,31 +76,57 @@ export interface OnChainCheck {
   reference?: string;
   from?: string;
   resource: string;
+  /** ISO time the payment must not predate (session createdAt). */
+  notBefore?: string;
+  /** Declared payer address (payer binding). */
+  payer?: string;
+  /** Checkout session id (Tempo memo binding). */
+  sessionId?: string;
+  /** Locked Zcash quote. */
+  settlementQuote?: SettlementQuote;
+}
+
+/** The address `session` must be paid at on `network`. */
+export function payToFor(session: CheckoutSession, network: PaymentNetwork): string {
+  return session.payToByNetwork?.[network] ?? session.payToAddress;
+}
+
+/** Build the verification check binding `txHash` to `session` on `network`. */
+export function sessionCheck(session: CheckoutSession, network: PaymentNetwork, txHash: string): OnChainCheck {
+  return {
+    network,
+    txHash,
+    amount: session.amount.amount,
+    asset: session.amount.currency,
+    payTo: payToFor(session, network),
+    resource: `checkout_session:${session.id}`,
+    notBefore: session.createdAt,
+    sessionId: session.id,
+    ...(session.paymentReference !== undefined ? { reference: session.paymentReference } : {}),
+    ...(session.payerAddress !== undefined ? { payer: session.payerAddress } : {}),
+    ...(session.settlementQuote !== undefined ? { settlementQuote: session.settlementQuote } : {}),
+  };
 }
 
 /** Verify a transfer on-chain through the network's verifier; throws on failure. */
 export async function verifyOnChainOrThrow(ctx: AppContext, check: OnChainCheck): Promise<void> {
   const verifier = requireVerifier(ctx, check.network);
-  const requirements: PaymentRequirements & { reference?: string } = {
-    scheme: X402_SCHEME,
-    amount: check.amount,
-    // Verifiers widen asset to string at runtime (EURC/USYC on Arc).
-    asset: check.asset as "USDC",
-    network: check.network,
-    payTo: check.payTo,
-    productId: "",
-    resource: check.resource,
-    nonce: "",
-    ...(check.reference !== undefined ? { reference: check.reference } : {}),
-  };
+  const { network, txHash, from, ...rest } = check;
   const verification = await verifier(
-    { txHash: check.txHash, from: check.from ?? "", amount: check.amount, network: check.network, nonce: "" },
-    requirements,
+    { txHash, from: from ?? "", amount: check.amount, network, nonce: "" },
+    { ...rest, scheme: X402_SCHEME, network, productId: "", nonce: "" },
   );
-  if (!verification.ok) {
-    throw validationError(`on-chain payment verification failed: ${verification.reason ?? "unverified"}`, {
-      network: check.network,
-      txHash: check.txHash,
-    });
-  }
+  if (verification.ok) return;
+  const reason = verification.reason ?? "unverified";
+  const prefix = verification.late
+    ? "payment requires manual review"
+    : verification.retryable
+      ? "payment not yet verifiable on-chain (retry later)"
+      : "on-chain payment verification failed";
+  throw validationError(`${prefix}: ${reason}`, {
+    network,
+    txHash,
+    ...(verification.retryable ? { retryable: true } : {}),
+    ...(verification.late ? { manualReview: true } : {}),
+  });
 }
