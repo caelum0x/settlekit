@@ -80,6 +80,15 @@ export type CreateCouponDiscount =
   | { type: "amount"; amountOff: string }
   | { type: "free-trial-days"; days: number };
 
+/** Webhook endpoint as the API stores it. */
+interface ApiWebhookEndpoint {
+  id: string;
+  url: string;
+  enabledEvents?: string[];
+  active?: boolean;
+  signingSecret?: string;
+}
+
 export interface ApiList<T> {
   data: T[];
   total: number;
@@ -191,9 +200,22 @@ export const api = {
   },
   files: { list: () => getList<FileAsset>("/v1/files") },
   webhooks: {
-    list: () => getList<WebhookEndpoint>("/v1/webhooks"),
+    list: async (): Promise<ApiList<WebhookEndpoint>> => {
+      const raw = await getList<ApiWebhookEndpoint>("/v1/webhooks/endpoints");
+      return listResult(
+        raw.data.map((e) => ({
+          id: e.id,
+          url: e.url,
+          events: e.enabledEvents ?? [],
+          status: e.active ? "enabled" : "disabled",
+          lastDeliveryAt: null,
+          signingSecret: e.signingSecret ?? "",
+        })),
+        raw.error,
+      );
+    },
     create: (url: string, events: string[]) =>
-      post<WebhookEndpoint>("/v1/webhooks", { url, events }),
+      post<ApiWebhookEndpoint>("/v1/webhooks/endpoints", { url, enabledEvents: events }),
   },
   // ---- Refunds ----
   refunds: {

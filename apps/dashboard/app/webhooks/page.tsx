@@ -13,12 +13,28 @@ import { SimpleCreateForm } from "@/components/forms/SimpleCreateForm";
 
 export const dynamic = "force-dynamic";
 
+/** Events SettleKit sends; the first four are what a SaaS needs to unlock paid plans. */
+const EVENT_TYPES = [
+  "payment.confirmed",
+  "subscription.charged",
+  "subscription.canceled",
+  "refund.succeeded",
+  "payment.refunded",
+  "entitlement.granted",
+  "entitlement.revoked",
+  "delivery.succeeded",
+  "delivery.failed",
+] as const;
+const DEFAULT_EVENTS = EVENT_TYPES.slice(0, 4).join(", ");
+
 async function createWebhook(values: Record<string, string>): Promise<string | null> {
   "use server";
-  const events = (values.events ?? "")
+  const events = (values.events || DEFAULT_EVENTS)
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
+  const unknown = events.filter((e) => !(EVENT_TYPES as readonly string[]).includes(e));
+  if (unknown.length > 0) return `Unknown event${unknown.length > 1 ? "s" : ""}: ${unknown.join(", ")}`;
   const { error } = await api.webhooks.create(values.url ?? "", events);
   return error;
 }
@@ -35,7 +51,7 @@ export default async function WebhooksPage() {
     <>
       <PageHeader
         title="Webhooks"
-        description="Receive real-time events for payments, entitlements, and delivery runs."
+        description="Signed POSTs to your server when a payment confirms, a subscription charges or cancels, or a refund is sent. Verify the SettleKit-Signature header with the endpoint's secret (see /docs/integrate on the website)."
       />
       <SubNav
         items={[
@@ -72,9 +88,13 @@ export default async function WebhooksPage() {
               },
               { header: "Status", cell: (h) => <StatusBadge status={h.status} /> },
               {
-                header: "Last delivery",
-                cell: (h) =>
-                  h.lastDeliveryAt ? formatDateTime(h.lastDeliveryAt) : "—",
+                header: "Signing secret",
+                cell: (h) => (
+                  <details>
+                    <summary className="muted">Reveal</summary>
+                    <code className="mono">{h.signingSecret}</code>
+                  </details>
+                ),
               },
             ]}
           />
@@ -130,8 +150,8 @@ export default async function WebhooksPage() {
             {
               name: "events",
               label: "Events",
-              placeholder: "payment.succeeded, delivery.failed",
-              hint: "Comma-separated event names.",
+              placeholder: DEFAULT_EVENTS,
+              hint: `Comma-separated. Leave empty for ${DEFAULT_EVENTS}. Also available: ${EVENT_TYPES.slice(4).join(", ")}.`,
             },
           ]}
         />

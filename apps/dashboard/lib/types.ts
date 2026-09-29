@@ -130,6 +130,8 @@ export interface WebhookEndpoint {
   events: string[];
   status: "enabled" | "disabled";
   lastDeliveryAt: string | null;
+  /** HMAC secret the endpoint verifies `SettleKit-Signature` with. */
+  signingSecret: string;
 }
 
 /**
