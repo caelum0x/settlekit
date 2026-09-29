@@ -17,7 +17,7 @@ import {
   type ParsedTransaction,
   type SolanaRpc,
 } from "@settlekit/solana";
-import type { PaymentProof, PaymentRequirements, PaymentVerifier } from "@settlekit/x402";
+import type { PaymentProof, PaymentRequirements, PaymentVerifier, VerifyResult } from "@settlekit/x402";
 import { createApp } from "../src/app.js";
 import { createContext, type AppEnv } from "../src/context.js";
 import type { PaymentVerifiers } from "../src/config/integrations.js";
@@ -145,7 +145,7 @@ function rpcServing(transactions: Record<string, ParsedTransaction>): SolanaRpc 
   };
 }
 
-function recordingVerifier(result = { ok: true }): PaymentVerifier & {
+function recordingVerifier(result: VerifyResult = { ok: true }): PaymentVerifier & {
   seen: Array<{ proof: PaymentProof; requirements: PaymentRequirements & { reference?: string } }>;
 } {
   const seen: Array<{ proof: PaymentProof; requirements: PaymentRequirements & { reference?: string } }> = [];
@@ -220,7 +220,7 @@ describe("POST /v1/payments/:id/confirm (fail closed)", () => {
   });
 
   it("surfaces the verifier's rejection reason and does not confirm", async () => {
-    const app = await appWith({ solana: recordingVerifier({ ok: false, reason: "underpaid" } as { ok: true }) });
+    const app = await appWith({ solana: recordingVerifier({ ok: false, reason: "underpaid" }) });
     const { paymentId } = await openSessionWithPayment(app);
     const res = await call(app, "POST", `/v1/payments/${paymentId}/confirm`, { txHash: SIG_A, confirmations: 1 });
     expect(res.status).toBe(400);
