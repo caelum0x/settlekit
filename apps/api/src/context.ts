@@ -166,6 +166,7 @@ import { loadConfig } from "./config/env.js";
 import { buildIntegrations, type PaymentVerifiers, type ZcashRuntime } from "./config/integrations.js";
 import type { EvmVerifier } from "@settlekit/chains";
 import type { DeliveryGrantSink } from "./wiring/delivery-clients.js";
+import { loadAgentPayments, type AgentPaymentsRuntime } from "./agent-payments/config.js";
 
 /** The fully-wired set of services + stores shared across requests. */
 export interface AppContext {
@@ -290,6 +291,8 @@ export interface AppContext {
   readonly payoutStore: PayoutStore;
   /** Platform take-rate applied to merchant settlements (SettleKit revenue). */
   readonly platformFeeSchedule: PlatformFeeSchedule;
+  /** x402 (every chain) + MPP (Tempo) agent payments; null when unconfigured. */
+  readonly agentPayments: AgentPaymentsRuntime | null;
 }
 
 /** Pick the Postgres implementation when `db` is set, else the in-memory one. */
@@ -545,6 +548,7 @@ export async function createContext(): Promise<AppContext> {
     payouts: new PayoutService(payoutStore, () => generateId("payoutWallet")),
     payoutStore,
     platformFeeSchedule,
+    agentPayments: loadAgentPayments(process.env),
   };
 }
 

@@ -51,7 +51,8 @@
     { "path": "../../packages/onchain" },
     { "path": "../../packages/paymaster" },
     { "path": "../../packages/stablefx" },
-    { "path": "../../packages/tax" }
+    { "path": "../../packages/tax" },
+    { "path": "../../packages/x402-facilitator" }
   ],
   "include": ["src/**/*"],
   "exclude": ["dist", "node_modules", "test", "**/*.test.ts"]
