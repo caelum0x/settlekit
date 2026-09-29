@@ -45,7 +45,8 @@ export function NetworkPicker({ sessionId, current, options }: NetworkPickerProp
     [current, pending, sessionId, router],
   );
 
-  if (options.length < 2) return null;
+  // Hide only when there is nothing to switch to.
+  if (options.length === 0 || (options.length === 1 && options[0]?.network === current)) return null;
 
   return (
     <fieldset className="network-picker" aria-busy={pending !== null}>
