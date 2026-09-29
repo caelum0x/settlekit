@@ -64,6 +64,62 @@ services:
       # default from the bundled chain config. Leave unset to run off-chain.
       - key: ARC_CHAIN_ID
         sync: false
+      # Multi-chain payments: every network fails closed until enabled
+      # (see .env.example and docs/colosseum/MULTICHAIN-PLAN.md).
+      - key: SETTLEKIT_CHAIN_ENV
+        sync: false
+      - key: ENABLED_EVM_CHAINS
+        sync: false
+      - key: ETHEREUM_RPC_URL
+        sync: false
+      - key: ETHEREUM_NETWORK
+        sync: false
+      - key: ETHEREUM_MIN_CONFIRMATIONS
+        sync: false
+      - key: BASE_RPC_URL
+        sync: false
+      - key: BASE_NETWORK
+        sync: false
+      - key: BASE_MIN_CONFIRMATIONS
+        sync: false
+      - key: ARBITRUM_RPC_URL
+        sync: false
+      - key: ARBITRUM_NETWORK
+        sync: false
+      - key: ARBITRUM_MIN_CONFIRMATIONS
+        sync: false
+      - key: ROBINHOOD_RPC_URL
+        sync: false
+      - key: ROBINHOOD_NETWORK
+        sync: false
+      - key: ROBINHOOD_MIN_CONFIRMATIONS
+        sync: false
+      - key: HYPEREVM_RPC_URL
+        sync: false
+      - key: HYPEREVM_NETWORK
+        sync: false
+      - key: HYPEREVM_MIN_CONFIRMATIONS
+        sync: false
+      - key: TEMPO_RPC_URL
+        sync: false
+      - key: TEMPO_NETWORK
+        sync: false
+      - key: TEMPO_MIN_CONFIRMATIONS
+        sync: false
+      - key: SOLANA_CLUSTER
+        sync: false
+      - key: SOLANA_RPC_URL
+        sync: false
+      - key: ZCASH_ENABLED
+        sync: false
+      - key: ZCASH_EXPLORER_URL
+        sync: false
+      - key: BLOCKCHAIR_API_KEY
+        sync: false
+      - key: ZCASH_MIN_CONFIRMATIONS
+        sync: false
+      - key: ZCASH_QUOTE_TTL_SEC
+        sync: false
       # Circle integrations — added AFTER the product is live (cred-gated; unset
       # = each feature is a no-op / clear "not configured" error).
       - key: CIRCLE_API_KEY
@@ -99,6 +155,64 @@ services:
           type: web
           envVarKey: WEBHOOK_SIGNING_SECRET
       - key: ARC_CHAIN_ID
+        sync: false
+      # Multi-chain payments: every network fails closed until enabled
+      # (see .env.example and docs/colosseum/MULTICHAIN-PLAN.md).
+      - key: SETTLEKIT_CHAIN_ENV
+        sync: false
+      - key: ENABLED_EVM_CHAINS
+        sync: false
+      - key: ETHEREUM_RPC_URL
+        sync: false
+      - key: ETHEREUM_NETWORK
+        sync: false
+      - key: ETHEREUM_MIN_CONFIRMATIONS
+        sync: false
+      - key: BASE_RPC_URL
+        sync: false
+      - key: BASE_NETWORK
+        sync: false
+      - key: BASE_MIN_CONFIRMATIONS
+        sync: false
+      - key: ARBITRUM_RPC_URL
+        sync: false
+      - key: ARBITRUM_NETWORK
+        sync: false
+      - key: ARBITRUM_MIN_CONFIRMATIONS
+        sync: false
+      - key: ROBINHOOD_RPC_URL
+        sync: false
+      - key: ROBINHOOD_NETWORK
+        sync: false
+      - key: ROBINHOOD_MIN_CONFIRMATIONS
+        sync: false
+      - key: HYPEREVM_RPC_URL
+        sync: false
+      - key: HYPEREVM_NETWORK
+        sync: false
+      - key: HYPEREVM_MIN_CONFIRMATIONS
+        sync: false
+      - key: TEMPO_RPC_URL
+        sync: false
+      - key: TEMPO_NETWORK
+        sync: false
+      - key: TEMPO_MIN_CONFIRMATIONS
+        sync: false
+      - key: SOLANA_CLUSTER
+        sync: false
+      - key: SOLANA_RPC_URL
+        sync: false
+      - key: ZCASH_ENABLED
+        sync: false
+      - key: ZCASH_EXPLORER_URL
+        sync: false
+      - key: BLOCKCHAIR_API_KEY
+        sync: false
+      - key: ZCASH_MIN_CONFIRMATIONS
+        sync: false
+      - key: ZCASH_QUOTE_TTL_SEC
+        sync: false
+      - key: WORKER_ZCASH_WATCH_INTERVAL_MS
         sync: false
       - key: CIRCLE_WALLETS_API_KEY
         sync: false

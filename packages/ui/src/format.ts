@@ -160,12 +160,18 @@ interface ExplorerConfig {
   txPath: (hash: string) => string;
 }
 
+/** Mainnet explorers; keep in sync with the @settlekit/chains registry. */
 const BLOCK_EXPLORERS: Record<PaymentNetwork, ExplorerConfig> = {
   solana: { txPath: (hash) => `https://solscan.io/tx/${hash}` },
   base: { txPath: (hash) => `https://basescan.org/tx/${hash}` },
   ethereum: { txPath: (hash) => `https://etherscan.io/tx/${hash}` },
   // Arc is Circle's settlement network; route to Circle's explorer.
   arc: { txPath: (hash) => `https://explorer.circle.com/tx/${hash}` },
+  arbitrum: { txPath: (hash) => `https://arbiscan.io/tx/${hash}` },
+  robinhood: { txPath: (hash) => `https://robinhoodchain.blockscout.com/tx/${hash}` },
+  hyperevm: { txPath: (hash) => `https://hyperevmscan.io/tx/${hash}` },
+  tempo: { txPath: (hash) => `https://explore.tempo.xyz/tx/${hash}` },
+  zcash: { txPath: (hash) => `https://blockchair.com/zcash/transaction/${hash}` },
 };
 
 /**
