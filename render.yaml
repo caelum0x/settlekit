@@ -1,24 +1,35 @@
-# SettleKit — Render Blueprint (Infrastructure-as-Code).
+# SettleKit — Render Blueprint (Colosseum deployment).
 #
-# In Render: New → Blueprint → connect this repo. Render reads this file and
-# provisions the database + services. Secrets marked `sync: false` are left blank
-# for you to fill in the dashboard (Circle/Arc API keys are added later, once the
-# product is live); signing secrets are auto-generated.
+# In Render: New -> Blueprint -> connect this repo. Render provisions the
+# database and the five services buyers and sellers use:
 #
-# Services:
-#   settlekit-db         Postgres (shared by api + worker)
-#   settlekit-api        REST API (Docker) — the backend everything talks to
-#   settlekit-worker     background jobs (Docker) — delivery, payouts, reconcile
-#   settlekit-web        marketing site (Next.js)
-#   settlekit-dashboard  merchant dashboard (Next.js)
-#   settlekit-marketplace public marketplace (Next.js)
-#   settlekit-checkout   customer-facing checkout pages (Next.js)
-#   settlekit-docs       docs site (Next.js)
+#   settlekit-db         Postgres (api + worker + checkout share it)
+#   settlekit-api        REST API (Docker, Node 22)       free
+#   settlekit-worker     background jobs (Docker, Node 22) starter (~$7/mo):
+#                        Render has no free background workers. The worker
+#                        confirms payments, charges subscriptions, retries
+#                        deliveries and sends seller webhooks; without it
+#                        one-time checkout still works but renewals stop.
+#   settlekit-checkout   hosted checkout + payment links (Next.js)  free
+#   settlekit-dashboard  merchant dashboard (Next.js)                free
+#   settlekit-web        marketing site + /docs/integrate (Next.js)  free
 #
-# NOTE: do NOT create a plain Web Service pointing at the repo root — Render's
-# default `pnpm start` has no root script and binds no port, so it fails with
-# ERR_PNPM_NO_SCRIPT_OR_SERVER. Always deploy via Blueprint (New → Blueprint)
-# so each service gets the per-app build/start commands below.
+# Every Node build installs ONLY the app and its workspace dependencies
+# (`pnpm install --filter <app>...`), so no unrelated app is installed or built.
+# The other apps in the repo (marketplace, docs, portal, admin, consoles) are
+# not part of this deployment.
+#
+# `sync: false` values are filled in the Render dashboard; every chain and
+# integration fails closed until configured. Secrets marked generateValue are
+# created once; shared ones are copied between services with fromService.
+#
+# After the first deploy, set the cross-service URLs (Render shows each
+# service's onrender.com URL): NEXT_PUBLIC_API_URL / SETTLEKIT_API_URL -> api,
+# NEXT_PUBLIC_CHECKOUT_URL / CHECKOUT_PUBLIC_URL / ONCHAIN_BILLING_CHECKOUT_URL
+# -> checkout, NEXT_PUBLIC_DASHBOARD_URL -> dashboard.
+#
+# NOTE: do NOT create a plain Web Service pointing at the repo root; always
+# deploy via Blueprint so each service gets its own build/start commands.
 
 databases:
   - name: settlekit-db
@@ -35,20 +46,18 @@ services:
     dockerContext: .
     plan: free
     healthCheckPath: /health
-    # Apply pending Postgres migrations before each deploy goes live. Runs the
-    # programmatic migrator (runtime deps only) bundled in the image; idempotent,
-    # so re-deploys with no new migrations are a no-op.
-    preDeployCommand: node /app/packages/database/dist/cli.js
+    # Migrations run on container start (see apps/api/Dockerfile CMD):
+    # preDeployCommand is not available on the free plan.
     envVars:
       - key: NODE_ENV
-        value: production
+        value: "production"
       - key: PORT
-        value: 8787
+        value: "8787"
       - key: DATABASE_URL
         fromDatabase:
           name: settlekit-db
           property: connectionString
-      # Auto-generated signing secrets (tokens / cookies / outbound webhooks).
+      # Signing secrets (generated once).
       - key: LICENSE_TOKEN_SECRET
         generateValue: true
       - key: WEBHOOK_SIGNING_SECRET
@@ -57,15 +66,28 @@ services:
         generateValue: true
       - key: FILE_DOWNLOAD_SECRET
         generateValue: true
-      # Bootstrap API key for the very first authenticated call.
       - key: API_BOOTSTRAP_KEY
         generateValue: true
-      # On-chain settlement (Arc testnet). Set ARC_CHAIN_ID to enable; the rest
-      # default from the bundled chain config. Leave unset to run off-chain.
-      - key: ARC_CHAIN_ID
+      # Hosted checkout -> /v1/onchain-billing (subscriptions). Copied to the checkout.
+      - key: SETTLEKIT_SERVICE_TOKEN
+        generateValue: true
+      # Platform fee: 1%, no fixed fee (DEFAULT_FEE_SCHEDULE). Keep equal to the web's NEXT_PUBLIC_PLATFORM_FEE_*.
+      - key: PLATFORM_FEE_BPS
+        value: "100"
+      - key: PLATFORM_FEE_FIXED
+        value: "0"
+      - key: FILE_DOWNLOAD_BASE_URL
         sync: false
-      # Multi-chain payments: every network fails closed until enabled
-      # (see .env.example and docs/colosseum/MULTICHAIN-PLAN.md).
+      - key: PROOF_EXCLUDED_ORGS
+        sync: false
+      # Arc testnet defaults (override for mainnet / another chain).
+      - key: ARC_CHAIN_ID
+        value: "5042002"
+      - key: ARC_RPC_URL
+        value: "https://rpc.testnet.arc.network"
+      - key: ARC_USDC_ADDRESS
+        value: "0x3600000000000000000000000000000000000000"
+      # Multi-chain payments (fail closed until set; see .env.example).
       - key: SETTLEKIT_CHAIN_ENV
         sync: false
       - key: ENABLED_EVM_CHAINS
@@ -110,6 +132,8 @@ services:
         sync: false
       - key: SOLANA_RPC_URL
         sync: false
+      - key: SOLANA_USDC_MINT
+        sync: false
       - key: ZCASH_ENABLED
         sync: false
       - key: ZCASH_EXPLORER_URL
@@ -120,8 +144,101 @@ services:
         sync: false
       - key: ZCASH_QUOTE_TTL_SEC
         sync: false
-      # Circle integrations — added AFTER the product is live (cred-gated; unset
-      # = each feature is a no-op / clear "not configured" error).
+      - key: HYPERCORE_ENABLED
+        sync: false
+      - key: HYPERCORE_NETWORK
+        sync: false
+      - key: HYPERCORE_API_URL
+        sync: false
+      # Pay with any token (Relay / LI.FI).
+      - key: ROUTING_ENABLED
+        sync: false
+      - key: RELAY_API_KEY
+        sync: false
+      - key: RELAY_API_URL
+        sync: false
+      - key: LIFI_ENABLED
+        sync: false
+      - key: LIFI_API_KEY
+        sync: false
+      - key: LIFI_INTEGRATOR
+        sync: false
+      - key: ROUTE_MAX_FEE_BPS
+        sync: false
+      - key: ROUTE_MAX_SLIPPAGE_BPS
+        sync: false
+      - key: ROUTE_QUOTE_TTL_SEC
+        sync: false
+      - key: ROUTE_ORIGIN_ALLOWLIST
+        sync: false
+      - key: ROUTE_APP_FEE_BPS
+        sync: false
+      - key: ROUTE_APP_FEE_RECIPIENT
+        sync: false
+      # Agent payments: x402 on every chain + MPP on Tempo.
+      - key: X402_PAY_TO
+        sync: false
+      - key: X402_EVM_PAY_TO
+        sync: false
+      - key: X402_SOLANA_PAY_TO
+        sync: false
+      - key: X402_NETWORKS
+        sync: false
+      - key: X402_REMOTE_FACILITATOR_URL
+        sync: false
+      - key: X402_REMOTE_FACILITATOR_API_KEY
+        sync: false
+      - key: X402_RESEARCH_PRICE
+        sync: false
+      - key: X402_RELAYER_PRIVATE_KEY
+        sync: false
+      - key: X402_FACILITATOR_NETWORKS
+        sync: false
+      - key: X402_FACILITATOR_MAX_AMOUNT
+        sync: false
+      - key: X402_FACILITATOR_ALLOWED_PAY_TO
+        sync: false
+      - key: X402_FACILITATOR_KILL
+        sync: false
+      - key: X402_FACILITATOR_TOKEN
+        sync: false
+      - key: X402_FACILITATOR_ALLOW_EXPERIMENTAL
+        sync: false
+      - key: X402_GAS_MAX_FEE_ETHEREUM
+        sync: false
+      - key: X402_GAS_DAILY_BUDGET_ETHEREUM
+        sync: false
+      - key: MPP_SECRET_KEY
+        sync: false
+      - key: MPP_TEMPO_RECIPIENT
+        sync: false
+      # Onchain billing: subscriptions, Base escrow, operator refunds.
+      - key: ONCHAIN_BILLING_OPERATOR_PRIVATE_KEY
+        sync: false
+      - key: ONCHAIN_BILLING_SOLANA_SECRET
+        sync: false
+      - key: ONCHAIN_BILLING_NETWORKS
+        sync: false
+      - key: ONCHAIN_BILLING_ESCROW
+        sync: false
+      - key: ONCHAIN_BILLING_CHECKOUT_URL
+        sync: false
+      - key: HYPERCORE_REFUND_PRIVATE_KEY
+        sync: false
+      # Delivery integrations (unset = pending setup / no-op).
+      - key: GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_APP_PRIVATE_KEY
+        sync: false
+      - key: GITHUB_APP_INSTALLATION_ID
+        sync: false
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      # Circle integrations (optional).
       - key: CIRCLE_API_KEY
         sync: false
       - key: CIRCLE_WALLETS_API_KEY
@@ -136,28 +253,45 @@ services:
         sync: false
 
   # ---- Background worker (Docker) -------------------------------------------
+  # Render background workers have no free plan; starter is the cheapest.
   - type: worker
     name: settlekit-worker
     runtime: docker
     dockerfilePath: ./apps/worker/Dockerfile
     dockerContext: .
-    plan: free
+    plan: starter
     envVars:
       - key: NODE_ENV
-        value: production
+        value: "production"
       - key: DATABASE_URL
         fromDatabase:
           name: settlekit-db
           property: connectionString
+      # Shared with the API.
       - key: WEBHOOK_SIGNING_SECRET
         fromService:
           name: settlekit-api
           type: web
           envVarKey: WEBHOOK_SIGNING_SECRET
-      - key: ARC_CHAIN_ID
+      - key: LICENSE_TOKEN_SECRET
+        fromService:
+          name: settlekit-api
+          type: web
+          envVarKey: LICENSE_TOKEN_SECRET
+      - key: FILE_DELIVERY_SECRET
+        fromService:
+          name: settlekit-api
+          type: web
+          envVarKey: FILE_DOWNLOAD_SECRET
+      - key: FILE_DELIVERY_BASE_URL
         sync: false
-      # Multi-chain payments: every network fails closed until enabled
-      # (see .env.example and docs/colosseum/MULTICHAIN-PLAN.md).
+      - key: ARC_CHAIN_ID
+        value: "5042002"
+      - key: ARC_RPC_URL
+        value: "https://rpc.testnet.arc.network"
+      - key: ARC_USDC_ADDRESS
+        value: "0x3600000000000000000000000000000000000000"
+      # Multi-chain payments (same values as the API).
       - key: SETTLEKIT_CHAIN_ENV
         sync: false
       - key: ENABLED_EVM_CHAINS
@@ -202,6 +336,8 @@ services:
         sync: false
       - key: SOLANA_RPC_URL
         sync: false
+      - key: SOLANA_USDC_MINT
+        sync: false
       - key: ZCASH_ENABLED
         sync: false
       - key: ZCASH_EXPLORER_URL
@@ -212,142 +348,251 @@ services:
         sync: false
       - key: ZCASH_QUOTE_TTL_SEC
         sync: false
-      - key: WORKER_ZCASH_WATCH_INTERVAL_MS
+      - key: HYPERCORE_ENABLED
         sync: false
+      - key: HYPERCORE_NETWORK
+        sync: false
+      - key: HYPERCORE_API_URL
+        sync: false
+      # Route watching (same values as the API).
+      - key: ROUTING_ENABLED
+        sync: false
+      - key: RELAY_API_KEY
+        sync: false
+      - key: RELAY_API_URL
+        sync: false
+      - key: LIFI_ENABLED
+        sync: false
+      - key: LIFI_API_KEY
+        sync: false
+      - key: LIFI_INTEGRATOR
+        sync: false
+      - key: ROUTE_MAX_FEE_BPS
+        sync: false
+      - key: ROUTE_MAX_SLIPPAGE_BPS
+        sync: false
+      - key: ROUTE_QUOTE_TTL_SEC
+        sync: false
+      - key: ROUTE_ORIGIN_ALLOWLIST
+        sync: false
+      - key: ROUTE_APP_FEE_BPS
+        sync: false
+      - key: ROUTE_APP_FEE_RECIPIENT
+        sync: false
+      # Onchain billing (same values as the API) - the worker charges every renewal.
+      - key: ONCHAIN_BILLING_OPERATOR_PRIVATE_KEY
+        sync: false
+      - key: ONCHAIN_BILLING_SOLANA_SECRET
+        sync: false
+      - key: ONCHAIN_BILLING_NETWORKS
+        sync: false
+      - key: ONCHAIN_BILLING_ESCROW
+        sync: false
+      - key: ONCHAIN_BILLING_CHECKOUT_URL
+        sync: false
+      - key: HYPERCORE_REFUND_PRIVATE_KEY
+        sync: false
+      # Delivery + email (optional: unset = pending setup, emails skipped).
+      - key: GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_APP_PRIVATE_KEY
+        sync: false
+      - key: GITHUB_APP_INSTALLATION_ID
+        sync: false
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false
+      - key: EMAIL_FROM
+        sync: false
+      # Payout reconcile (optional).
       - key: CIRCLE_WALLETS_API_KEY
         sync: false
       - key: CIRCLE_WALLETS_WALLET_ID
         sync: false
 
-  # ---- Marketing site (Next.js, Node runtime) -------------------------------
+  # ---- Checkout (buyers: pay, subscribe, manage) ------------------------------
   - type: web
-    name: settlekit-web
+    name: settlekit-checkout
     runtime: node
     plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/web... build
-    # `next start` must bind Render's injected $PORT, else "No open ports detected".
-    startCommand: pnpm --filter @settlekit/web exec next start -p $PORT
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --filter settlekit --filter "@settlekit/checkout-app..." && pnpm --filter "@settlekit/checkout-app..." build
+    # `next start` must bind Render's injected $PORT.
+    startCommand: pnpm --filter @settlekit/checkout-app exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
         value: "22"
-      - key: NEXT_PUBLIC_DASHBOARD_URL
+      - key: NODE_ENV
+        value: "production"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: settlekit-db
+          property: connectionString
+      - key: CHECKOUT_PUBLIC_URL
         sync: false
-      - key: NEXT_PUBLIC_MARKETPLACE_URL
+      - key: SETTLEKIT_API_URL
         sync: false
-      - key: NEXT_PUBLIC_DOCS_URL
+      - key: NEXT_PUBLIC_API_URL
+        sync: false
+      # Subscriptions: same token as the API; the checkout calls /v1/onchain-billing server-side.
+      - key: SETTLEKIT_SERVICE_TOKEN
+        fromService:
+          name: settlekit-api
+          type: web
+          envVarKey: SETTLEKIT_SERVICE_TOKEN
+      - key: CHECKOUT_MANAGE_SECRET
+        generateValue: true
+      - key: CHECKOUT_DELIVERY_SECRET
+        generateValue: true
+      - key: CHECKOUT_DOWNLOAD_BASE
+        sync: false
+      - key: ARC_CHAIN_ID
+        value: "5042002"
+      - key: ARC_RPC_URL
+        value: "https://rpc.testnet.arc.network"
+      - key: ARC_USDC_ADDRESS
+        value: "0x3600000000000000000000000000000000000000"
+      # Multi-chain payments (same values as the API).
+      - key: SETTLEKIT_CHAIN_ENV
+        sync: false
+      - key: ENABLED_EVM_CHAINS
+        sync: false
+      - key: ETHEREUM_RPC_URL
+        sync: false
+      - key: ETHEREUM_NETWORK
+        sync: false
+      - key: ETHEREUM_MIN_CONFIRMATIONS
+        sync: false
+      - key: BASE_RPC_URL
+        sync: false
+      - key: BASE_NETWORK
+        sync: false
+      - key: BASE_MIN_CONFIRMATIONS
+        sync: false
+      - key: ARBITRUM_RPC_URL
+        sync: false
+      - key: ARBITRUM_NETWORK
+        sync: false
+      - key: ARBITRUM_MIN_CONFIRMATIONS
+        sync: false
+      - key: ROBINHOOD_RPC_URL
+        sync: false
+      - key: ROBINHOOD_NETWORK
+        sync: false
+      - key: ROBINHOOD_MIN_CONFIRMATIONS
+        sync: false
+      - key: HYPEREVM_RPC_URL
+        sync: false
+      - key: HYPEREVM_NETWORK
+        sync: false
+      - key: HYPEREVM_MIN_CONFIRMATIONS
+        sync: false
+      - key: TEMPO_RPC_URL
+        sync: false
+      - key: TEMPO_NETWORK
+        sync: false
+      - key: TEMPO_MIN_CONFIRMATIONS
+        sync: false
+      - key: SOLANA_CLUSTER
+        sync: false
+      - key: SOLANA_RPC_URL
+        sync: false
+      - key: SOLANA_USDC_MINT
+        sync: false
+      - key: ZCASH_ENABLED
+        sync: false
+      - key: ZCASH_EXPLORER_URL
+        sync: false
+      - key: BLOCKCHAIR_API_KEY
+        sync: false
+      - key: ZCASH_MIN_CONFIRMATIONS
+        sync: false
+      - key: ZCASH_QUOTE_TTL_SEC
+        sync: false
+      - key: HYPERCORE_ENABLED
+        sync: false
+      - key: HYPERCORE_NETWORK
+        sync: false
+      - key: HYPERCORE_API_URL
+        sync: false
+      # Pay with any token.
+      - key: ROUTING_ENABLED
+        sync: false
+      - key: RELAY_API_KEY
+        sync: false
+      - key: RELAY_API_URL
+        sync: false
+      - key: LIFI_ENABLED
+        sync: false
+      - key: LIFI_API_KEY
+        sync: false
+      - key: LIFI_INTEGRATOR
+        sync: false
+      - key: ROUTE_MAX_FEE_BPS
+        sync: false
+      - key: ROUTE_MAX_SLIPPAGE_BPS
+        sync: false
+      - key: ROUTE_QUOTE_TTL_SEC
+        sync: false
+      - key: ROUTE_ORIGIN_ALLOWLIST
+        sync: false
+      - key: ROUTE_APP_FEE_BPS
+        sync: false
+      - key: ROUTE_APP_FEE_RECIPIENT
+        sync: false
+      # Delivery: GitHub App, Discord bot + OAuth app (Connect Discord).
+      - key: GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_APP_PRIVATE_KEY
+        sync: false
+      - key: GITHUB_APP_INSTALLATION_ID
+        sync: false
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: DISCORD_CLIENT_ID
+        sync: false
+      - key: DISCORD_CLIENT_SECRET
         sync: false
 
-  # ---- Merchant dashboard ---------------------------------------------------
+  # ---- Merchant dashboard -----------------------------------------------------
   - type: web
     name: settlekit-dashboard
     runtime: node
     plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/dashboard... build
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --filter settlekit --filter "@settlekit/dashboard..." && pnpm --filter "@settlekit/dashboard..." build
+    # `next start` must bind Render's injected $PORT.
     startCommand: pnpm --filter @settlekit/dashboard exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
         value: "22"
       - key: NEXT_PUBLIC_API_URL
         sync: false
+      - key: NEXT_PUBLIC_CHECKOUT_URL
+        sync: false
+      - key: NEXT_PUBLIC_DISCORD_CLIENT_ID
+        sync: false
 
-  # ---- Public marketplace ---------------------------------------------------
+  # ---- Marketing site + integration docs --------------------------------------
   - type: web
-    name: settlekit-marketplace
+    name: settlekit-web
     runtime: node
     plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/marketplace-app... build
-    startCommand: pnpm --filter @settlekit/marketplace-app exec next start -p $PORT
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --filter settlekit --filter "@settlekit/web..." && pnpm --filter "@settlekit/web..." build
+    # `next start` must bind Render's injected $PORT.
+    startCommand: pnpm --filter @settlekit/web exec next start -p $PORT
     envVars:
       - key: NODE_VERSION
         value: "22"
       - key: NEXT_PUBLIC_API_URL
         sync: false
-
-  # ---- Checkout (customer-facing payment pages) -----------------------------
-  - type: web
-    name: settlekit-checkout
-    runtime: node
-    plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/checkout-app... build
-    startCommand: pnpm --filter @settlekit/checkout-app exec next start -p $PORT
-    envVars:
-      - key: NODE_VERSION
-        value: "22"
-      - key: NEXT_PUBLIC_API_URL
+      - key: NEXT_PUBLIC_CHECKOUT_URL
         sync: false
-
-  # ---- Docs site ------------------------------------------------------------
-  - type: web
-    name: settlekit-docs
-    runtime: node
-    plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/docs-app... build
-    startCommand: pnpm --filter @settlekit/docs-app exec next start -p $PORT
-    envVars:
-      - key: NODE_VERSION
-        value: "22"
-
-  # ---- Buyer portal ---------------------------------------------------------
-  - type: web
-    name: settlekit-portal
-    runtime: node
-    plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/portal... build
-    startCommand: pnpm --filter @settlekit/portal exec next start -p $PORT
-    envVars:
-      - key: NODE_VERSION
-        value: "22"
-      - key: NEXT_PUBLIC_API_URL
+      - key: NEXT_PUBLIC_DASHBOARD_URL
         sync: false
-
-  # ---- Admin / risk console -------------------------------------------------
-  - type: web
-    name: settlekit-admin
-    runtime: node
-    plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/admin... build
-    startCommand: pnpm --filter @settlekit/admin exec next start -p $PORT
-    envVars:
-      - key: NODE_VERSION
-        value: "22"
-      - key: NEXT_PUBLIC_API_URL
+      - key: NEXT_PUBLIC_DOCS_URL
         sync: false
-
-  # ---- Agent console --------------------------------------------------------
-  - type: web
-    name: settlekit-agent-console
-    runtime: node
-    plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/agent-console... build
-    startCommand: pnpm --filter @settlekit/agent-console exec next start -p $PORT
-    envVars:
-      - key: NODE_VERSION
-        value: "22"
-      - key: NEXT_PUBLIC_API_URL
-        sync: false
-
-  # ---- Creator dashboard ----------------------------------------------------
-  - type: web
-    name: settlekit-creator-dashboard
-    runtime: node
-    plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/creator-dashboard... build
-    startCommand: pnpm --filter @settlekit/creator-dashboard exec next start -p $PORT
-    envVars:
-      - key: NODE_VERSION
-        value: "22"
-      - key: NEXT_PUBLIC_API_URL
-        sync: false
-
-  # ---- Stream meter ---------------------------------------------------------
-  - type: web
-    name: settlekit-stream-meter
-    runtime: node
-    plan: free
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @settlekit/stream-meter... build
-    startCommand: pnpm --filter @settlekit/stream-meter exec next start -p $PORT
-    envVars:
-      - key: NODE_VERSION
-        value: "22"
-      - key: NEXT_PUBLIC_API_URL
-        sync: false
+      # Mirrors the API's platform fee (1%, no fixed fee).
+      - key: NEXT_PUBLIC_PLATFORM_FEE_BPS
+        value: "100"
+      - key: NEXT_PUBLIC_PLATFORM_FEE_FIXED
+        value: "0"

@@ -7,8 +7,18 @@
  * graceful drain so in-flight delivery/sync ticks complete before exit.
  */
 
-import { OctokitGitHubApi } from "@settlekit/github";
+import { OctokitGitHubApi, type GitHubApi } from "@settlekit/github";
+import type { EmailTransport } from "@settlekit/notifications";
 import { createDiscordClient, type DiscordApi } from "@settlekit/discord";
+
+/** An API whose every method rejects with `reason` (integration not configured). */
+function unconfigured<T extends object>(reason: string): T {
+  return new Proxy({} as T, {
+    get: () => async () => {
+      throw new Error(reason);
+    },
+  });
+}
 
 function unconfiguredDiscordApi(): DiscordApi {
   const fail = async (): Promise<never> => {
@@ -36,12 +46,23 @@ async function main(): Promise<void> {
     throw error;
   }
 
-  // Real GitHub App transport, authenticated as the configured installation.
-  const githubApi = OctokitGitHubApi.fromAppCredentials({
-    appId: config.github.appId,
-    privateKey: config.github.privateKey,
-    installationId: config.github.installationId,
-  });
+  // Real GitHub App transport, authenticated as the configured installation;
+  // without GITHUB_APP_PRIVATE_KEY every GitHub call reports "not configured".
+  const githubApi: GitHubApi = config.github.privateKey
+    ? OctokitGitHubApi.fromAppCredentials({
+        appId: config.github.appId,
+        privateKey: config.github.privateKey,
+        installationId: config.github.installationId,
+      })
+    : unconfigured<GitHubApi>("GitHub App is not configured (GITHUB_APP_PRIVATE_KEY)");
+
+  // Resend transport; without RESEND_API_KEY every send fails with a clear reason (jobs log and continue).
+  const emailTransport: EmailTransport | undefined = config.email.apiKey
+    ? undefined
+    : { send: async () => { throw new Error("Email is not configured (RESEND_API_KEY)"); } };
+  if (!config.email.apiKey) logger.warn("RESEND_API_KEY is not set: buyer emails are skipped", {});
+  if (!config.github.privateKey) logger.warn("GITHUB_APP_PRIVATE_KEY is not set: GitHub deliveries stay pending", {});
+  if (!config.discord.configured) logger.warn("DISCORD_BOT_TOKEN is not set: Discord roles stay pending", {});
 
   // Real fetch-backed Discord bot transport; without a bot token every call
   // fails with "pending setup" and Discord entitlements stay pending until set.
@@ -73,11 +94,20 @@ async function main(): Promise<void> {
     env: process.env,
     stores,
     db,
-    email: createEmailClient({ from: config.email.from, apiKey: config.email.apiKey }),
+    email: createEmailClient({ from: config.email.from, ...(emailTransport ? { transport: emailTransport } : { apiKey: config.email.apiKey }) }),
     logger,
   });
 
-  const runtime = buildRuntime({ config, githubApi, discordApi, logger, db, stores, onchainBilling });
+  const runtime = buildRuntime({
+    config,
+    githubApi,
+    discordApi,
+    logger,
+    db,
+    stores,
+    onchainBilling,
+    ...(emailTransport ? { emailTransport } : {}),
+  });
 
   const shutdown = runtime.scheduler.installSignalHandlers();
   runtime.scheduler.start();

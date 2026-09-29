@@ -2,19 +2,19 @@
 # Multi-stage build for the SettleKit API (@settlekit/api).
 # Build context is the monorepo root: `docker build -f apps/api/Dockerfile .`
 
-# ---- Base: Node 20 + pnpm via Corepack -------------------------------------
+# ---- Base: Node 22 + pnpm via Corepack -------------------------------------
 FROM node:22-alpine AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable
 WORKDIR /app
 
-# ---- Dependencies: install the full workspace (frozen) ---------------------
+# ---- Dependencies: install only the api and its workspace deps (frozen) ----
 FROM base AS deps
 COPY package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json ./
 COPY packages ./packages
 COPY apps ./apps
-RUN pnpm install --frozen-lockfile
+RUN pnpm install --frozen-lockfile --filter settlekit --filter "@settlekit/api..."
 
 # ---- Build: compile package deps + the api via tsc project references ------
 FROM deps AS build
@@ -44,4 +44,6 @@ COPY --from=prod-deps /app/apps/api/node_modules ./apps/api/node_modules
 
 WORKDIR /app/apps/api
 EXPOSE 8787
-CMD ["node", "dist/server.js"]
+# Apply pending migrations (idempotent), then serve. Render's preDeployCommand
+# is paid-plan only, so the free API migrates on boot.
+CMD ["sh", "-c", "if [ -n \"$DATABASE_URL\" ]; then node /app/packages/database/dist/cli.js; fi && exec node dist/server.js"]

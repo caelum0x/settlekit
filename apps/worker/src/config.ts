@@ -353,12 +353,14 @@ export function loadConfig(env: Env = process.env): WorkerConfig {
     solana: loadSolana(env),
     ...loadChains(env),
     email: {
-      apiKey: requireString(env, "RESEND_API_KEY"),
+      // Optional: without it, buyer emails (receipts, renewal links, dunning) are skipped and logged.
+      apiKey: (env.RESEND_API_KEY ?? "").trim(),
       from: optionalString(env, "EMAIL_FROM", "SettleKit <receipts@settlekit.dev>"),
     },
     github: {
       appId: intInRange(env, "GITHUB_APP_ID", 1, 1, 2_147_483_647),
-      privateKey: requireString(env, "GITHUB_APP_PRIVATE_KEY"),
+      // Optional: without the GitHub App, GitHub deliveries stay "pending setup".
+      privateKey: (env.GITHUB_APP_PRIVATE_KEY ?? "").replace(/\\n/g, "\n").trim(),
       // GITHUB_APP_INSTALLATION_ID is the name the checkout app reads.
       installationId: intInRange(
         { ...env, GITHUB_INSTALLATION_ID: env.GITHUB_INSTALLATION_ID ?? env.GITHUB_APP_INSTALLATION_ID },
@@ -367,9 +369,9 @@ export function loadConfig(env: Env = process.env): WorkerConfig {
         1,
         2_147_483_647,
       ),
-      installationConfigured: Boolean(
-        (env.GITHUB_INSTALLATION_ID ?? env.GITHUB_APP_INSTALLATION_ID ?? "").trim(),
-      ),
+      installationConfigured:
+        Boolean((env.GITHUB_INSTALLATION_ID ?? env.GITHUB_APP_INSTALLATION_ID ?? "").trim()) &&
+        Boolean((env.GITHUB_APP_PRIVATE_KEY ?? "").trim()),
     },
     discord: {
       botToken: (env.DISCORD_BOT_TOKEN ?? "").trim(),
