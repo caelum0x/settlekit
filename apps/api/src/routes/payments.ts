@@ -46,9 +46,8 @@ const confirmSchema = z.object({
 
 const EVM_TX_HASH_RE = /^0x[a-fA-F0-9]{64}$/;
 const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
-/** Base58 (no 0/O/I/l): Solana signatures are 64 bytes, addresses 32. */
-const SOLANA_SIGNATURE_RE = /^[1-9A-HJ-NP-Za-km-z]{64,88}$/;
-const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+/** Supported settlement networks (EVM only); anything else is unsupported. */
+const NETWORKS = ["arc", "base", "ethereum"] as const;
 
 const observeSchema = z
   .object({
@@ -59,7 +58,11 @@ const observeSchema = z
     to: z.string().min(1),
     amount: z.string().regex(/^\d+(\.\d+)?$/, "must be a decimal amount"),
     asset: z.enum(["USDC", "EURC", "USYC"]).default("USDC"),
-    network: z.enum(["solana", "arc", "base", "ethereum"]).default("arc"),
+    network: z
+      .enum(NETWORKS, {
+        errorMap: () => ({ message: `unsupported network; expected one of ${NETWORKS.join(", ")}` }),
+      })
+      .default("arc"),
     /** Sender, if the indexer decoded it; screened when present. */
     from: z.string().optional(),
     /** Optional customer attribution; defaults to a synthetic direct-payment id. */
@@ -67,11 +70,9 @@ const observeSchema = z
     confirmations: z.number().int().nonnegative().default(0),
   })
   .superRefine((body, ctx) => {
-    // Hash/address formats depend on the chain: base58 on Solana, 0x on EVM.
-    const solana = body.network === "solana";
-    const txRe = solana ? SOLANA_SIGNATURE_RE : EVM_TX_HASH_RE;
-    const addrRe = solana ? SOLANA_ADDRESS_RE : EVM_ADDRESS_RE;
-    const kind = solana ? "a base58 Solana" : "a 0x";
+    const txRe = EVM_TX_HASH_RE;
+    const addrRe = EVM_ADDRESS_RE;
+    const kind = "a 0x";
     if (!txRe.test(body.txHash)) {
       ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["txHash"], message: `must be ${kind} tx hash` });
     }
@@ -136,8 +137,8 @@ export function paymentRoutes(): Hono<AppEnv> {
     if (!session) throw conflict("checkout session vanished", { id: payment.checkoutSessionId });
 
     // Verify the transfer ON-CHAIN before confirming, on EVERY network: the tx
-    // must have moved at least the invoiced USDC to the session's payTo (and,
-    // on Solana, carry the session's reference). No verifier for the network
+    // must have moved at least the invoiced USDC to the session's payTo. No
+    // verifier for the network
     // means the payment cannot be confirmed (fail closed), and a tx hash can
     // back only one payment, so one transfer never settles two sessions.
     const txHash = normalizeTxHash(payment.network, body.txHash);
@@ -149,7 +150,6 @@ export function paymentRoutes(): Hono<AppEnv> {
       asset: session.amount.currency,
       payTo: session.payToAddress,
       resource: `checkout_session:${session.id}`,
-      ...(session.paymentReference !== undefined ? { reference: session.paymentReference } : {}),
     });
 
     const confirmed = confirmPayment(

@@ -20,7 +20,7 @@
     "dev": "node --import tsx/esm src/server.ts",
     "start": "node dist/server.js",
     "typecheck": "tsc -b",
-    "test": "vitest run"
+    "test": "vitest run --root ../.. apps/api/"
   },
   "dependencies": {
     "@hono/node-server": "^1.13.7",

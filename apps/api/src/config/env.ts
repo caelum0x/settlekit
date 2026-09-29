@@ -12,12 +12,6 @@
  */
 
 import { getArcChain, isArcAddress, type ArcAddress } from "@settlekit/arc";
-import {
-  getSolanaCluster,
-  isSolanaAddress,
-  parseSolanaCluster,
-  type SolanaCluster,
-} from "@settlekit/solana";
 
 /** Raised when an environment group is partially set or a value is malformed. */
 export class ConfigError extends Error {
@@ -53,13 +47,6 @@ export interface BaseConfig {
   usdcAddress: ArcAddress;
   chainId: number;
   minConfirmations: number;
-}
-
-/** Solana USDC verification reader, enabled by SOLANA_CLUSTER. */
-export interface SolanaConfig {
-  cluster: SolanaCluster;
-  rpcUrl: string;
-  usdcMint: string;
 }
 
 /** Circle REST client configuration. */
@@ -164,7 +151,6 @@ export interface ApiConfig {
   database: DatabaseConfig | null;
   arc: ArcConfig | null;
   base: BaseConfig | null;
-  solana: SolanaConfig | null;
   circle: CircleConfig | null;
   circleWallets: CircleWalletsConfig | null;
   gasStation: GasStationConfig | null;
@@ -179,7 +165,6 @@ export interface ApiConfig {
   hasDatabase: boolean;
   hasArc: boolean;
   hasBase: boolean;
-  hasSolana: boolean;
   hasCircle: boolean;
   hasCircleWallets: boolean;
   hasGasStation: boolean;
@@ -300,30 +285,6 @@ function loadBase(env: Env): BaseConfig | null {
     chainId: BASE_CHAIN_ID,
     minConfirmations: intInRange(env, "BASE_MIN_CONFIRMATIONS", 3, 1, 1_000),
   };
-}
-
-function loadSolana(env: Env): SolanaConfig | null {
-  // Enabled by SOLANA_CLUSTER (mainnet | mainnet-beta | devnet). The RPC URL
-  // and USDC mint default from the cluster; override them for a dedicated RPC
-  // (e.g. Helius). Setting an override without a cluster is a misconfiguration.
-  const clusterRaw = optionalRaw(env, "SOLANA_CLUSTER");
-  if (clusterRaw === undefined) {
-    const stray = presentKeys(env, ["SOLANA_RPC_URL", "SOLANA_USDC_MINT"]);
-    if (stray.length > 0) {
-      throw new ConfigError(`Incomplete solana configuration: set [SOLANA_CLUSTER] or unset [${stray.join(", ")}]`);
-    }
-    return null;
-  }
-  const cluster = parseSolanaCluster(clusterRaw);
-  if (cluster === undefined) {
-    throw new ConfigError(`Environment variable SOLANA_CLUSTER must be mainnet or devnet, got "${clusterRaw}"`);
-  }
-  const known = getSolanaCluster(cluster);
-  const usdcMint = optionalRaw(env, "SOLANA_USDC_MINT") ?? known.usdcMint;
-  if (!isSolanaAddress(usdcMint)) {
-    throw new ConfigError("Environment variable SOLANA_USDC_MINT must be a base58 Solana address");
-  }
-  return { cluster, rpcUrl: optionalRaw(env, "SOLANA_RPC_URL") ?? known.rpcUrl, usdcMint };
 }
 
 function loadCircle(env: Env): CircleConfig | null {
@@ -502,7 +463,6 @@ export function loadConfig(env: Env = process.env): ApiConfig {
   const database = loadDatabase(env);
   const arc = loadArc(env);
   const base = loadBase(env);
-  const solana = loadSolana(env);
   const circle = loadCircle(env);
   const circleWallets = loadCircleWallets(env);
   const gasStation = loadGasStation(env);
@@ -532,7 +492,6 @@ export function loadConfig(env: Env = process.env): ApiConfig {
     database,
     arc,
     base,
-    solana,
     circle,
     circleWallets,
     gasStation,
@@ -546,7 +505,6 @@ export function loadConfig(env: Env = process.env): ApiConfig {
     hasDatabase: database !== null,
     hasArc: arc !== null,
     hasBase: base !== null,
-    hasSolana: solana !== null,
     hasCircle: circle !== null,
     hasCircleWallets: circleWallets !== null,
     hasGasStation: gasStation !== null,

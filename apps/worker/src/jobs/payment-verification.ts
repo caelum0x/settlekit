@@ -2,15 +2,13 @@
  * Per-network on-chain verification for the payment-confirm job.
  *
  * Every check is made against the payment's CHECKOUT SESSION — the merchant
- * payTo address (and, on Solana, the session's Solana Pay reference) — never
- * against a token contract or anything the payer supplied. Networks the worker
+ * payTo address — never against a token contract or anything the payer supplied. Networks the worker
  * cannot verify (no reader configured) are reported as `unsupported` and the
  * payment stays pending: the worker fails closed.
  */
 
-import { toBaseUnits, type CheckoutSession, type Payment } from "@settlekit/common";
+import type { CheckoutSession, Payment } from "@settlekit/common";
 import type { Hex } from "@settlekit/arc";
-import { isSolanaSignature, verifySplTransfer } from "@settlekit/solana";
 import type { JobContext } from "./types.js";
 
 export type PaymentVerification =
@@ -44,27 +42,6 @@ async function verifyArc(
   return { status: "confirmed", confirmations: result.confirmations, minConfirmations };
 }
 
-async function verifySolana(
-  ctx: JobContext,
-  payment: Payment,
-  txHash: string,
-  session: CheckoutSession,
-): Promise<PaymentVerification> {
-  if (!ctx.solana) return { status: "unsupported", reason: "Solana verification not configured (SOLANA_CLUSTER)" };
-  if (!isSolanaSignature(txHash)) return { status: "pending", reason: "tx hash is not a Solana signature" };
-  const result = await verifySplTransfer(ctx.solana.rpc, {
-    signature: txHash,
-    mint: ctx.solana.usdcMint,
-    recipientOwner: session.payToAddress,
-    minAmount: toBaseUnits(payment.amount.amount),
-    ...(session.paymentReference !== undefined ? { reference: session.paymentReference } : {}),
-    commitment: "confirmed",
-  });
-  if (!result.ok) return { status: "pending", reason: result.message };
-  // "confirmed" commitment = supermajority-voted; Solana has no depth count.
-  return { status: "confirmed", confirmations: 1, minConfirmations: 1 };
-}
-
 /** Verify `payment` (carrying `txHash`) against its checkout `session`. */
 export async function verifyPaymentOnChain(
   ctx: JobContext,
@@ -78,10 +55,11 @@ export async function verifyPaymentOnChain(
   switch (payment.network) {
     case "arc":
       return verifyArc(ctx, payment, txHash, session);
-    case "solana":
-      return verifySolana(ctx, payment, txHash, session);
     case "base":
     case "ethereum":
       return { status: "unsupported", reason: `no ${payment.network} verifier in the worker` };
+    default:
+      // Unknown networks (e.g. legacy "solana" rows) are never verifiable here.
+      return { status: "unsupported", reason: `unsupported network "${String(payment.network)}"` };
   }
 }

@@ -29,32 +29,10 @@ describe("loadConfig production fail-closed guard", () => {
 });
 
 describe("loadConfig chain verifiers", () => {
-  it("leaves solana and base unset by default", () => {
-    const cfg = loadConfig({});
-    expect(cfg.solana).toBeNull();
-    expect(cfg.base).toBeNull();
-    expect(cfg.hasSolana).toBe(false);
-  });
-
-  it("derives the RPC URL and USDC mint from SOLANA_CLUSTER", () => {
+  it("leaves base unset by default and has no solana group", () => {
     const cfg = loadConfig({ SOLANA_CLUSTER: "devnet" });
-    expect(cfg.solana).toEqual({
-      cluster: "devnet",
-      rpcUrl: "https://api.devnet.solana.com",
-      usdcMint: "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU",
-    });
-    const mainnet = loadConfig({ SOLANA_CLUSTER: "mainnet-beta", SOLANA_RPC_URL: "https://rpc.example.com" });
-    expect(mainnet.solana).toMatchObject({
-      cluster: "mainnet",
-      rpcUrl: "https://rpc.example.com",
-      usdcMint: "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",
-    });
-  });
-
-  it("rejects partial or malformed solana configuration", () => {
-    expect(() => loadConfig({ SOLANA_RPC_URL: "https://rpc.example.com" })).toThrow(/SOLANA_CLUSTER/);
-    expect(() => loadConfig({ SOLANA_CLUSTER: "testnet" })).toThrow(/mainnet or devnet/);
-    expect(() => loadConfig({ SOLANA_CLUSTER: "devnet", SOLANA_USDC_MINT: "0xabc" })).toThrow(/base58/);
+    expect(cfg.base).toBeNull();
+    expect("solana" in cfg).toBe(false);
   });
 
   it("enables Base verification with the canonical USDC contract", () => {

@@ -16,8 +16,7 @@
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run",
-    "coverage": "vitest run --coverage",
-    "test:apps": "vitest run --config vitest.apps.config.ts"
+    "coverage": "vitest run --coverage"
   },
   "dependencies": {
     "@anthropic-ai/sdk": "^0.65.0",

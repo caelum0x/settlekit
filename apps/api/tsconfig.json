@@ -9,7 +9,6 @@
   "references": [
     { "path": "../../packages/common" },
     { "path": "../../packages/operator" },
-    { "path": "../../packages/solana" },
     { "path": "../../packages/auth" },
     { "path": "../../packages/database" },
     { "path": "../../packages/persistence" },
@@ -43,6 +42,7 @@
     { "path": "../../packages/disputes" },
     { "path": "../../packages/payouts" },
     { "path": "../../packages/platform-billing" },
+    { "path": "../../packages/circle" },
     { "path": "../../packages/circle-wallets" },
     { "path": "../../packages/compliance" },
     { "path": "../../packages/cctp" },

@@ -43,7 +43,6 @@ import type { ApiKeyStore } from "@settlekit/api-keys";
 import type { GrantStore } from "@settlekit/file-delivery";
 import type { DeliveryClients } from "@settlekit/delivery";
 import type { PaymentVerifier } from "@settlekit/x402";
-import { createKitSolanaRpc, createSolanaPaymentVerifier } from "@settlekit/solana";
 import type { ApiConfig } from "./env.js";
 import {
   createDeliveryClients,
@@ -267,18 +266,9 @@ export function buildIntegrations(
       )
     : null;
 
-  const solanaVerifier = config.solana
-    ? createSolanaPaymentVerifier({
-        rpc: createKitSolanaRpc(config.solana.rpcUrl),
-        mint: config.solana.usdcMint,
-        commitment: "confirmed",
-      })
-    : null;
-
   const verifiers: PaymentVerifiers = {
     ...(arcVerifier ? { arc: arcVerifier } : {}),
     ...(baseVerifier ? { base: baseVerifier } : {}),
-    ...(solanaVerifier ? { solana: solanaVerifier } : {}),
   };
 
   const circle = config.circle

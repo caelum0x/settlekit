@@ -4,9 +4,8 @@
  * For every pending payment that carries an on-chain transaction hash, this job
  * loads the payment's checkout session and verifies the transfer on the
  * payment's own network against the session's payTo address (see
- * ./payment-verification.ts): Arc via the real {@link ArcClient}, Solana via
- * `@settlekit/solana`. Networks the worker cannot verify stay pending (fail
- * closed). Once verified it advances the payment via `@settlekit/payments`
+ * ./payment-verification.ts): Arc via the real {@link ArcClient}. Networks the
+ * worker cannot verify stay pending (fail closed). Once verified it advances the payment via `@settlekit/payments`
  * `confirmPayment` and, if the payment has a queued delivery run, flips that
  * run to runnable so the delivery job picks it up on its next tick.
  */

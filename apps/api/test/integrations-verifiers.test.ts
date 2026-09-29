@@ -15,7 +15,8 @@ describe("buildIntegrations verifier registry", () => {
         SOLANA_CLUSTER: "devnet",
       }),
     );
-    expect(Object.keys(integrations.verifiers).sort()).toEqual(["arc", "base", "solana"]);
+    // Solana is not supported on this build: SOLANA_* env is ignored.
+    expect(Object.keys(integrations.verifiers).sort()).toEqual(["arc", "base"]);
     expect(integrations.verifiers.arc).toBe(integrations.arcVerifier);
   });
 
