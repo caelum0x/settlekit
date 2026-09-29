@@ -13,6 +13,7 @@
  */
 
 import type {
+  CheckoutSession,
   Customer,
   DeliveryPlan,
   DeliveryRun,
@@ -78,6 +79,11 @@ export interface WorkerStore {
   confirmedPayments(): Promise<Payment[]>;
   /** Confirmed payments for one customer. */
   confirmedPaymentsByCustomer(customerId: string): Promise<Payment[]>;
+  /**
+   * The checkout session a payment settles (written by the API/checkout app).
+   * Payment confirmation verifies against its payTo address and reference.
+   */
+  getCheckoutSession(id: string): Promise<CheckoutSession | undefined>;
 
   // --- delivery queue ---------------------------------------------------
   enqueueDelivery(item: QueuedDeliveryRun): Promise<QueuedDeliveryRun>;
@@ -162,6 +168,7 @@ class Table<T extends { id: string }> {
 export class InMemoryWorkerStore implements WorkerStore {
   private readonly deliveryRuns = new Table<QueuedDeliveryRun & { id: string }>();
   private readonly paymentsTable = new Table<Payment>();
+  private readonly checkoutSessionsTable = new Table<CheckoutSession>();
   private readonly subscriptionsTable = new Table<Subscription>();
   private readonly entitlementsTable = new Table<Entitlement>();
   private readonly githubGrantsTable = new Table<GitHubRepoAccessGrant>();
@@ -195,6 +202,13 @@ export class InMemoryWorkerStore implements WorkerStore {
   }
   async confirmedPaymentsByCustomer(customerId: string): Promise<Payment[]> {
     return this.paymentsTable.filter((p) => p.customerId === customerId && p.status === "confirmed");
+  }
+  async getCheckoutSession(id: string): Promise<CheckoutSession | undefined> {
+    return this.checkoutSessionsTable.get(id);
+  }
+  /** Record a checkout session (upstream sync / seeding; the API owns writes in Pg). */
+  async upsertCheckoutSession(session: CheckoutSession): Promise<CheckoutSession> {
+    return this.checkoutSessionsTable.upsert(session);
   }
 
   // --- delivery queue ---

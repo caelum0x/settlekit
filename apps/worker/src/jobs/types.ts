@@ -8,6 +8,7 @@
 
 import type { DeliveryRunner } from "@settlekit/delivery";
 import type { ArcClient } from "@settlekit/arc";
+import type { SolanaRpc } from "@settlekit/solana";
 import type { DeliveryClients } from "@settlekit/delivery";
 import type { GitHubApi } from "@settlekit/github";
 import type { DiscordApi } from "@settlekit/discord";
@@ -33,6 +34,11 @@ export interface JobContext {
   runner: DeliveryRunner;
   clients: DeliveryClients;
   arc: ArcClient;
+  /**
+   * Solana USDC reader for confirming Solana payments; absent when
+   * SOLANA_CLUSTER is unset (Solana payments then stay pending — fail closed).
+   */
+  solana?: { rpc: SolanaRpc; usdcMint: string };
   /**
    * Real transactional-email client (Resend-backed in prod, in-memory transport
    * in tests). Used directly by the customer-communication jobs that render and

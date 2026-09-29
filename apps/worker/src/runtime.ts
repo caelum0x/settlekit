@@ -9,6 +9,7 @@
  */
 
 import { createArcClient, type ArcClient, type ArcRpc } from "@settlekit/arc";
+import { createKitSolanaRpc, type SolanaRpc } from "@settlekit/solana";
 import { createDefaultRegistry, DeliveryRunner } from "@settlekit/delivery";
 import type { GitHubApi } from "@settlekit/github";
 import type { DiscordApi } from "@settlekit/discord";
@@ -66,6 +67,8 @@ export interface RuntimeDeps {
   stores?: WorkerStore;
   /** Override the Arc RPC transport (tests inject canned receipts). */
   arcRpc?: ArcRpc;
+  /** Override the Solana RPC transport (tests inject canned transactions). */
+  solanaRpc?: SolanaRpc;
   /** Override the email transport (tests inject an in-memory transport). */
   emailTransport?: EmailTransport;
   /** Override the outbound webhook HTTP sender (tests inject an in-memory one). */
@@ -118,6 +121,14 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     },
     deps.arcRpc,
   );
+
+  // Solana payment verification, only when a cluster is configured.
+  const solana = deps.config.solana
+    ? {
+        rpc: deps.solanaRpc ?? createKitSolanaRpc(deps.config.solana.rpcUrl),
+        usdcMint: deps.config.solana.usdcMint,
+      }
+    : undefined;
 
   const clients = createDeliveryClients({
     config: deps.config,
@@ -211,6 +222,7 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     runner,
     clients,
     arc,
+    ...(solana !== undefined ? { solana } : {}),
     email,
     githubApi: deps.githubApi,
     discordApi: deps.discordApi,

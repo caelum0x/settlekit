@@ -8,6 +8,12 @@
  */
 
 import { isArcAddress, type ArcAddress } from "@settlekit/arc";
+import {
+  getSolanaCluster,
+  isSolanaAddress,
+  parseSolanaCluster,
+  type SolanaCluster,
+} from "@settlekit/solana";
 
 /** A single recurring job's cadence, in milliseconds. */
 export interface JobIntervals {
@@ -48,6 +54,16 @@ export interface ArcConfig {
   chainId: number;
   /** Confirmations required before a payment is treated as settled. */
   minConfirmations: number;
+}
+
+/**
+ * Solana USDC reader for confirming Solana payments. Optional: enabled by
+ * SOLANA_CLUSTER; without it Solana payments stay pending (fail closed).
+ */
+export interface SolanaWorkerConfig {
+  cluster: SolanaCluster;
+  rpcUrl: string;
+  usdcMint: string;
 }
 
 /**
@@ -109,6 +125,8 @@ export interface LicenseConfig {
 export interface WorkerConfig {
   intervals: JobIntervals;
   arc: ArcConfig;
+  /** Solana payment verification; null when SOLANA_CLUSTER is unset. */
+  solana: SolanaWorkerConfig | null;
   email: EmailConfig;
   github: GithubConfig;
   discord: DiscordConfig;
@@ -187,6 +205,21 @@ function requireArcAddress(env: Env, key: string): ArcAddress {
   return value;
 }
 
+function loadSolana(env: Env): SolanaWorkerConfig | null {
+  const clusterRaw = env.SOLANA_CLUSTER?.trim();
+  if (clusterRaw === undefined || clusterRaw.length === 0) return null;
+  const cluster = parseSolanaCluster(clusterRaw);
+  if (cluster === undefined) {
+    throw new ConfigError(`Environment variable SOLANA_CLUSTER must be mainnet or devnet, got "${clusterRaw}"`);
+  }
+  const known = getSolanaCluster(cluster);
+  const usdcMint = optionalString(env, "SOLANA_USDC_MINT", known.usdcMint);
+  if (!isSolanaAddress(usdcMint)) {
+    throw new ConfigError("Environment variable SOLANA_USDC_MINT must be a base58 Solana address");
+  }
+  return { cluster, rpcUrl: optionalString(env, "SOLANA_RPC_URL", known.rpcUrl), usdcMint };
+}
+
 /**
  * Build {@link WorkerConfig} from a process environment. Defaults to
  * `process.env` but accepts an explicit env map for tests.
@@ -257,6 +290,7 @@ export function loadConfig(env: Env = process.env): WorkerConfig {
       chainId: intInRange(env, "ARC_CHAIN_ID", 1, 1, 2_147_483_647),
       minConfirmations: intInRange(env, "ARC_MIN_CONFIRMATIONS", 3, 1, 1_000),
     },
+    solana: loadSolana(env),
     email: {
       apiKey: requireString(env, "RESEND_API_KEY"),
       from: optionalString(env, "EMAIL_FROM", "SettleKit <receipts@settlekit.dev>"),
