@@ -1,0 +1,25 @@
+{
+  "chainId": "0x4cef52",
+  "head": "0x3d9ddf9",
+  "receipt": {
+    "transactionHash": "0x7163266386c1bc64126af210d6dc084b1318aa82695318440b907b5ff2ed14e2",
+    "blockNumber": "0x3d9ddf4",
+    "status": "0x1",
+    "from": "0xeb4346229ebe11a66129c13067b88e09882a6daa",
+    "to": "0x5794a8284a29493871fbfa3c4f343d42001424d6",
+    "type": "0x0",
+    "logs": [
+      {
+        "address": "0x3600000000000000000000000000000000000000",
+        "topics": [
+          "0xddf252ad1be2c89b69c2b068fc378daa952ba7f163c4a11628f55a4df523b3ef",
+          "0x000000000000000000000000eb4346229ebe11a66129c13067b88e09882a6daa",
+          "0x0000000000000000000000005794a8284a29493871fbfa3c4f343d42001424d6"
+        ],
+        "data": "0x0000000000000000000000000000000000000000000000000000000000764602",
+        "logIndex": "0x1"
+      }
+    ]
+  },
+  "blockTimestamp": "0x6abbb21b"
+}

@@ -6,8 +6,9 @@
  * anything the buyer supplied beyond the transaction hash itself.
  *
  * FAIL CLOSED: a network without a configured verifier (Arc without RPC,
- * Solana without SOLANA_CLUSTER, Base/Ethereum which the checkout cannot read)
- * always yields `ok: false`.
+ * Solana without SOLANA_CLUSTER, and the other EVM chains and Zcash, which the
+ * API and worker verify but this checkout does not read yet) always yields
+ * `ok: false`.
  */
 import { money, toBaseUnits, type CheckoutSession } from "@settlekit/common";
 import { isSolanaSignature, verifySplTransfer } from "@settlekit/solana";
@@ -70,6 +71,11 @@ export async function verifySessionPayment(
       });
     case "base":
     case "ethereum":
+    case "arbitrum":
+    case "robinhood":
+    case "hyperevm":
+    case "tempo":
+    case "zcash":
       return failed(`On-chain verification for ${session.network} is not available on this checkout.`);
   }
 }

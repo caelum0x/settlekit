@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "SettleKit background worker — delivery execution, payment confirmation, access sync, renewal sweeps, and webhook retries (plan §17).",
+  "description": "SettleKit background worker \u2014 delivery execution, payment confirmation, access sync, renewal sweeps, and webhook retries (plan \u00a717).",
   "main": "./dist/index.js",
   "bin": {
     "settlekit-worker": "./dist/index.js"
@@ -20,6 +20,7 @@
     "@settlekit/app-kit": "workspace:*",
     "@settlekit/app-kit-viem": "workspace:*",
     "@settlekit/arc": "workspace:*",
+    "@settlekit/chains": "workspace:*",
     "@settlekit/circle-wallets": "workspace:*",
     "@settlekit/citation-toll": "workspace:*",
     "@settlekit/common": "workspace:*",
@@ -36,10 +37,11 @@
     "@settlekit/persistence": "workspace:*",
     "@settlekit/saas": "workspace:*",
     "@settlekit/settlement-core": "workspace:*",
+    "@settlekit/solana": "workspace:*",
     "@settlekit/streaming": "workspace:*",
     "@settlekit/webhooks": "workspace:*",
-    "viem": "^2.21.0",
-    "@settlekit/solana": "workspace:*"
+    "@settlekit/zcash": "workspace:*",
+    "viem": "^2.21.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
