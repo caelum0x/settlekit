@@ -16,7 +16,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@settlekit/common": "workspace:*"
+    "@settlekit/common": "workspace:*",
+    "@x402/core": "~2.27.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

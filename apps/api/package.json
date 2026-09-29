@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "description": "SettleKit REST API \u2014 Hono on Node. Mounts real route modules per resource under /v1 backed by the @settlekit domain packages and their in-memory repositories.",
+  "description": "SettleKit REST API — Hono on Node. Mounts real route modules per resource under /v1 backed by the @settlekit domain packages and their in-memory repositories.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -72,8 +72,16 @@
     "@settlekit/x402": "workspace:*",
     "@settlekit/x402-client": "workspace:*",
     "@settlekit/zcash": "workspace:*",
-    "hono": "^4.6.14",
-    "zod": "^3.24.1"
+    "hono": "^4.12.25",
+    "zod": "^3.24.1",
+    "@settlekit/x402-facilitator": "workspace:*",
+    "@x402/core": "~2.27.0",
+    "@x402/evm": "~2.27.0",
+    "@x402/svm": "~2.27.0",
+    "@x402/hono": "~2.27.0",
+    "@solana/kit": "5.5.1",
+    "mppx": "^0.11.0",
+    "viem": "^2.54.0"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

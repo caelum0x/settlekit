@@ -1,7 +1,8 @@
 {
-  "name": "@settlekit/x402-client",
+  "name": "@settlekit/x402-facilitator",
   "version": "0.0.0",
   "type": "module",
+  "description": "Self-hosted x402 facilitator for networks public facilitators do not list (Ethereum, HyperEVM, Robinhood Chain; Tempo Permit2 experimental). Wraps the x402-foundation exact EVM scheme with SettleKit policy guards.",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
   "exports": {
@@ -17,15 +18,8 @@
   },
   "dependencies": {
     "@settlekit/chains": "workspace:*",
-    "@settlekit/common": "workspace:*",
-    "@settlekit/x402": "workspace:*",
-    "@settlekit/circle-wallets": "workspace:*",
-    "@settlekit/settlement-core": "workspace:*",
     "@x402/core": "~2.27.0",
     "@x402/evm": "~2.27.0",
-    "@x402/fetch": "~2.27.0",
-    "@x402/svm": "~2.27.0",
-    "@solana/kit": "5.5.1",
     "viem": "^2.54.0"
   },
   "devDependencies": {
