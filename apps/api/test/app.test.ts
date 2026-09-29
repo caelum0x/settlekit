@@ -11,12 +11,22 @@ import { describe, it, expect, beforeEach } from "vitest";
 import type { Hono } from "hono";
 import { createApp } from "../src/app.js";
 import { createContext, type AppEnv } from "../src/context.js";
+import type { PaymentVerifier } from "@settlekit/x402";
 
 const BOOTSTRAP = "test-bootstrap-key";
 
+/**
+ * Stand-in for the Base chain: payment confirmation now fails closed without
+ * an on-chain verifier, so these flow tests register one that accepts any
+ * proof whose network matches the challenged session.
+ */
+const baseChainDouble: PaymentVerifier = async (proof, requirements) =>
+  proof.network === requirements.network ? { ok: true } : { ok: false, reason: "network mismatch" };
+
 async function authedApp(): Promise<Hono<AppEnv>> {
   process.env.API_BOOTSTRAP_KEY = BOOTSTRAP;
-  return createApp(await createContext());
+  const ctx = await createContext();
+  return createApp({ ...ctx, verifiers: { ...ctx.verifiers, base: baseChainDouble } });
 }
 
 interface Json {

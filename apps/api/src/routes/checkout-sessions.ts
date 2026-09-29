@@ -17,12 +17,13 @@ import {
   expireSession,
   type PricedLineItem,
 } from "@settlekit/payments";
+import { createReference, isSolanaAddress } from "@settlekit/solana";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { requireOrg } from "../http/tenant.js";
 
-const NETWORKS = ["arc", "base", "ethereum"] as const;
+const NETWORKS = ["solana", "arc", "base", "ethereum"] as const;
 
 const lineItemSchema = z.object({
   priceId: z.string().min(1),
@@ -31,19 +32,31 @@ const lineItemSchema = z.object({
   quantity: z.number().int().positive().default(1),
 });
 
-const createSchema = z.object({
-  // Derived from the authenticated org (tenant scope); ignored if supplied.
-  organizationId: z.string().min(1).optional(),
-  merchantId: z.string().min(1),
-  customerId: z.string().optional(),
-  items: z.array(lineItemSchema).min(1),
-  payToAddress: z.string().min(1),
-  network: z.enum(NETWORKS),
-  successUrl: z.string().url().optional(),
-  cancelUrl: z.string().url().optional(),
-  collectedFields: z.record(z.string()).optional(),
-  ttlDays: z.number().int().positive().optional(),
-});
+const createSchema = z
+  .object({
+    // Derived from the authenticated org (tenant scope); ignored if supplied.
+    organizationId: z.string().min(1).optional(),
+    merchantId: z.string().min(1),
+    customerId: z.string().optional(),
+    items: z.array(lineItemSchema).min(1),
+    payToAddress: z.string().min(1),
+    network: z.enum(NETWORKS),
+    successUrl: z.string().url().optional(),
+    cancelUrl: z.string().url().optional(),
+    collectedFields: z.record(z.string()).optional(),
+    ttlDays: z.number().int().positive().optional(),
+  })
+  .superRefine((body, ctx) => {
+    // A Solana session must pay a real base58 wallet: USDC sent to a malformed
+    // address is unrecoverable, and verification matches the owner exactly.
+    if (body.network === "solana" && !isSolanaAddress(body.payToAddress)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["payToAddress"],
+        message: "must be a base58 Solana wallet address for network solana",
+      });
+    }
+  });
 
 const collectSchema = z.object({
   fields: z.record(z.string()),
@@ -75,7 +88,7 @@ export function checkoutRoutes(): Hono<AppEnv> {
       }),
     );
 
-    const session = createCheckoutSession({
+    const draft = createCheckoutSession({
       organizationId: requireOrg(c),
       merchantId: body.merchantId,
       ...(body.customerId !== undefined ? { customerId: body.customerId } : {}),
@@ -87,6 +100,10 @@ export function checkoutRoutes(): Hono<AppEnv> {
       ...(body.collectedFields !== undefined ? { collectedFields: body.collectedFields } : {}),
       ...(body.ttlDays !== undefined ? { ttlDays: body.ttlDays } : {}),
     });
+    // Solana sessions get a fresh Solana Pay reference; the paying transaction
+    // must include it, binding the on-chain transfer to this session.
+    const session =
+      body.network === "solana" ? { ...draft, paymentReference: createReference() } : draft;
 
     const saved = await ctx.checkouts.save(session);
     return created(c, saved);

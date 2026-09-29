@@ -24,6 +24,8 @@ export function circleChainForNetwork(network: string, defaultChain: string): st
       return "BASE";
     case "ethereum":
       return "ETH";
+    case "solana":
+      return "SOL";
     default:
       // Arc (and anything else Circle does not list) screens against the
       // configured default chain — sanctions hits are address-, not chain-, scoped.
