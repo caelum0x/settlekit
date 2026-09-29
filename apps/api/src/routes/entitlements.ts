@@ -8,10 +8,11 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
 import { z } from "zod";
-import { notFound } from "@settlekit/common";
+import { notFound, type Entitlement } from "@settlekit/common";
 import type { AppEnv } from "../context.js";
 import { data } from "../http/respond.js";
 import { parseBody, validate } from "../http/validate.js";
+import { requireOwned, scopeToOrg } from "../http/tenant.js";
 
 const verifySchema = z
   .object({
@@ -46,7 +47,7 @@ export function entitlementRoutes(): Hono<AppEnv> {
       activeOnly,
       ...(productId !== undefined ? { productId } : {}),
     });
-    return data(c, list);
+    return data(c, scopeToOrg(c, list));
   });
 
   // Verify access (feature / credits / product).
@@ -69,20 +70,24 @@ export function entitlementRoutes(): Hono<AppEnv> {
   });
 
   app.get("/:id", async (c) => {
-    const ent = await c.get("ctx").entitlementRepo.findById(c.req.param("id"));
-    if (!ent) throw notFound("entitlement not found", { id: c.req.param("id") });
-    return data(c, ent);
+    return data(c, await ownedEntitlement(c, c.req.param("id")));
   });
 
   // Revoke an entitlement.
   app.post("/:id/revoke", async (c) => {
     const ctx = c.get("ctx");
+    const entitlement = await ownedEntitlement(c, c.req.param("id"));
     const body = validate(revokeSchema, await safeJson(c));
-    const revoked = await ctx.entitlements.revoke(c.req.param("id"), body.reason);
+    const revoked = await ctx.entitlements.revoke(entitlement.id, body.reason);
     return data(c, revoked);
   });
 
   return app;
+}
+
+/** Load an entitlement by id, requiring it belongs to the caller's org (else 404). */
+async function ownedEntitlement(c: Context<AppEnv>, id: string): Promise<Entitlement> {
+  return requireOwned(c, await c.get("ctx").entitlementRepo.findById(id), "entitlement", id);
 }
 
 /** Read a JSON body that may be empty, returning `{}` when absent. */
@@ -93,3 +98,4 @@ async function safeJson(c: Context<AppEnv>): Promise<unknown> {
     return {};
   }
 }
+

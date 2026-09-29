@@ -65,6 +65,8 @@ export interface CheckoutSessionView {
   settlementQuote: SettlementQuote | null;
   /** Wallet bound as the payer, if declared. */
   payerAddress: string | null;
+  /** Whether "pay with any token" (route providers) is offered for this network. */
+  anyToken: { available: boolean; reason?: string };
 }
 
 /** A delivered entitlement / access surfaced on the success page. */

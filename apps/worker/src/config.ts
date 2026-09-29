@@ -15,6 +15,8 @@ import {
   type EvmChainsConfig,
   type ZcashConfig,
 } from "@settlekit/chains";
+import { loadHyperCoreConfig, type HyperCoreConfig } from "@settlekit/hyperliquid";
+import { loadRoutingConfig, type RoutingConfig } from "@settlekit/routing";
 import {
   getSolanaCluster,
   isSolanaAddress,
@@ -46,6 +48,8 @@ export interface JobIntervals {
   payoutReconcileMs: number;
   /** How often open Zcash sessions' addresses are checked for payments. */
   zcashWatchMs: number;
+  /** How often in-flight any-token routes are polled and their fills verified. */
+  routeWatchMs: number;
   /** How often pending GitHub entitlements from checkout are re-delivered. */
   githubDeliveryRetryMs: number;
   /** How often due onchain subscription periods are charged. */
@@ -154,6 +158,10 @@ export interface WorkerConfig {
   evm: EvmChainsConfig;
   /** Transparent Zcash verification + watching; null unless ZCASH_ENABLED. */
   zcash: ZcashConfig | null;
+  /** HyperCore (Hyperliquid L1) USDC verification; null unless HYPERCORE_ENABLED. */
+  hypercore: HyperCoreConfig | null;
+  /** Any-token route watching (Relay / LI.FI); null unless ROUTING_ENABLED. */
+  routing: RoutingConfig | null;
   email: EmailConfig;
   github: GithubConfig;
   discord: DiscordConfig;
@@ -232,9 +240,19 @@ function requireArcAddress(env: Env, key: string): ArcAddress {
   return value;
 }
 
-function loadChains(env: Env): { evm: EvmChainsConfig; zcash: ZcashConfig | null } {
+function loadChains(env: Env): {
+  evm: EvmChainsConfig;
+  zcash: ZcashConfig | null;
+  hypercore: HyperCoreConfig | null;
+  routing: RoutingConfig | null;
+} {
   try {
-    return { evm: loadEvmChains(env), zcash: loadZcashConfig(env) };
+    return {
+      evm: loadEvmChains(env),
+      zcash: loadZcashConfig(env),
+      hypercore: loadHyperCoreConfig(env),
+      routing: loadRoutingConfig(env),
+    };
   } catch (error) {
     if (error instanceof ChainConfigError) throw new ConfigError(error.message);
     throw error;
@@ -283,6 +301,7 @@ export function loadConfig(env: Env = process.env): WorkerConfig {
     accessEmailMs: intInRange(env, "WORKER_ACCESS_EMAIL_INTERVAL_MS", 60_000, 1_000, 86_400_000),
     payoutReconcileMs: intInRange(env, "WORKER_PAYOUT_RECONCILE_INTERVAL_MS", 60_000, 1_000, 86_400_000),
     zcashWatchMs: intInRange(env, "WORKER_ZCASH_WATCH_INTERVAL_MS", 90_000, 30_000, 3_600_000),
+    routeWatchMs: intInRange(env, "WORKER_ROUTE_WATCH_INTERVAL_MS", 20_000, 5_000, 3_600_000),
     githubDeliveryRetryMs: intInRange(env, "WORKER_GITHUB_RETRY_INTERVAL_MS", 120_000, 10_000, 86_400_000),
     subscriptionChargeMs: intInRange(env, "WORKER_SUBSCRIPTION_CHARGE_INTERVAL_MS", 300_000, 10_000, 86_400_000),
   };

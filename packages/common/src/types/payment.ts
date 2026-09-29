@@ -3,7 +3,8 @@ import type { Money } from "../money.js";
 /**
  * Every network a buyer can settle on. EVM networks settle a 6-decimal
  * stablecoin (see @settlekit/chains for the per-chain token); Solana settles
- * USDC; Zcash settles ZEC to a transparent address at a locked USD quote.
+ * USDC; HyperCore settles perps-account USDC through Hyperliquid `usdSend`;
+ * Zcash settles ZEC to a transparent address at a locked USD quote.
  */
 export type PaymentNetwork =
   | "solana"
@@ -13,6 +14,7 @@ export type PaymentNetwork =
   | "arbitrum"
   | "robinhood"
   | "hyperevm"
+  | "hypercore"
   | "tempo"
   | "zcash";
 
@@ -25,6 +27,7 @@ export const PAYMENT_NETWORKS: readonly PaymentNetwork[] = [
   "arbitrum",
   "robinhood",
   "hyperevm",
+  "hypercore",
   "tempo",
   "zcash",
 ];
@@ -52,6 +55,51 @@ export interface SettlementQuote {
   lockedAt: string;
   /** ISO timestamp after which the quote no longer binds. */
   expiresAt: string;
+}
+
+/** Route provider that moved a buyer's funds from another chain/token. */
+export type RouteProviderName = "relay" | "lifi";
+
+/**
+ * Lifecycle of an any-token route. `success` only means the PROVIDER reports
+ * a fill; the session is paid only once the destination transfer passes the
+ * fail-closed verifier for the session's network.
+ */
+export type RouteState = "quoted" | "waiting" | "pending" | "success" | "refund" | "failure";
+
+/**
+ * An any-token payment route (pay with any token on any chain; the merchant
+ * receives the session's stablecoin on the session's network). Stored for UX,
+ * status polling and refunds only — never trusted for fulfilment.
+ */
+export interface CheckoutRoute {
+  provider: RouteProviderName;
+  /** Provider request id (Relay requestId / LI.FI quote id). */
+  requestId: string;
+  /** Destination network the route was quoted for. */
+  network: PaymentNetwork;
+  /** Provider chain id + token the buyer pays with. */
+  originChainId: number;
+  originToken: string;
+  /** Origin amount in origin-token base units (quoted). */
+  originAmount: string;
+  /** Buyer's origin wallet (also the refund address). */
+  originAddress: string;
+  /** Origin transaction reported by the buyer's wallet (LI.FI status needs it). */
+  originTxHash?: string;
+  /** Relay deposit-address mode: where the buyer sends funds. */
+  depositAddress?: string;
+  /** ISO time the quote was taken and when it stops binding. */
+  quotedAt: string;
+  expiresAt: string;
+  state: RouteState;
+  /** Destination fill reported by the provider (still verified on-chain). */
+  destinationTxHash?: string;
+  /** Refund transaction(s) on the origin chain, when the route refunded. */
+  refundTxHash?: string;
+  /** Provider failure detail, for support. */
+  detail?: string;
+  updatedAt?: string;
 }
 
 export type CheckoutSessionStatus = "open" | "completed" | "expired" | "canceled";
@@ -86,10 +134,25 @@ export interface CheckoutSession {
    * must originate from it (payer binding).
    */
   payerAddress?: string;
+  /**
+   * HyperCore: the usdSend this checkout submitted (signer + signed action
+   * time/nonce), persisted at submit so status polls match exactly that
+   * action; `hash` once the ledger entry was found (later polls look it up
+   * by hash).
+   */
+  hypercoreSubmission?: { sender: string; nonce: number; hash?: string };
   /** Networks the buyer may choose between (defaults to `[network]`). */
   acceptedNetworks?: PaymentNetwork[];
   /** Per-network payTo override; `payToAddress` applies to `network`. */
   payToByNetwork?: Partial<Record<PaymentNetwork, string>>;
+  /**
+   * Tempo: a direct payment must be a TIP-20 `transferWithMemo` carrying
+   * keccak256(session id). Set when the merchant requires it or the buyer
+   * pays through the checkout wallet flow (which always sends the memo).
+   */
+  requireMemo?: boolean;
+  /** Any-token route in progress (see {@link CheckoutRoute}). */
+  route?: CheckoutRoute;
   successUrl?: string;
   cancelUrl?: string;
   /** ISO timestamp after which the session can no longer be paid. */

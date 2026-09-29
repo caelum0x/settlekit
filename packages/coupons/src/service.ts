@@ -33,6 +33,8 @@ import type { CouponStore } from "./store.js";
 /** Fields accepted when creating a coupon. */
 export interface CreateCouponInput {
   code: string;
+  /** Owning organization (tenant scope). */
+  organizationId?: string;
   name?: string;
   discount: CouponDiscount;
   currency?: Money["currency"];
@@ -73,6 +75,7 @@ export class CouponService {
     }
     const coupon: Coupon = {
       code,
+      organizationId: input.organizationId ?? null,
       ...(input.name !== undefined ? { name: input.name } : {}),
       discount: input.discount,
       currency,

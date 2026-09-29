@@ -8,6 +8,7 @@ import {
   type Payment,
 } from "@settlekit/common";
 
+import { anyTokenAvailability, getRoutingRuntime, type RoutingRuntimeResult } from "./any-token";
 import { requiredFieldsForDelivery } from "./fields";
 import { formatZecAmount } from "@settlekit/zcash";
 
@@ -46,6 +47,7 @@ function buildLines(resolved: ResolvedSession): OrderLine[] {
 export function buildSessionView(
   resolved: ResolvedSession,
   verify: VerifyDeps = defaultVerifyDeps(),
+  routing: RoutingRuntimeResult = getRoutingRuntime(),
 ): CheckoutSessionView {
   const { session, deliveryAction, merchantName, expired } = resolved;
   const options = buildNetworkOptions(session, verify);
@@ -67,6 +69,7 @@ export function buildSessionView(
     networkOptions: options.filter((option) => option.available),
     settlementQuote: session.settlementQuote ?? null,
     payerAddress: session.payerAddress ?? null,
+    anyToken: anyTokenAvailability(session, verify, routing),
   };
 }
 

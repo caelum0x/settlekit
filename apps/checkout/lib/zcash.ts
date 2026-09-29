@@ -18,8 +18,8 @@
 import { ChainConfigError, loadZcashConfig, type ZcashConfig } from "@settlekit/chains";
 import type { CheckoutSession, SettlementQuote } from "@settlekit/common";
 import {
-  assignTag,
   buildZip321Uri,
+  createInMemoryTagLock,
   createBlockchairExplorer,
   createCoinbaseSource,
   createKrakenSource,
@@ -27,6 +27,7 @@ import {
   lockQuote,
   matchZcashPayment,
   QuoteError,
+  saveWithUniqueTag,
   usdToZats,
   verifyZcashTransparent,
   zcashExplorerTxUrl,
@@ -37,6 +38,7 @@ import {
 } from "@settlekit/zcash";
 
 import type { OnChainVerification } from "./arc";
+import type { CheckoutBackend } from "./backend";
 import { CheckoutError } from "./errors";
 
 type Env = Readonly<Record<string, string | undefined>>;
@@ -115,29 +117,61 @@ export function isQuoteLive(quote: SettlementQuote | undefined, now: Date): quot
   return quote !== undefined && new Date(quote.expiresAt).getTime() > now.getTime();
 }
 
-/**
- * Lock a ZEC quote for `session` paying `payTo`. The tag is unique among the
- * other open sessions (in `openSessions`) paying the same address.
- */
-export async function lockZcashQuote(
-  runtime: ZcashRuntime,
-  session: CheckoutSession,
-  payTo: string,
+/** Tags held by OTHER open sessions with a live quote paying `payTo`. */
+export function takenZcashTags(
   openSessions: readonly CheckoutSession[],
-  now: Date = new Date(),
-): Promise<SettlementQuote> {
-  const taken = new Set(
+  sessionId: string,
+  payTo: string,
+  now: Date,
+): Set<number> {
+  return new Set(
     openSessions
-      .filter((other) => other.id !== session.id && isQuoteLive(other.settlementQuote, now))
+      .filter((other) => other.id !== sessionId && isQuoteLive(other.settlementQuote, now))
       .filter((other) => payToForZcash(other) === payTo)
       .map(zcashTagOf)
       .filter((tag): tag is number => tag !== null),
   );
-  const tag = assignTag(session.id, taken);
+}
+
+/** Fallback lock for backends without one (single process). */
+const inProcessTagLock = createInMemoryTagLock();
+
+/**
+ * Save `session` with `baseQuote` (locked with tag 0) carrying a tag unique
+ * among the open sessions paying `payTo`. Read-pick-save runs under the
+ * backend's per-payTo lock and is re-checked after the save, so concurrent
+ * sessions can never share a tag.
+ */
+export async function saveWithZcashTag(
+  backend: Pick<CheckoutBackend, "checkouts" | "tagLock">,
+  session: CheckoutSession,
+  baseQuote: SettlementQuote,
+  payTo: string,
+  now: Date = new Date(),
+): Promise<CheckoutSession> {
+  return saveWithUniqueTag({
+    lock: backend.tagLock ?? inProcessTagLock,
+    payTo,
+    sessionId: session.id,
+    baseQuote,
+    takenTags: async () => takenZcashTags(await backend.checkouts.findOpen(), session.id, payTo, now),
+    save: (settlementQuote) => backend.checkouts.save({ ...session, settlementQuote }),
+  });
+}
+
+/**
+ * Lock the base ZEC quote (tag 0) for `session`; the per-session tag is added
+ * atomically at save time by {@link saveWithZcashTag}.
+ */
+export async function lockZcashQuote(
+  runtime: ZcashRuntime,
+  session: CheckoutSession,
+  now: Date = new Date(),
+): Promise<SettlementQuote> {
   try {
     return await lockQuote({
       usdAmount: session.amount.amount,
-      tag,
+      tag: 0,
       sources: runtime.priceSources,
       now,
       ttlSec: runtime.config.quoteTtlSec,

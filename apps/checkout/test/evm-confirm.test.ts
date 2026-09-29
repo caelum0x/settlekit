@@ -179,6 +179,30 @@ describe("EVM confirmation", () => {
     expect(payment.status).toBe("confirmed");
   });
 
+  it("requires transferWithMemo on Tempo when the session demands it", async () => {
+    const { tempo, h } = chains();
+    const session = await openSession(h, "tempo", { requireMemo: true });
+    expect((await getEvmPaymentParams(session.id, h.deps)).memoRequired).toBe(true);
+
+    // A plain transfer paying the full amount to payTo is refused...
+    tempo.txs[txHash(21)] = { transfers: [{ amountBase: 25_000_000n }] };
+    const error = await expectCode(recordAndConfirm(session.id, txHash(21), h.deps), "verification_failed");
+    expect(error.message).toMatch(/transferWithMemo/);
+
+    // ...while the same payment with keccak256(sessionId) as memo settles.
+    tempo.txs[txHash(22)] = { transfers: [{ amountBase: 25_000_000n, memo: sessionMemo(session.id) }] };
+    const { payment } = await recordAndConfirm(session.id, txHash(22), h.deps);
+    expect(payment.status).toBe("confirmed");
+  });
+
+  it("accepts a plain Tempo transfer when the memo is not required", async () => {
+    const { tempo, h } = chains();
+    const session = await openSession(h, "tempo");
+    expect((await getEvmPaymentParams(session.id, h.deps)).memoRequired).toBe(false);
+    tempo.txs[txHash(23)] = { transfers: [{ amountBase: 25_000_000n }] };
+    expect((await recordAndConfirm(session.id, txHash(23), h.deps)).payment.status).toBe("confirmed");
+  });
+
   it("settles Robinhood Chain in USDG", async () => {
     const { robinhood, h } = chains();
     const session = await openSession(h, "robinhood");
@@ -243,9 +267,19 @@ describe("EVM wallet parameters", () => {
       declareEvmPayer({ sessionId: session.id, payer: "not-an-address", fields: FIELDS }, h.deps),
       "invalid_request",
     );
-    await expectCode(declareEvmPayer({ sessionId: session.id, payer: BUYER_EVM, fields: {} }, h.deps), "fields_incomplete");
+    // Signature proof itself is covered in evm-payer-binding.test.ts; accept it here.
+    const proof = { signature: "0x00", expiresAt: new Date(Date.now() + 60_000).toISOString() };
+    const trust = { verifySignature: async () => true };
+    await expectCode(
+      declareEvmPayer({ sessionId: session.id, payer: BUYER_EVM, fields: {}, ...proof }, h.deps, trust),
+      "fields_incomplete",
+    );
 
-    const { payerAddress } = await declareEvmPayer({ sessionId: session.id, payer: BUYER_EVM, fields: FIELDS }, h.deps);
+    const { payerAddress } = await declareEvmPayer(
+      { sessionId: session.id, payer: BUYER_EVM, fields: FIELDS, ...proof },
+      h.deps,
+      trust,
+    );
     expect(payerAddress).toBe(getAddress(BUYER_EVM));
     const saved = await h.checkouts.findById(session.id);
     expect(saved).toMatchObject({ payerAddress, collectedFields: FIELDS });

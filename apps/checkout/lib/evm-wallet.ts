@@ -5,7 +5,7 @@
  *
  * Kept free of DOM globals so each step is unit tested with fakes.
  */
-import { encodeFunctionData, type Abi, type Account, type Address, type WalletClient } from "viem";
+import { encodeFunctionData, stringToHex, type Abi, type Account, type Address, type WalletClient } from "viem";
 
 export type Hex = `0x${string}`;
 
@@ -279,4 +279,50 @@ export function buildEip681TransferUri(input: Eip681TransferInput): string {
   }
   if (!Number.isSafeInteger(input.chainId) || input.chainId <= 0) throw new RangeError("invalid chain id");
   return `ethereum:${input.token}@${input.chainId}/transfer?address=${input.payTo}&uint256=${input.amountBase}`;
+}
+
+/** How long a payer-binding signature is valid when the wallet signs it. */
+export const PAYER_BINDING_TTL_MS = 5 * 60_000;
+/** Server-side ceiling on the signed expiry (TTL plus clock-skew slack). */
+export const PAYER_BINDING_MAX_TTL_MS = 10 * 60_000;
+
+export interface PayerBindingFields {
+  sessionId: string;
+  network: string;
+  /** The wallet being bound (checksummed or lowercase 0x address). */
+  payer: string;
+  /** ISO-8601 instant after which the signature is refused. */
+  expiresAt: string;
+}
+
+/**
+ * The EIP-191 (personal_sign) message a buyer signs to prove control of the
+ * wallet it binds as a session's payer. Built identically in the browser and
+ * on the server, so the server verifies exactly what the wallet displayed.
+ */
+export function buildPayerBindingMessage(fields: PayerBindingFields): string {
+  return [
+    "SettleKit checkout: bind this wallet as the payer.",
+    "Only transfers from this wallet will settle the checkout.",
+    "",
+    `Session: ${fields.sessionId}`,
+    `Network: ${fields.network}`,
+    `Payer: ${fields.payer.toLowerCase()}`,
+    `Expires: ${fields.expiresAt}`,
+  ].join("\n");
+}
+
+/** Ask the wallet to personal_sign the payer-binding message. */
+export async function signPayerBinding(
+  provider: Eip1193Provider,
+  fields: Omit<PayerBindingFields, "expiresAt">,
+  now: Date = new Date(),
+): Promise<{ signature: Hex; expiresAt: string }> {
+  const expiresAt = new Date(now.getTime() + PAYER_BINDING_TTL_MS).toISOString();
+  const message = buildPayerBindingMessage({ ...fields, expiresAt });
+  const signature = await provider.request({ method: "personal_sign", params: [stringToHex(message), fields.payer] });
+  if (typeof signature !== "string" || !signature.startsWith("0x")) {
+    throw new Error("The wallet did not return a signature.");
+  }
+  return { signature: signature as Hex, expiresAt };
 }

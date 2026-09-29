@@ -13,7 +13,7 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { conflict, money, notFound, validationError, type Entitlement, type Money } from "@settlekit/common";
+import { conflict, money, validationError, type Entitlement, type Money } from "@settlekit/common";
 import {
   confirmPayment,
   failPayment,
@@ -24,7 +24,7 @@ import { completeSession } from "@settlekit/payments";
 import type { AppEnv, AppContext } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
-import { requireOrg } from "../http/tenant.js";
+import { requireOrg, requireOwned, requireOwnedPayment } from "../http/tenant.js";
 import { screenAddressOrThrow } from "../compliance/screen.js";
 import { checkPayTo, isValidTxHash, txHashFormatHint } from "@settlekit/chains";
 import {
@@ -58,6 +58,7 @@ const OBSERVABLE_NETWORKS = [
   "arbitrum",
   "robinhood",
   "hyperevm",
+  "hypercore",
   "tempo",
 ] as const;
 
@@ -96,8 +97,13 @@ export function paymentRoutes(): Hono<AppEnv> {
   app.post("/", async (c) => {
     const ctx = c.get("ctx");
     const body = await parseBody(c, recordSchema);
-    const session = await ctx.checkouts.findById(body.checkoutSessionId);
-    if (!session) throw notFound("checkout session not found", { id: body.checkoutSessionId });
+    // Tenant-scoped: only the caller's own sessions can be paid against.
+    const session = requireOwned(
+      c,
+      await ctx.checkouts.findById(body.checkoutSessionId),
+      "checkout session",
+      body.checkoutSessionId,
+    );
     if (session.customerId === undefined) {
       throw validationError("checkout session has no customer; set customerId before paying", {
         sessionId: session.id,
@@ -123,18 +129,15 @@ export function paymentRoutes(): Hono<AppEnv> {
     return data(c, await c.get("ctx").payments.listByOrganization(requireOrg(c)));
   });
 
+  // Single-payment routes: owner-only; another org's id answers 404.
   app.get("/:id", async (c) => {
-    const payment = await c.get("ctx").payments.findById(c.req.param("id"));
-    if (!payment) throw notFound("payment not found", { id: c.req.param("id") });
-    return data(c, payment);
+    return data(c, await requireOwnedPayment(c, c.req.param("id")));
   });
 
   // Confirm a payment: completes the session and grants entitlements.
   app.post("/:id/confirm", async (c) => {
     const ctx = c.get("ctx");
-    const id = c.req.param("id");
-    const payment = await ctx.payments.findById(id);
-    if (!payment) throw notFound("payment not found", { id });
+    const payment = await requireOwnedPayment(c, c.req.param("id"));
 
     const body = await parseBody(c, confirmSchema);
 
@@ -173,16 +176,14 @@ export function paymentRoutes(): Hono<AppEnv> {
   // Fail a pending payment.
   app.post("/:id/fail", async (c) => {
     const ctx = c.get("ctx");
-    const payment = await ctx.payments.findById(c.req.param("id"));
-    if (!payment) throw notFound("payment not found", { id: c.req.param("id") });
+    const payment = await requireOwnedPayment(c, c.req.param("id"));
     return data(c, await ctx.payments.save(failPayment(payment)));
   });
 
   // Refund a confirmed payment.
   app.post("/:id/refund", async (c) => {
     const ctx = c.get("ctx");
-    const payment = await ctx.payments.findById(c.req.param("id"));
-    if (!payment) throw notFound("payment not found", { id: c.req.param("id") });
+    const payment = await requireOwnedPayment(c, c.req.param("id"));
     return data(c, await ctx.payments.save(refundPayment(payment)));
   });
 

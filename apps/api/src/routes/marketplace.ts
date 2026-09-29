@@ -11,14 +11,14 @@
  *   POST /v1/marketplace/listings/:id/rate      add a 1–5 star rating
  *   GET  /v1/marketplace/sellers/:merchantId    aggregate seller profile
  */
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { z } from "zod";
-import { notFound } from "@settlekit/common";
+import { notFound, type MarketplaceListing } from "@settlekit/common";
 import type { ListingSort } from "@settlekit/marketplace-core";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
-import { requireOrg } from "../http/tenant.js";
+import { isOwned, requireOrg, requireOwned } from "../http/tenant.js";
 
 const createSchema = z.object({
   // Derived from the authenticated org (tenant scope); ignored if supplied.
@@ -35,6 +35,23 @@ const rateSchema = z.object({
 });
 
 const SORTS: ReadonlyArray<ListingSort> = ["top", "new", "price"];
+
+/** Load a listing the caller may manage (its own org), else 404. */
+async function ownedListing(c: Context<AppEnv>, id: string): Promise<MarketplaceListing> {
+  return requireOwned(c, await c.get("ctx").marketplace.getListing(id), "marketplace listing", id);
+}
+
+/**
+ * Load a listing the caller may SEE: published listings are public discovery
+ * (any tenant), drafts only to their owner. Hidden listings answer 404.
+ */
+async function visibleListing(c: Context<AppEnv>, id: string): Promise<MarketplaceListing> {
+  const listing = await c.get("ctx").marketplace.getListing(id);
+  if (!listing || (!listing.published && !isOwned(c, listing))) {
+    throw notFound("marketplace listing not found", { id });
+  }
+  return listing;
+}
 
 export function marketplaceRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
@@ -68,24 +85,25 @@ export function marketplaceRoutes(): Hono<AppEnv> {
   });
 
   app.get("/listings/:id", async (c) => {
-    const listing = await c.get("ctx").marketplace.getListing(c.req.param("id"));
-    if (!listing) throw notFound("marketplace listing not found", { id: c.req.param("id") });
-    return data(c, listing);
+    return data(c, await visibleListing(c, c.req.param("id")));
   });
 
   app.post("/listings/:id/publish", async (c) => {
-    const listing = await c.get("ctx").marketplace.publish(c.req.param("id"));
+    const { id } = await ownedListing(c, c.req.param("id"));
+    const listing = await c.get("ctx").marketplace.publish(id);
     return data(c, listing);
   });
 
   app.post("/listings/:id/unpublish", async (c) => {
-    const listing = await c.get("ctx").marketplace.unpublish(c.req.param("id"));
+    const { id } = await ownedListing(c, c.req.param("id"));
+    const listing = await c.get("ctx").marketplace.unpublish(id);
     return data(c, listing);
   });
 
   app.post("/listings/:id/rate", async (c) => {
+    const { id } = await visibleListing(c, c.req.param("id"));
     const body = await parseBody(c, rateSchema);
-    const listing = await c.get("ctx").marketplace.addRating(c.req.param("id"), body.stars);
+    const listing = await c.get("ctx").marketplace.addRating(id, body.stars);
     return data(c, listing);
   });
 

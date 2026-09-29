@@ -9,7 +9,8 @@
  *   (e) the block was produced no earlier than `notBefore` (session
  *       creation minus {@link CLOCK_SKEW_MS});
  *   (g) when a payer is bound, the matching transfer comes from it;
- *   (h) Tempo: a memo'd transfer must carry keccak256(sessionId).
+ *   (h) Tempo: a memo'd transfer must carry keccak256(sessionId); with
+ *       `requireMemo` a plain (memo-less) transfer does not count either.
  * (f) global tx-hash uniqueness is enforced by the caller's payment store.
  * Extra transfers (e.g. Tempo's stablecoin fee Transfer from the payer) are
  * ignored: only transfers to `payTo` are considered.
@@ -40,7 +41,8 @@ export type EvmFailureCode =
   | "insufficient_confirmations"
   | "too_old"
   | "payer_mismatch"
-  | "memo_mismatch";
+  | "memo_mismatch"
+  | "memo_missing";
 
 export type EvmVerification =
   | { ok: true; from: Hex; amountBase: bigint; confirmations: number; blockNumber: bigint; blockTime: Date }
@@ -56,6 +58,11 @@ export interface EvmVerifyParams {
   payer?: string;
   /** Session id for the Tempo memo binding. */
   sessionId?: string;
+  /**
+   * Tempo: only a `transferWithMemo` carrying keccak256(sessionId) counts
+   * (plain transfers to payTo are ignored). Requires `sessionId`.
+   */
+  requireMemo?: boolean;
 }
 
 export interface EvmVerifier {
@@ -86,12 +93,21 @@ function pickTransfer(
   spec: EvmChainSpec,
 ): TokenTransfer | EvmVerification {
   const payTo = params.payTo.toLowerCase();
-  const toPayee = transfers.filter((transfer) => transfer.to === payTo);
+  let toPayee = transfers.filter((transfer) => transfer.to === payTo);
   if (toPayee.length === 0) return fail("no_transfer", `no ${spec.token.symbol} transfer to the payTo address`);
+  if (spec.key === "tempo" && params.requireMemo === true && params.sessionId === undefined) {
+    return fail("memo_missing", "a memo is required but no checkout session id was supplied");
+  }
   if (spec.key === "tempo" && params.sessionId !== undefined) {
     const expectedMemo = sessionMemo(params.sessionId);
     if (toPayee.some((transfer) => transfer.memo !== undefined && transfer.memo !== expectedMemo)) {
       return fail("memo_mismatch", "transfer memo does not match this checkout session");
+    }
+    if (params.requireMemo === true) {
+      toPayee = toPayee.filter((transfer) => transfer.memo === expectedMemo);
+      if (toPayee.length === 0) {
+        return fail("memo_missing", "this checkout requires transferWithMemo carrying the session memo");
+      }
     }
   }
   const payer = params.payer?.toLowerCase();

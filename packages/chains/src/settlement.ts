@@ -38,6 +38,8 @@ export interface SettlementRequirements {
   payer?: string;
   /** Checkout session id (Tempo memo binding). */
   sessionId?: string;
+  /** Tempo: only a transferWithMemo carrying keccak256(sessionId) settles. */
+  requireMemo?: boolean;
   /** Locked quote (Zcash). */
   settlementQuote?: SettlementQuote;
 }
@@ -95,6 +97,7 @@ export function createEvmSettlementVerifier(
       ...(notBefore ? { notBefore } : {}),
       ...(requirements.payer ? { payer: requirements.payer } : {}),
       ...(requirements.sessionId ? { sessionId: requirements.sessionId } : {}),
+      ...(requirements.requireMemo === true ? { requireMemo: true } : {}),
     });
     return result.ok
       ? { ok: true, confirmations: result.confirmations }

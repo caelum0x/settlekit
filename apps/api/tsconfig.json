@@ -12,6 +12,7 @@
     { "path": "../../packages/solana" },
     { "path": "../../packages/zcash" },
     { "path": "../../packages/chains" },
+    { "path": "../../packages/hyperliquid" },
     { "path": "../../packages/auth" },
     { "path": "../../packages/database" },
     { "path": "../../packages/persistence" },

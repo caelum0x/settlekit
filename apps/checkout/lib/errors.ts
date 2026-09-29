@@ -18,6 +18,8 @@ export type CheckoutErrorCode =
   | "payment_pending"
   | "payment_under_review"
   | "quote_unavailable"
+  | "provider_unavailable"
+  | "route_rejected"
   | "forbidden_origin";
 
 const STATUS: Readonly<Record<CheckoutErrorCode, number>> = {
@@ -37,6 +39,11 @@ const STATUS: Readonly<Record<CheckoutErrorCode, number>> = {
   // Paid after the quote expired: a human reviews it before access is granted.
   payment_under_review: 409,
   quote_unavailable: 502,
+  // Hyperliquid / a route provider did not answer (nothing was settled).
+  provider_unavailable: 502,
+  // The route quote breaks the checkout's fee/slippage/origin policy, or the
+  // provider refused the request.
+  route_rejected: 422,
   forbidden_origin: 403,
 };
 

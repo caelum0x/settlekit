@@ -3,7 +3,7 @@
 # Build context is the monorepo root: `docker build -f apps/worker/Dockerfile .`
 
 # ---- Base: Node 20 + pnpm via Corepack -------------------------------------
-FROM node:20-alpine AS base
+FROM node:22-alpine AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
 RUN corepack enable

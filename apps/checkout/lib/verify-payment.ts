@@ -6,17 +6,26 @@
  * Solana Pay reference, Tempo memo, locked ZEC quote) — never against
  * anything the buyer supplied beyond the transaction hash itself.
  *
+ * ROUTED FILLS: when the hash is the destination fill an any-token route
+ * provider reported for THIS session (server-stored `session.route
+ * .destinationTxHash`), the solver — not the buyer — sent it, so the payer
+ * and Tempo-memo bindings do not apply; payTo, amount, token, chain and
+ * session time still do. A provider's "success" alone never settles.
+ *
  * FAIL CLOSED: the switch is exhaustive over every PaymentNetwork, and a
  * network without a configured runtime (Solana without SOLANA_CLUSTER, an
- * EVM chain missing from ENABLED_EVM_CHAINS, Zcash without ZCASH_ENABLED)
+ * EVM chain missing from ENABLED_EVM_CHAINS, Zcash without ZCASH_ENABLED,
+ * HyperCore without HYPERCORE_ENABLED)
  * always yields `ok: false`.
  */
 import { money, toBaseUnits, type CheckoutSession, type PaymentNetwork } from "@settlekit/common";
 import type { EvmChainKey, EvmVerification } from "@settlekit/chains";
+import { normalizeTxHash } from "@settlekit/chains";
 import { isSolanaSignature, verifySplTransfer } from "@settlekit/solana";
 
 import type { OnChainVerification, verifyOnChainPayment } from "./arc";
 import type { EvmRuntimeResult } from "./evm";
+import { verifyHyperCorePayment, type HyperCoreRuntimeResult } from "./hypercore";
 import type { SolanaRuntimeResult } from "./solana";
 import { verifyZcashPayment, type ZcashRuntimeResult } from "./zcash";
 
@@ -29,6 +38,18 @@ export interface VerifyDeps {
   evm?: EvmRuntimeResult;
   /** Transparent Zcash runtime (absent = Zcash fails closed). */
   zcash?: ZcashRuntimeResult;
+  /** HyperCore runtime (absent = HyperCore fails closed). */
+  hypercore?: HyperCoreRuntimeResult;
+}
+
+/**
+ * True when `txHash` is the destination fill a route provider reported for
+ * this session's current network (stored server-side, never buyer input).
+ */
+export function isRoutedFill(session: CheckoutSession, txHash: string): boolean {
+  const route = session.route;
+  if (route?.destinationTxHash === undefined || route.network !== session.network) return false;
+  return normalizeTxHash(session.network, route.destinationTxHash) === normalizeTxHash(session.network, txHash);
 }
 
 function failed(reason: string, minConfirmations = 1): OnChainVerification {
@@ -47,6 +68,7 @@ async function verifySolana(
 ): Promise<OnChainVerification> {
   if (!deps.solana.ok) return failed(deps.solana.error);
   if (!isSolanaSignature(signature)) return failed("Malformed Solana transaction signature.");
+  if (isRoutedFill(session, signature)) return verifyRoutedSolanaFill(deps.solana.runtime, session, signature);
   // The reference binds one on-chain transfer to one session; without it any
   // unrelated payment of the same amount to the merchant could be replayed.
   if (session.paymentReference === undefined) {
@@ -64,6 +86,35 @@ async function verifySolana(
   if (!result.ok) return failed(result.message);
   // Solana has no confirmation depth: reaching the configured commitment
   // (supermajority vote or finalization) is the single confirmation.
+  return { ok: true, confirmations: 1, minConfirmations: 1 };
+}
+
+/** Allowed clock skew between the session's creation and a routed fill's block time. */
+export const ROUTED_FILL_SKEW_MS = 120_000;
+
+/**
+ * A route provider's Solana fill carries no Solana Pay reference, so it is
+ * bound by payTo, mint, amount and block time (>= session creation).
+ */
+async function verifyRoutedSolanaFill(
+  runtime: Extract<VerifyDeps["solana"], { ok: true }>["runtime"],
+  session: CheckoutSession,
+  signature: string,
+): Promise<OnChainVerification> {
+  const result = await verifySplTransfer(runtime.rpc, {
+    signature,
+    mint: runtime.config.usdcMint,
+    recipientOwner: payToFor(session, "solana"),
+    minAmount: toBaseUnits(session.amount.amount),
+    commitment: runtime.config.commitment,
+  });
+  if (!result.ok) {
+    return result.reason === "not_found" ? { ...failed(result.message), pending: true } : failed(result.message);
+  }
+  if (result.blockTime === null) return { ...failed("The fill has no block time yet."), pending: true };
+  if (result.blockTime * 1000 < new Date(session.createdAt).getTime() - ROUTED_FILL_SKEW_MS) {
+    return failed("The fill predates this checkout session.");
+  }
   return { ok: true, confirmations: 1, minConfirmations: 1 };
 }
 
@@ -93,13 +144,15 @@ async function verifyEvm(
   if (runtime === undefined || !runtime.ok) return undefined;
   const verifier = runtime.runtime.verifiers[key];
   if (verifier === undefined) return undefined;
+  const routed = isRoutedFill(session, txHash);
   const result = await verifier.verify({
     txHash,
     payTo: payToFor(session, key),
     expectedBase: toBaseUnits(session.amount.amount),
     notBefore: new Date(session.createdAt),
     sessionId: session.id,
-    ...(session.payerAddress ? { payer: session.payerAddress } : {}),
+    ...(session.payerAddress && !routed ? { payer: session.payerAddress } : {}),
+    ...(session.requireMemo === true && !routed ? { requireMemo: true } : {}),
   });
   return fromEvmVerification(result, verifier.minConfirmations);
 }
@@ -140,6 +193,10 @@ export async function verifySessionPayment(
       if (deps.zcash === undefined) return failed("Zcash payments are not enabled on this checkout.");
       if (!deps.zcash.ok) return failed(deps.zcash.error);
       return verifyZcashPayment(deps.zcash.runtime, session, txHash);
+    case "hypercore":
+      if (deps.hypercore === undefined) return failed("HyperCore payments are not enabled on this checkout.");
+      if (!deps.hypercore.ok) return failed(deps.hypercore.error);
+      return verifyHyperCorePayment(deps.hypercore.runtime, session, txHash, { routed: isRoutedFill(session, txHash) });
     default: {
       const unreachable: never = network;
       return failed(`Unsupported network: ${String(unreachable)}`);

@@ -9,13 +9,14 @@
  *   POST      /v1/agent-services/:id/publish
  *   GET       /v1/agent-services/:id/metadata.json  — machine-readable metadata
  */
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
+import type { AgentService } from "@settlekit/common";
 import { z } from "zod";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
-import { requireOrg } from "../http/tenant.js";
+import { requireOrg, requireOwned } from "../http/tenant.js";
 
 const createSchema = z.object({
   // Derived from the authenticated org (tenant scope); ignored if supplied.
@@ -37,6 +38,12 @@ const patchSchema = z.object({
   endpoint: z.string().url().optional(),
   price: z.string().regex(/^\d+(\.\d+)?$/).optional(),
 });
+
+/** Load an agent service by id, requiring it belongs to the caller's org (else 404). */
+async function ownedService(c: Context<AppEnv>, id: string): Promise<AgentService> {
+  const found = await c.get("ctx").agentServices.get(id);
+  return requireOwned(c, found.ok ? found.value : undefined, "agent service", id);
+}
 
 export function agentServiceRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
@@ -67,14 +74,13 @@ export function agentServiceRoutes(): Hono<AppEnv> {
   });
 
   app.get("/:id", async (c) => {
-    const svc = unwrapResult(await c.get("ctx").agentServices.get(c.req.param("id")));
-    return data(c, svc);
+    return data(c, await ownedService(c, c.req.param("id")));
   });
 
   // Patch mutable fields, persisting through the store.
   app.patch("/:id", async (c) => {
     const ctx = c.get("ctx");
-    const current = unwrapResult(await ctx.agentServices.get(c.req.param("id")));
+    const current = await ownedService(c, c.req.param("id"));
     const body = await parseBody(c, patchSchema);
     const updated = {
       ...current,
@@ -87,13 +93,15 @@ export function agentServiceRoutes(): Hono<AppEnv> {
   });
 
   app.post("/:id/publish", async (c) => {
-    const svc = unwrapResult(await c.get("ctx").agentServices.publish(c.req.param("id")));
+    const { id } = await ownedService(c, c.req.param("id"));
+    const svc = unwrapResult(await c.get("ctx").agentServices.publish(id));
     return data(c, svc);
   });
 
   // Machine-readable metadata document (plan §11). Served as raw JSON, not enveloped.
   app.get("/:id/metadata.json", async (c) => {
-    const metadata = unwrapResult(await c.get("ctx").agentServices.metadata(c.req.param("id")));
+    const { id } = await ownedService(c, c.req.param("id"));
+    const metadata = unwrapResult(await c.get("ctx").agentServices.metadata(id));
     return c.json(metadata);
   });
 

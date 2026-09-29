@@ -15,3 +15,4 @@ export * from "./zip321.js";
 export * from "./explorer.js";
 export * from "./verify.js";
 export * from "./find-payment.js";
+export * from "./tag-lock.js";

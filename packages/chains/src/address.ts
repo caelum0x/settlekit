@@ -34,6 +34,10 @@ export interface PayToOptions {
 export function checkPayTo(network: PaymentNetwork, address: string, options: PayToOptions = {}): PayToCheck {
   const value = address.trim();
   switch (networkFamily(network)) {
+    case "hypercore":
+      return isValidEvmAddress(value)
+        ? { ok: true }
+        : { ok: false, reason: "must be a checksummed, non-zero 0x address for network hypercore" };
     case "evm":
       return isValidEvmAddress(value)
         ? { ok: true }

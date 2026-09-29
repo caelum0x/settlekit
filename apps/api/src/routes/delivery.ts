@@ -24,7 +24,7 @@ import type { DeliveryContext as RunnerContext } from "@settlekit/delivery";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
-import { requireOrg } from "../http/tenant.js";
+import { requireOrg, requireOwned } from "../http/tenant.js";
 
 // Zod schema for the discriminated DeliveryAction union (plan §15).
 const actionSchema = z.discriminatedUnion("type", [
@@ -69,16 +69,15 @@ export function deliveryRunRoutes(): Hono<AppEnv> {
   });
 
   app.get("/:id", async (c) => {
-    const run = await c.get("ctx").deliveryRuns.findById(c.req.param("id"));
-    if (!run) throw notFound("delivery run not found", { id: c.req.param("id") });
-    return data(c, run);
+    const id = c.req.param("id");
+    return data(c, requireOwned(c, await c.get("ctx").deliveryRuns.findById(id), "delivery run", id));
   });
 
   // Retry the failed actions of a run by marking them pending again.
   app.post("/:id/retry", async (c) => {
     const ctx = c.get("ctx");
-    const run = await ctx.deliveryRuns.findById(c.req.param("id"));
-    if (!run) throw notFound("delivery run not found", { id: c.req.param("id") });
+    const id = c.req.param("id");
+    const run = requireOwned(c, await ctx.deliveryRuns.findById(id), "delivery run", id);
     const actionRuns: DeliveryActionRun[] = run.actionRuns.map((ar) =>
       ar.status === "failed" ? { ...ar, status: "pending", attempts: ar.attempts } : ar,
     );

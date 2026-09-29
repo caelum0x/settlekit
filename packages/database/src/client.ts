@@ -86,3 +86,17 @@ export async function ping(db: Database): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * Run `fn` while holding a transaction-scoped Postgres advisory lock on
+ * `hashtext(key)`. Serializes critical sections across every API / checkout
+ * instance sharing the database; the lock is released when the wrapping
+ * transaction ends (after `fn` settles). Work inside `fn` may use other
+ * connections: its writes commit before the lock is released.
+ */
+export async function withAdvisoryLock<T>(db: Database, key: string, fn: () => Promise<T>): Promise<T> {
+  return db.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${key}))`);
+    return fn();
+  });
+}

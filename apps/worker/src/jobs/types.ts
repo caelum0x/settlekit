@@ -11,6 +11,8 @@ import type { ArcClient } from "@settlekit/arc";
 import type { SolanaRpc } from "@settlekit/solana";
 import type { EvmChainKey, EvmVerifier } from "@settlekit/chains";
 import type { ZcashExplorer } from "@settlekit/zcash";
+import type { HyperCoreLedgerSource } from "@settlekit/hyperliquid";
+import type { Router } from "@settlekit/routing";
 import type { DeliveryClients } from "@settlekit/delivery";
 import type { GitHubApi } from "@settlekit/github";
 import type { DiscordApi } from "@settlekit/discord";
@@ -49,6 +51,10 @@ export interface JobContext {
   evm: Readonly<Partial<Record<EvmChainKey, EvmVerifier>>>;
   /** Transparent Zcash reader; absent unless ZCASH_ENABLED. */
   zcash?: { explorer: ZcashExplorer; minConfirmations: number };
+  /** HyperCore ledger reader; absent unless HYPERCORE_ENABLED (fail closed). */
+  hypercore?: HyperCoreLedgerSource;
+  /** Any-token route providers; absent unless ROUTING_ENABLED (route-watch no-ops). */
+  router?: Router;
   /**
    * Real transactional-email client (Resend-backed in prod, in-memory transport
    * in tests). Used directly by the customer-communication jobs that render and

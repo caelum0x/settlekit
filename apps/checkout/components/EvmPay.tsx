@@ -13,6 +13,7 @@ import {
   buildTransferCall,
   isUserRejection,
   sendTransfer,
+  signPayerBinding,
   switchOrAddChain,
   walletChainId,
   type Eip6963ProviderDetail,
@@ -102,7 +103,11 @@ export function EvmPay(props: EvmPayProps) {
       try {
         setStage({ kind: "working", step: `Connecting to ${wallet.info.name}…` });
         const account = await requestAccount(wallet);
-        await declareEvmPayer(sessionId, account, fields);
+
+        // Prove control of the wallet before binding it as the payer.
+        setStage({ kind: "working", step: "Sign the payer confirmation in your wallet…" });
+        const proof = await signPayerBinding(wallet.provider, { sessionId, network: params.network, payer: account });
+        await declareEvmPayer(sessionId, { payer: account, ...proof }, fields);
 
         setStage({ kind: "working", step: `Switching to ${params.chainName}…` });
         await switchOrAddChain(wallet.provider, params.addChain);
@@ -158,8 +163,9 @@ export function EvmPay(props: EvmPayProps) {
   }, [confirmingHash, sessionId, fields]);
 
   // Mobile wallets: EIP-681 transfer request as a QR, then paste the hash.
+  // (EIP-681 cannot carry a TIP-20 memo, so no QR when the memo is required.)
   const mobileQr = useMemo(() => {
-    if (params === null) return null;
+    if (params === null || params.memoRequired) return null;
     const uri = buildEip681TransferUri({
       token: params.token.address,
       chainId: params.chainId,
@@ -265,6 +271,13 @@ export function EvmPay(props: EvmPayProps) {
 
       {manual && stage.kind !== "confirming" ? (
         <>
+          {params?.memoRequired ? (
+            <div className="alert alert-info" role="status">
+              This checkout only accepts a Tempo <span className="mono">transferWithMemo</span> carrying memo{" "}
+              <span className="mono">{shortHash(params.memo ?? "")}</span>. Plain transfers are refused; paying with a
+              browser wallet above sends the memo for you.
+            </div>
+          ) : null}
           {mobileQr !== null ? (
             <div className="evm-mobile">
               <div

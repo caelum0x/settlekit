@@ -6,7 +6,7 @@
 import type { NetworkOption } from "./network-options";
 
 export interface NetworkGroup {
-  id: "solana" | "evm" | "zcash";
+  id: "solana" | "evm" | "hypercore" | "zcash";
   label: string;
   options: NetworkOption[];
 }
@@ -14,10 +14,11 @@ export interface NetworkGroup {
 const GROUPS: ReadonlyArray<Pick<NetworkGroup, "id" | "label">> = [
   { id: "solana", label: "Solana" },
   { id: "evm", label: "EVM chains" },
+  { id: "hypercore", label: "Hyperliquid" },
   { id: "zcash", label: "Zcash" },
 ];
 
-/** Group available options for the picker: Solana, EVM chains, Zcash (empty groups dropped). */
+/** Group available options for the picker: Solana, EVM chains, Hyperliquid, Zcash (empty groups dropped). */
 export function groupNetworkOptions(options: readonly NetworkOption[]): NetworkGroup[] {
   return GROUPS.map((group) => ({
     ...group,

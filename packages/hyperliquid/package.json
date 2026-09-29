@@ -1,0 +1,30 @@
+{
+  "name": "@settlekit/hyperliquid",
+  "version": "0.0.0",
+  "type": "module",
+  "description": "HyperCore (Hyperliquid L1) USDC payments: EIP-712 usdSend typed data, submission and fail-closed ledger verification.",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": ["dist"],
+  "scripts": {
+    "build": "tsc -b",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@nktkas/hyperliquid": "^0.33.3",
+    "@settlekit/chains": "workspace:*",
+    "@settlekit/common": "workspace:*",
+    "viem": "^2.21.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  }
+}

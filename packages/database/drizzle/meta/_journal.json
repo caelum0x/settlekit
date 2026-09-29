@@ -78,6 +78,13 @@
       "when": 1782000400000,
       "tag": "0010_onchain_billing",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1782000500000,
+      "tag": "0011_coupons_organization",
+      "breakpoints": true
     }
   ]
 }

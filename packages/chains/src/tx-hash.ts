@@ -1,7 +1,7 @@
 /**
  * Network-aware transaction id rules (browser-safe).
  *
- *   - EVM: 0x + 64 hex, case-insensitive, stored lowercase.
+ *   - EVM and HyperCore: 0x + 64 hex, case-insensitive, stored lowercase.
  *   - Solana: base58 64-byte signature (64-88 chars), case-sensitive, verbatim.
  *   - Zcash: 64 hex without 0x, stored lowercase.
  */
@@ -22,6 +22,7 @@ export function isValidTxHash(network: PaymentNetwork, txHash: string): boolean 
     case "zcash":
       return ZCASH_TXID_RE.test(value);
     case "evm":
+    case "hypercore":
       return EVM_TX_HASH_RE.test(value);
   }
 }
@@ -46,5 +47,7 @@ export function txHashFormatHint(network: PaymentNetwork): string {
       return "a Zcash transaction id (64 hex characters)";
     case "evm":
       return "a transaction hash (0x followed by 64 hex characters)";
+    case "hypercore":
+      return "a HyperCore transaction hash (0x followed by 64 hex characters)";
   }
 }

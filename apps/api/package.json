@@ -49,6 +49,7 @@
     "@settlekit/file-delivery": "workspace:*",
     "@settlekit/gateway": "workspace:*",
     "@settlekit/github": "workspace:*",
+    "@settlekit/hyperliquid": "workspace:*",
     "@settlekit/invoices": "workspace:*",
     "@settlekit/license-keys": "workspace:*",
     "@settlekit/marketplace-core": "workspace:*",

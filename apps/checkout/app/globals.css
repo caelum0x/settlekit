@@ -618,3 +618,27 @@ a.link:hover {
     grid-template-columns: 1fr;
   }
 }
+
+/* Any-token routing */
+.any-token {
+  display: grid;
+  gap: 12px;
+}
+
+.any-token .hint {
+  margin: 0;
+  color: var(--muted, #5b6560);
+  font-size: 14px;
+}
+
+.route-quote {
+  display: grid;
+  gap: 8px;
+}
+
+.checkbox-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 14px;
+}

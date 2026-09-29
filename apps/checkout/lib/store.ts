@@ -49,6 +49,7 @@ import { CheckoutError, isUniqueViolation } from "./errors";
 import { fulfillPayment, type FulfillmentDeps } from "./fulfill";
 import { getGitHubDelivery } from "./github-delivery";
 import { getEvmRuntime } from "./evm";
+import { getHyperCoreRuntime } from "./hypercore";
 import { getSolanaRuntime } from "./solana";
 import { getZcashRuntime } from "./zcash";
 import { isWellFormedTxHash, normalizeTxHash, txHashFormatHint } from "./tx-hash";
@@ -70,6 +71,7 @@ export function defaultVerifyDeps(): VerifyDeps {
     verifyArc: verifyOnChainPayment,
     evm: getEvmRuntime(),
     zcash: getZcashRuntime(),
+    hypercore: getHyperCoreRuntime(),
   };
 }
 
@@ -204,7 +206,15 @@ async function confirmOnce(sessionId: string, rawTxHash: string, deps: StoreDeps
   if (prior && prior.checkoutSessionId !== session.id) {
     throw new CheckoutError("duplicate_tx", "This transaction has already been used to pay another checkout.");
   }
-  if (prior?.status === "confirmed") return { session, payment: prior };
+  if (prior?.status === "confirmed") {
+    // Confirmed elsewhere (the worker's payment-confirm / route-watch jobs):
+    // finish the session and fulfil once, exactly as a checkout-side confirm.
+    if (session.status !== "open") return { session, payment: prior };
+    const completed = completeSession(session);
+    await backend.checkouts.save(completed);
+    await fulfillOnce(deps, completed, prior);
+    return { session: completed, payment: prior };
+  }
   if (session.status !== "open") {
     throw new CheckoutError("session_not_payable", `This checkout session is ${session.status} and cannot be paid.`);
   }

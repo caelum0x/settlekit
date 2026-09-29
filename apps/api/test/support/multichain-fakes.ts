@@ -128,3 +128,25 @@ export function zcashLedger(): ZcashLedger {
     },
   };
 }
+
+export interface HyperCoreLedger {
+  transport: import("@settlekit/hyperliquid").HyperliquidTransport;
+  pay(input: { hash: string; from: string; to: string; usdc: string }): void;
+}
+
+/** A Hyperliquid info transport serving usdSend credits registered by the test. */
+export function hyperCoreLedger(): HyperCoreLedger {
+  const ledger: Array<{ time: number; hash: string; delta: Record<string, unknown> & { type: string } }> = [];
+  return {
+    transport: {
+      isTestnet: false,
+      async request<T>(_endpoint: "info" | "exchange", payload: unknown): Promise<T> {
+        const { user, startTime } = payload as { user: string; startTime: number };
+        return ledger.filter((entry) => entry.time >= startTime && (entry.delta.destination === user || entry.delta.user === user)) as T;
+      },
+    },
+    pay({ hash, from, to, usdc }) {
+      ledger.push({ time: Date.now(), hash, delta: { type: "internalTransfer", usdc, user: from.toLowerCase(), destination: to.toLowerCase(), fee: "0.0" } });
+    },
+  };
+}

@@ -1,0 +1,1 @@
+{"status":"failure","details":"Failed swap","inTxHashes":["3mqmywMzu9BoF24L5LEzm5BwFT7VA3Wq7PQiD4M8treMu4Drr97cCWRiC87LJNdAxRKckqLLVMyzMgivMABBdwpG"],"txHashes":[],"updatedAt":1790691627208,"originChainId":792703809,"destinationChainId":792703809,"quoteCreatedAt":1790691627039,"failReason":"TRANSACTION_REVERTED","refundFailReason":"N/A"}
