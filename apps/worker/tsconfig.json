@@ -7,6 +7,8 @@
     "types": ["node"]
   },
   "references": [
+    { "path": "../../packages/dunning" },
+    { "path": "../../packages/onchain-billing" },
     { "path": "../../packages/common" },
     { "path": "../../packages/solana" },
     { "path": "../../packages/zcash" },

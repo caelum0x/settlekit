@@ -53,7 +53,24 @@ async function main(): Promise<void> {
     logger.info("worker persistence: in-memory", {});
   }
 
-  const runtime = buildRuntime({ config, githubApi, discordApi, logger });
+  // Onchain subscriptions (Permit2 / spend permission / SPL delegate pulls,
+  // renewal invoices): built async, before the scheduler, on the same stores.
+  const { createDb } = await import("@settlekit/database");
+  const { createEmailClient } = await import("@settlekit/notifications");
+  const { buildWorkerOnchainBilling } = await import("./wiring/onchain-billing.js");
+  const { PgWorkerStore } = await import("./db/pg-worker-store.js");
+  const { InMemoryWorkerStore } = await import("./stores.js");
+  const db = config.database ? createDb(config.database.url) : null;
+  const stores = db ? new PgWorkerStore(db) : new InMemoryWorkerStore();
+  const onchainBilling = await buildWorkerOnchainBilling({
+    env: process.env,
+    stores,
+    db,
+    email: createEmailClient({ from: config.email.from, apiKey: config.email.apiKey }),
+    logger,
+  });
+
+  const runtime = buildRuntime({ config, githubApi, discordApi, logger, db, stores, onchainBilling });
 
   const shutdown = runtime.scheduler.installSignalHandlers();
   runtime.scheduler.start();
