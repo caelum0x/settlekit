@@ -20,7 +20,7 @@ import {
   type PaymentNetwork,
   type SettlementQuote,
 } from "@settlekit/common";
-import { parseTxHash, txHashFormatHint, type SettlementVerifier } from "@settlekit/chains";
+import { normalizeTxHash as normalizeFill, parseTxHash, txHashFormatHint, type SettlementVerifier } from "@settlekit/chains";
 import { X402_SCHEME } from "@settlekit/x402";
 import type { AppContext } from "../context.js";
 
@@ -82,6 +82,8 @@ export interface OnChainCheck {
   payer?: string;
   /** Checkout session id (Tempo memo binding). */
   sessionId?: string;
+  /** Tempo: only transferWithMemo carrying keccak256(sessionId) settles. */
+  requireMemo?: boolean;
   /** Locked Zcash quote. */
   settlementQuote?: SettlementQuote;
 }
@@ -91,8 +93,20 @@ export function payToFor(session: CheckoutSession, network: PaymentNetwork): str
   return session.payToByNetwork?.[network] ?? session.payToAddress;
 }
 
+/**
+ * True when `txHash` is the destination fill an any-token route provider
+ * reported for `session` (stored server-side by the checkout): the solver
+ * sent it, so the payer and memo bindings do not apply.
+ */
+export function isRoutedFill(session: CheckoutSession, network: PaymentNetwork, txHash: string): boolean {
+  const fill = session.route?.destinationTxHash;
+  if (fill === undefined || session.route?.network !== network) return false;
+  return normalizeFill(network, fill) === normalizeFill(network, txHash);
+}
+
 /** Build the verification check binding `txHash` to `session` on `network`. */
 export function sessionCheck(session: CheckoutSession, network: PaymentNetwork, txHash: string): OnChainCheck {
+  const routed = isRoutedFill(session, network, txHash);
   return {
     network,
     txHash,
@@ -103,7 +117,8 @@ export function sessionCheck(session: CheckoutSession, network: PaymentNetwork, 
     notBefore: session.createdAt,
     sessionId: session.id,
     ...(session.paymentReference !== undefined ? { reference: session.paymentReference } : {}),
-    ...(session.payerAddress !== undefined ? { payer: session.payerAddress } : {}),
+    ...(session.payerAddress !== undefined && !routed ? { payer: session.payerAddress } : {}),
+    ...(session.requireMemo === true && !routed ? { requireMemo: true } : {}),
     ...(session.settlementQuote !== undefined ? { settlementQuote: session.settlementQuote } : {}),
   };
 }

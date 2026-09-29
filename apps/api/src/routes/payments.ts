@@ -58,6 +58,7 @@ const OBSERVABLE_NETWORKS = [
   "arbitrum",
   "robinhood",
   "hyperevm",
+  "hypercore",
   "tempo",
 ] as const;
 

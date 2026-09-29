@@ -18,7 +18,7 @@ import { createApp } from "../src/app.js";
 import { createContext, type AppEnv } from "../src/context.js";
 import { loadConfig } from "../src/config/env.js";
 import { buildVerifierRegistry } from "../src/config/verifier-registry.js";
-import { evmLedger, solanaLedger, zcashLedger, type EvmLedger } from "./support/multichain-fakes.js";
+import { evmLedger, hyperCoreLedger, solanaLedger, zcashLedger, type EvmLedger } from "./support/multichain-fakes.js";
 
 const BOOTSTRAP = "test-bootstrap-key";
 const EVM_MERCHANT = "0x1111111111111111111111111111111111111111" as Hex;
@@ -35,6 +35,7 @@ const ENABLED_ENV = {
   ENABLED_EVM_CHAINS: EVM_CHAIN_KEYS.join(","),
   SOLANA_CLUSTER: "mainnet",
   ZCASH_ENABLED: "true",
+  HYPERCORE_ENABLED: "true",
 };
 
 interface Json {
@@ -57,7 +58,9 @@ async function harness(env: Record<string, string>): Promise<Harness> {
   }
   const solana = solanaLedger();
   const zcash = zcashLedger();
+  const hypercore = hyperCoreLedger();
   const registry = buildVerifierRegistry(config, {
+    hypercoreTransport: hypercore.transport,
     evmRpcs: Object.fromEntries(Object.entries(evm).map(([key, ledger]) => [key, ledger!.rpc])),
     solanaRpc: solana.rpc,
     fetch: zcash.fetch,
@@ -69,6 +72,8 @@ async function harness(env: Record<string, string>): Promise<Harness> {
     pay(network, session, txHash) {
       if (network === "solana") {
         solana.pay({ signature: txHash, payer: SOL_BUYER, merchant: SOL_MERCHANT, reference: session.paymentReference, amountBase: 25_000_000n });
+      } else if (network === "hypercore") {
+        hypercore.pay({ hash: txHash, from: EVM_BUYER, to: EVM_MERCHANT, usdc: "25.0" });
       } else if (network === "zcash") {
         zcash.pay({ txid: txHash, payTo: ZEC_MERCHANT, zats: BigInt(session.settlementQuote.amountBase) });
       } else if (isEvmChainKey(network)) {

@@ -64,7 +64,6 @@
     "@settlekit/product-catalog": "workspace:*",
     "@settlekit/rate-limits": "workspace:*",
     "@settlekit/refunds": "workspace:*",
-    "@settlekit/routing": "workspace:*",
     "@settlekit/saas": "workspace:*",
     "@settlekit/solana": "workspace:*",
     "@settlekit/stablefx": "workspace:*",

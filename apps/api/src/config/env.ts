@@ -20,6 +20,7 @@ import {
 } from "@settlekit/solana";
 
 import type { EvmChainsConfig, ZcashConfig } from "@settlekit/chains";
+import type { HyperCoreConfig } from "@settlekit/hyperliquid";
 import { ConfigError } from "./errors.js";
 import { loadChainGroups } from "./chain-env.js";
 
@@ -170,6 +171,8 @@ export interface ApiConfig {
   evm: EvmChainsConfig;
   /** Transparent Zcash settlement; null unless ZCASH_ENABLED. */
   zcash: ZcashConfig | null;
+  /** HyperCore USDC settlement; null unless HYPERCORE_ENABLED. */
+  hypercore: HyperCoreConfig | null;
   solana: SolanaConfig | null;
   circle: CircleConfig | null;
   circleWallets: CircleWalletsConfig | null;
@@ -186,6 +189,7 @@ export interface ApiConfig {
   hasArc: boolean;
   hasBase: boolean;
   hasZcash: boolean;
+  hasHyperCore: boolean;
   hasSolana: boolean;
   hasCircle: boolean;
   hasCircleWallets: boolean;
@@ -542,6 +546,7 @@ export function loadConfig(env: Env = process.env): ApiConfig {
     base,
     evm: chains.evm,
     zcash: chains.zcash,
+    hypercore: chains.hypercore,
     solana,
     circle,
     circleWallets,
@@ -557,6 +562,7 @@ export function loadConfig(env: Env = process.env): ApiConfig {
     hasArc: arc !== null,
     hasBase: base !== null,
     hasZcash: chains.zcash !== null,
+    hasHyperCore: chains.hypercore !== null,
     hasSolana: solana !== null,
     hasCircle: circle !== null,
     hasCircleWallets: circleWallets !== null,

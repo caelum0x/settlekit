@@ -232,9 +232,6 @@ importers:
       '@settlekit/refunds':
         specifier: workspace:*
         version: link:../../packages/refunds
-      '@settlekit/routing':
-        specifier: workspace:*
-        version: link:../../packages/routing
       '@settlekit/saas':
         specifier: workspace:*
         version: link:../../packages/saas

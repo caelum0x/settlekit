@@ -2,8 +2,8 @@
  * The per-network on-chain verifier registry.
  *
  * One {@link SettlementVerifier} per ENABLED network: every EVM chain from
- * `config.evm` (Arc included), Solana when SOLANA_CLUSTER is set, and Zcash
- * when ZCASH_ENABLED. A network without an entry fails closed — a tx hash
+ * `config.evm` (Arc included), Solana when SOLANA_CLUSTER is set, Zcash
+ * when ZCASH_ENABLED and HyperCore when HYPERCORE_ENABLED. A network without an entry fails closed — a tx hash
  * alone can never confirm a payment on it.
  */
 
@@ -20,6 +20,7 @@ import {
   type ZcashConfig,
 } from "@settlekit/chains";
 import type { PaymentNetwork } from "@settlekit/common";
+import { createHyperCoreClient, createHyperCoreSettlementVerifier, type HyperliquidTransport } from "@settlekit/hyperliquid";
 import { createKitSolanaRpc, createSolanaPaymentVerifier, type SolanaRpc } from "@settlekit/solana";
 import {
   createBlockchairExplorer,
@@ -62,6 +63,8 @@ export interface VerifierRegistryDeps {
   solanaRpc?: SolanaRpc;
   /** fetch used by Zcash price sources and the explorer. */
   fetch?: FetchLike;
+  /** Hyperliquid API transport (tests inject recorded ledgers). */
+  hypercoreTransport?: HyperliquidTransport;
 }
 
 function buildEvm(chain: EvmChainRuntimeConfig, rpc: FullEvmRpc): { primary: EvmVerifier; settlement: SettlementVerifier } {
@@ -130,6 +133,11 @@ export function buildVerifierRegistry(config: ApiConfig, deps: VerifierRegistryD
   const zcash = config.zcash ? zcashRuntime(config.zcash, deps.fetch ?? (globalThis.fetch as FetchLike)) : null;
   if (zcash) {
     verifiers.zcash = createZcashSettlementVerifier({ explorer: zcash.explorer, minConfirmations: zcash.minConfirmations });
+  }
+
+  if (config.hypercore) {
+    const client = createHyperCoreClient(config.hypercore, deps.hypercoreTransport ? { transport: deps.hypercoreTransport } : {});
+    verifiers.hypercore = createHyperCoreSettlementVerifier(client);
   }
 
   return { verifiers, evmVerifiers, arcVerifier: verifiers.arc ?? null, zcash };

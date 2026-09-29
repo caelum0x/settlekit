@@ -48,6 +48,8 @@ const createSchema = z
     acceptedNetworks: z.array(z.enum(NETWORKS)).min(1).optional(),
     /** Per-network payTo (e.g. a Solana wallet and an EVM wallet). */
     payToByNetwork: z.record(z.enum(NETWORKS), z.string().min(1)).optional(),
+    /** Tempo: only accept transferWithMemo(keccak256(session id)) payments. */
+    requireMemo: z.boolean().optional(),
     successUrl: z.string().url().optional(),
     cancelUrl: z.string().url().optional(),
     collectedFields: z.record(z.string()).optional(),
@@ -71,6 +73,9 @@ const createSchema = z
         const path = body.payToByNetwork?.[network] !== undefined ? ["payToByNetwork", network] : ["payToAddress"];
         ctx.addIssue({ code: z.ZodIssueCode.custom, path, message: check.reason });
       }
+    }
+    if (body.requireMemo === true && !accepted.includes("tempo")) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["requireMemo"], message: "requireMemo applies to Tempo; accept tempo or drop it" });
     }
     for (const network of Object.keys(body.payToByNetwork ?? {}) as PaymentNetwork[]) {
       if (!accepted.includes(network)) {
@@ -142,6 +147,7 @@ export function checkoutRoutes(): Hono<AppEnv> {
       ...draft,
       ...(body.acceptedNetworks !== undefined ? { acceptedNetworks: body.acceptedNetworks } : {}),
       ...(body.payToByNetwork !== undefined ? { payToByNetwork: body.payToByNetwork } : {}),
+      ...(body.requireMemo === true ? { requireMemo: true } : {}),
     });
 
     const saved = await ctx.checkouts.save(session);
