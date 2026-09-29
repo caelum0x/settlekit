@@ -18,6 +18,7 @@ export { leptonSettlementReconcileJob } from "./lepton-settlement-reconcile-job.
 export { leptonPayoutSweepJob } from "./lepton-payout-sweep-job.js";
 export { leptonStreamRefundJob } from "./lepton-stream-refund-job.js";
 export { zcashWatchJob } from "./zcash-watch.js";
+export { routeWatchJob } from "./route-watch.js";
 export { githubDeliveryRetryJob } from "./github-delivery-retry-job.js";
 
 import type { Job } from "./types.js";
@@ -35,6 +36,7 @@ import { leptonSettlementReconcileJob } from "./lepton-settlement-reconcile-job.
 import { leptonPayoutSweepJob } from "./lepton-payout-sweep-job.js";
 import { leptonStreamRefundJob } from "./lepton-stream-refund-job.js";
 import { zcashWatchJob } from "./zcash-watch.js";
+import { routeWatchJob } from "./route-watch.js";
 import { githubDeliveryRetryJob } from "./github-delivery-retry-job.js";
 
 /** Stable list of the worker's primary scheduled jobs (plan §17). */
@@ -53,6 +55,7 @@ export const workerJobs = [
   "lepton-payout-sweep",
   "lepton-stream-refund",
   "zcash-watch",
+  "route-watch",
   "github-delivery-retry",
 ] as const;
 
@@ -75,6 +78,7 @@ export function allJobs(): Job[] {
     leptonPayoutSweepJob,
     leptonStreamRefundJob,
     zcashWatchJob,
+    routeWatchJob,
     githubDeliveryRetryJob,
   ];
 }

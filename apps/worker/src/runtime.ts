@@ -11,6 +11,8 @@
 import { createArcClient, type ArcClient, type ArcRpc, type FullEvmRpc } from "@settlekit/arc";
 import { createChainRpc, createEvmVerifier, type EvmChainKey, type EvmVerifier } from "@settlekit/chains";
 import { createBlockchairExplorer, type FetchLike, type ZcashExplorer } from "@settlekit/zcash";
+import { createHyperCoreClient, type HyperliquidTransport } from "@settlekit/hyperliquid";
+import { createRouterFromConfig, type FetchLike as RouteFetch } from "@settlekit/routing";
 import { createKitSolanaRpc, type SolanaRpc } from "@settlekit/solana";
 import { createDefaultRegistry, DeliveryRunner } from "@settlekit/delivery";
 import type { GitHubApi } from "@settlekit/github";
@@ -58,6 +60,7 @@ import {
   leptonPayoutSweepJob,
   leptonStreamRefundJob,
   zcashWatchJob,
+  routeWatchJob,
   githubDeliveryRetryJob,
   type JobContext,
 } from "./jobs/index.js";
@@ -77,6 +80,10 @@ export interface RuntimeDeps {
   evmRpcs?: Partial<Record<EvmChainKey, FullEvmRpc>>;
   /** Override the Zcash explorer (tests inject recorded responses). */
   zcashExplorer?: ZcashExplorer;
+  /** Override the Hyperliquid transport (tests inject recorded ledgers). */
+  hypercoreTransport?: HyperliquidTransport;
+  /** Override fetch for Relay / LI.FI (tests replay recorded responses). */
+  routingFetch?: RouteFetch;
   /** Override the email transport (tests inject an in-memory transport). */
   emailTransport?: EmailTransport;
   /** Override the outbound webhook HTTP sender (tests inject an in-memory one). */
@@ -151,6 +158,11 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
         minConfirmations: deps.config.zcash.minConfirmations,
       }
     : undefined;
+
+  const hypercore = deps.config.hypercore
+    ? createHyperCoreClient(deps.config.hypercore, deps.hypercoreTransport ? { transport: deps.hypercoreTransport } : {})
+    : undefined;
+  const router = deps.config.routing ? createRouterFromConfig(deps.config.routing, deps.routingFetch) : undefined;
 
   const clients = createDeliveryClients({
     config: deps.config,
@@ -247,6 +259,8 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     ...(solana !== undefined ? { solana } : {}),
     evm,
     ...(zcash !== undefined ? { zcash } : {}),
+    ...(hypercore !== undefined ? { hypercore } : {}),
+    ...(router !== undefined ? { router } : {}),
     email,
     githubApi: deps.githubApi,
     discordApi: deps.discordApi,
@@ -307,6 +321,8 @@ export function buildRuntime(deps: RuntimeDeps): WorkerRuntime {
     { job: leptonStreamRefundJob, intervalMs: intervals.payoutReconcileMs },
     // No-op (no network calls) unless Zcash is enabled AND open Zcash sessions exist.
     { job: zcashWatchJob, intervalMs: intervals.zcashWatchMs },
+    // No-op (no network calls) unless routing is enabled AND sessions have routes in flight.
+    { job: routeWatchJob, intervalMs: intervals.routeWatchMs },
     // No-op until a GitHub App installation id is configured.
     { job: githubDeliveryRetryJob, intervalMs: intervals.githubDeliveryRetryMs },
   ];

@@ -11,6 +11,8 @@
     { "path": "../../packages/solana" },
     { "path": "../../packages/zcash" },
     { "path": "../../packages/chains" },
+    { "path": "../../packages/hyperliquid" },
+    { "path": "../../packages/routing" },
     { "path": "../../packages/database" },
     { "path": "../../packages/settlement-core" },
     { "path": "../../packages/citation-toll" },
