@@ -75,16 +75,20 @@ export function materializeDelivery(
       return [githubTeamAccess(action, fields, state)];
     case "discord_role_add":
       return [discordRoleAccess(action, fields)];
-    default:
+    default: {
+      const accessUrl = sellerLink(product, "accessUrl");
       return [
         {
           kind: "saas_entitlement",
           title: product.name,
-          value: "Access granted",
-          isLink: false,
-          detail: "Your entitlement is active.",
+          value: accessUrl ?? "Access granted",
+          isLink: accessUrl !== undefined,
+          detail: accessUrl
+            ? "Your access is active. Open the link and sign in with the email you used here."
+            : "Your entitlement is active.",
         },
       ];
+    }
   }
 }
 
@@ -143,11 +147,28 @@ function apiKeyAccess(
   };
 }
 
+/** An https link stored on the product by the seller, or undefined. */
+function sellerLink(product: Product, key: "fileUrl" | "accessUrl"): string | undefined {
+  const value = product.metadata[key];
+  return typeof value === "string" && value.startsWith("https://") ? value : undefined;
+}
+
 function fileDownloadAccess(
   payment: Payment,
   action: Extract<DeliveryAction, { type: "file_access_grant" }>,
   product: Product,
 ): DeliveredAccess {
+  // A seller-hosted file (set in the dashboard) is revealed only after payment.
+  const fileUrl = sellerLink(product, "fileUrl");
+  if (fileUrl) {
+    return {
+      kind: "file_download",
+      title: `Download — ${product.name}`,
+      value: fileUrl,
+      isLink: true,
+      detail: "Your download link from the seller. Save it somewhere safe.",
+    };
+  }
   const url = generateSignedDownloadUrl({
     fileId: action.fileId,
     baseUrl: DEMO_DOWNLOAD_BASE,
