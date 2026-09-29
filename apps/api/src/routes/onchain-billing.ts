@@ -3,8 +3,8 @@
  *
  *   GET  /v1/onchain-billing/networks                     billable networks + methods
  *   POST /v1/onchain-billing/subscriptions                create intent -> what the buyer signs/sends
- *   GET  /v1/onchain-billing/subscriptions?customerId=    list (org-scoped)
- *   GET  /v1/onchain-billing/subscriptions/:id            one subscription + its charges
+ *   GET  /v1/onchain-billing/subscriptions?customerId=&view=1  list (org-scoped; view=1 -> dashboard read model)
+ *   GET  /v1/onchain-billing/subscriptions/:id            one subscription + its charges + read model
  *   POST /v1/onchain-billing/subscriptions/:id/grant      submit the signed grant; charges period 0
  *   POST /v1/onchain-billing/subscriptions/:id/charge     charge the due period now (idempotent)
  *   POST /v1/onchain-billing/subscriptions/:id/cancel     cancel (at period end by default) + revoke actions
@@ -13,7 +13,8 @@
  *   POST /v1/onchain-billing/escrow/:id/authorize         submit the payer signature
  *   POST /v1/onchain-billing/escrow/:id/capture|void      operator actions
  *   GET  /v1/onchain-billing/escrow/:id/reclaim           payer calldata after authorization expiry
- *   POST /v1/onchain-billing/refunds                      owner refund, dispatched per network
+ *   GET  /v1/onchain-billing/refunds/route?paymentId=     can the operator send this refund automatically?
+ *   POST /v1/onchain-billing/refunds                      owner refund, dispatched per network (sends funds)
  */
 import { Hono, type Context } from "hono";
 import { z } from "zod";
@@ -28,7 +29,8 @@ import {
   type Payment,
 } from "@settlekit/common";
 import { checkPayTo, type Hex } from "@settlekit/chains";
-import { completeSession, createCheckoutSession } from "@settlekit/payments";
+import { completeSession, createCheckoutSession, refundPayment } from "@settlekit/payments";
+import { refundSucceededWebhook, subscriptionCanceledWebhook } from "@settlekit/persistence";
 import {
   BILLING_METHODS,
   ChargeDeclinedError,
@@ -44,6 +46,9 @@ import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { ownedSubscription as ownedCoreSubscription, requireOrg, requireOwned, requireOwnedPayment } from "../http/tenant.js";
 import { unwrapResult } from "../http/internal.js";
+import { explorerTxUrl } from "../merchant/network-catalog.js";
+import { onchainSubscriptionView } from "../onchain-billing/views.js";
+import { emitWebhook } from "../webhooks/outbox.js";
 
 const BILLING_NETWORKS = ["solana", "base", "arc", "ethereum", "arbitrum", "robinhood", "hyperevm", "tempo", "zcash", "hypercore"] as const;
 const amount = z.string().regex(/^\d+(\.\d{1,6})?$/, "decimal amount with up to 6 decimals");
@@ -67,7 +72,11 @@ const grantSchema = z.object({
   approveSignature: z.string().min(32).optional(),
 });
 
-const cancelSchema = z.object({ atPeriodEnd: z.boolean().optional() });
+const cancelSchema = z.object({
+  atPeriodEnd: z.boolean().optional(),
+  /** Who asked: the seller (dashboard / API) or the buyer (hosted manage page). */
+  by: z.enum(["merchant", "buyer"]).optional(),
+});
 
 const escrowSchema = z.object({
   payer: z.string().regex(/^0x[0-9a-fA-F]{40}$/),
@@ -90,6 +99,8 @@ const refundSchema = z
     reason: z.enum(["duplicate", "fraudulent", "customer_request", "delivery_failed"]),
     /** Recipient for payments not made through onchain billing. */
     to: z.string().min(1).optional(),
+    /** Revoke the access the payment granted (default true). */
+    revokeAccess: z.boolean().optional(),
   })
   .refine((b) => b.paymentId !== undefined || b.escrowPaymentId !== undefined, { message: "paymentId or escrowPaymentId is required" });
 
@@ -223,14 +234,24 @@ export function onchainBillingRoutes(): Hono<AppEnv> {
   });
 
   app.get("/subscriptions", async (c) => {
+    const runtime = billing(c);
     const customerId = c.req.query("customerId");
-    const list = await billing(c).subscriptions.list({ organizationId: requireOrg(c), ...(customerId ? { customerId } : {}) });
-    return data(c, list);
+    const list = await runtime.subscriptions.list({ organizationId: requireOrg(c), ...(customerId ? { customerId } : {}) });
+    if (c.req.query("view") !== "1") return data(c, list);
+    const views = await Promise.all(
+      list.filter((s) => s.status !== "pending_grant").map((s) => onchainSubscriptionView(c.get("ctx"), runtime, s)),
+    );
+    return data(c, views.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
   });
 
   app.get("/subscriptions/:id", async (c) => {
+    const runtime = billing(c);
     const sub = await ownedSubscription(c, c.req.param("id"));
-    return data(c, { subscription: sub, charges: await billing(c).store.listCharges(sub.id) });
+    return data(c, {
+      subscription: sub,
+      charges: await runtime.store.listCharges(sub.id),
+      view: await onchainSubscriptionView(c.get("ctx"), runtime, sub),
+    });
   });
 
   app.post("/subscriptions/:id/grant", async (c) => {
@@ -261,10 +282,15 @@ export function onchainBillingRoutes(): Hono<AppEnv> {
   });
 
   app.post("/subscriptions/:id/cancel", async (c) => {
+    const ctx = c.get("ctx");
+    const runtime = billing(c);
     const sub = await ownedSubscription(c, c.req.param("id"));
     const body = await parseBody(c, cancelSchema);
-    const result = await guard(() => billing(c).subscriptions.cancel(sub.id, body.atPeriodEnd ?? true));
-    return data(c, jsonSafe(result));
+    const atPeriodEnd = body.atPeriodEnd ?? true;
+    const result = await guard(() => runtime.subscriptions.cancel(sub.id, atPeriodEnd));
+    await markCoreCanceled(ctx, result.subscription.subscriptionId, atPeriodEnd);
+    await emitWebhook(ctx.webhookOutbox, subscriptionCanceledWebhook(result.subscription, atPeriodEnd, body.by ?? "merchant"));
+    return data(c, { ...(jsonSafe(result) as object), view: await onchainSubscriptionView(ctx, runtime, result.subscription) });
   });
 
   app.post("/escrow", async (c) => {
@@ -349,11 +375,35 @@ export function onchainBillingRoutes(): Hono<AppEnv> {
     return data(c, await guard(() => (runtime.escrow as NonNullable<typeof runtime.escrow>).reclaimCall(record.id)));
   });
 
+  app.get("/refunds/route", async (c) => {
+    const runtime = billing(c);
+    const paymentId = c.req.query("paymentId");
+    if (!paymentId) throw validationError("paymentId query param is required");
+    const payment = await requireOwnedPayment(c, paymentId);
+    const escrow = paymentId.startsWith("pay_esc_");
+    const route = runtime.refunds.routeFor(payment.network, escrow);
+    const known = await knownPayer(c, payment.id);
+    return data(c, {
+      paymentId,
+      network: payment.network,
+      route,
+      automated: route !== null,
+      /** The payer's wallet when onchain billing recorded it; otherwise the seller supplies `to`. */
+      to: known,
+      needsRecipient: route !== null && !escrow && known === null,
+      operator: runtime.operatorAddress,
+      reason: route === null ? `The SettleKit operator wallet is not configured to send refunds on ${payment.network}.` : null,
+    });
+  });
+
   app.post("/refunds", async (c) => {
     const ctx = c.get("ctx");
     const runtime = billing(c);
     const body = await parseBody(c, refundSchema);
     const target = await resolveRefundTarget(c, body);
+    if (target.payment.status !== "confirmed") {
+      throw validationError(`only confirmed payments can be refunded (payment is ${target.payment.status})`);
+    }
     const refund = unwrapResult(
       await ctx.refunds.create({ payment: target.payment, customerId: target.payment.customerId, amount: body.amount, reason: body.reason }),
     );
@@ -367,8 +417,24 @@ export function onchainBillingRoutes(): Hono<AppEnv> {
           ...(target.escrowPaymentId ? { escrowPaymentId: target.escrowPaymentId } : {}),
         }),
       );
-      const succeeded = unwrapResult(await ctx.refunds.markSucceeded(refund.id));
-      return created(c, { refund: succeeded, execution });
+      const marked = unwrapResult(await ctx.refunds.markSucceeded(refund.id));
+      const succeeded = await ctx.refundStore.save({ ...marked, txHash: execution.txHash });
+      await settleRefund(ctx, target.payment, body.amount, body.reason, body.revokeAccess ?? true);
+      await emitWebhook(
+        ctx.webhookOutbox,
+        refundSucceededWebhook({
+          refundId: succeeded.id,
+          payment: target.payment,
+          amount: body.amount,
+          reason: body.reason,
+          txHash: execution.txHash,
+          source: execution.route === "escrow_refund" ? "escrow" : "operator",
+        }),
+      );
+      return created(c, {
+        refund: succeeded,
+        execution: { ...execution, explorerUrl: explorerTxUrl(target.network, execution.txHash) },
+      });
     } catch (error) {
       const reason = error instanceof Error ? error.message : "refund failed";
       await ctx.refunds.markFailed(refund.id, reason);
@@ -447,8 +513,46 @@ async function resolveRefundTarget(
     if (!sub) throw notFound("onchain charge for payment not found", { id: payment.id });
     return { payment, network: sub.network, to: sub.payer };
   }
-  if (!body.to) throw validationError("`to` (the payer's address) is required for payments made outside onchain billing");
-  const check = checkPayTo(payment.network, body.to);
+  const session = await ctx.checkouts.findById(payment.checkoutSessionId);
+  const to = body.to ?? session?.payerAddress;
+  if (!to) throw validationError("`to` (the payer's address) is required: this payment did not record the buyer's wallet");
+  const check = checkPayTo(payment.network, to);
   if (!check.ok) throw validationError(`to ${check.reason}`);
-  return { payment, network: payment.network, to: body.to };
+  return { payment, network: payment.network, to };
+}
+
+/** Mirror an onchain cancel onto the linked core subscription. */
+async function markCoreCanceled(ctx: AppContext, subscriptionId: string | undefined, atPeriodEnd: boolean): Promise<void> {
+  if (!subscriptionId) return;
+  const core = await ctx.subscriptions.findById(subscriptionId);
+  if (!core || core.status === "canceled") return;
+  await ctx.subscriptions.save(atPeriodEnd ? { ...core, cancelAtPeriodEnd: true } : { ...core, status: "canceled", cancelAtPeriodEnd: true });
+}
+
+/** The payer wallet onchain billing knows for a payment (subscription pulls / escrow). */
+async function knownPayer(c: Context<AppEnv>, paymentId: string): Promise<string | null> {
+  const runtime = billing(c);
+  if (paymentId.startsWith("pay_esc_")) {
+    const record = await runtime.store.getEscrowPayment(paymentId.slice("pay_".length));
+    return record ? paymentInfoFromJson(record.paymentInfo).payer : null;
+  }
+  const chargeId = chargeIdForPayment(paymentId);
+  if (!chargeId) {
+    const payment = await c.get("ctx").payments.findById(paymentId);
+    const session = payment ? await c.get("ctx").checkouts.findById(payment.checkoutSessionId) : null;
+    return session?.payerAddress ?? null;
+  }
+  const charge = await runtime.store.getChargeById(chargeId);
+  const sub = charge ? await runtime.store.getSubscription(charge.onchainSubscriptionId) : undefined;
+  return sub?.payer || null;
+}
+
+/** After funds moved: mark a full refund on the payment and revoke its access. */
+async function settleRefund(ctx: AppContext, payment: Payment, amount: string, reason: string, revokeAccess: boolean): Promise<void> {
+  if (money(amount).amount === money(payment.amount.amount).amount) await ctx.payments.save(refundPayment(payment));
+  if (!revokeAccess) return;
+  const granted = (await ctx.entitlementRepo.listByCustomer(payment.customerId)).filter(
+    (e) => e.grantedBy.type === "payment" && e.grantedBy.id === payment.id && e.status !== "revoked",
+  );
+  for (const e of granted) await ctx.entitlements.revoke(e.id, `refunded (${reason})`);
 }

@@ -8,7 +8,7 @@
  *   GET   /v1/merchant/overview              onboarding state + headline numbers
  *   GET   /v1/merchant/payments              enriched payments (all networks)
  *   GET   /v1/merchant/payments/:id          payment detail + timeline
- *   POST  /v1/merchant/payments/:id/refund   record a refund (+ optionally revoke access)
+ *   POST  /v1/merchant/payments/:id/refund   record a refund sent manually (+ optionally revoke access)
  *   GET   /v1/merchant/products              products with price + payment link
  *   POST  /v1/merchant/products              create + price + publish in one step
  *   PATCH /v1/merchant/products/:id          edit name / price / delivery / networks / status
@@ -37,6 +37,8 @@ import {
 } from "../merchant/products.js";
 import { listCustomers } from "../merchant/customers.js";
 import { readBalances } from "../merchant/balances.js";
+import { refundSucceededWebhook } from "@settlekit/persistence";
+import { emitWebhook } from "../webhooks/outbox.js";
 
 const refundSchema = z.object({
   reason: z.enum(["duplicate", "fraudulent", "customer_request", "delivery_failed"]).default("customer_request"),
@@ -132,6 +134,10 @@ export function merchantRoutes(): Hono<AppEnv> {
       );
       for (const e of granted) await ctx.entitlements.revoke(e.id, `refunded (${body.reason})`);
     }
+    await emitWebhook(
+      ctx.webhookOutbox,
+      refundSucceededWebhook({ refundId: refund.id, payment, amount, reason: body.reason, txHash: body.txHash ?? null, source: "manual" }),
+    );
     const updated = await ctx.payments.findById(payment.id);
     return data(c, { refund, payment: await buildPaymentDetail(ctx, updated ?? payment) });
   });

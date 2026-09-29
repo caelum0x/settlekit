@@ -65,7 +65,7 @@ export interface PaymentDetail extends PaymentView {
   timeline: TimelineStep[];
   entitlements: Entitlement[];
   deliveryRuns: DeliveryRun[];
-  refunds: Refund[];
+  refunds: (Refund & { explorerUrl: string | null })[];
 }
 
 /** Classify a payment by the session id convention of each rail. */
@@ -209,6 +209,6 @@ export async function buildPaymentDetail(ctx: AppContext, payment: Payment): Pro
     timeline,
     entitlements,
     deliveryRuns,
-    refunds,
+    refunds: refunds.map((r) => ({ ...r, explorerUrl: r.txHash ? explorerTxUrl(payment.network, r.txHash) : null })),
   };
 }

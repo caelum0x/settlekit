@@ -15,16 +15,34 @@
  * failure it throws a `unauthorized` {@link SettleKitError} (HTTP 401) which the
  * error middleware maps to `{ error }`.
  *
+ * A platform **service token** (`SETTLEKIT_SERVICE_TOKEN`) lets SettleKit's own
+ * hosted checkout call the onchain-billing API server-side on behalf of the
+ * checkout session's seller: it must name that seller in
+ * `X-SettleKit-Organization`, and it is accepted ONLY under
+ * `/v1/onchain-billing` (subscribe / grant / buyer cancel), never elsewhere.
+ * It never reaches a browser.
+ *
  * A bootstrap key may be supplied via `API_BOOTSTRAP_KEY` so the very first
  * caller can authenticate before any keys exist in the store — handy for local
  * dev and for the test client.
  */
+import { timingSafeEqual } from "node:crypto";
 import type { MiddlewareHandler } from "hono";
 import { SettleKitError } from "@settlekit/common";
 import { DEFAULT_ORG_ID } from "@settlekit/persistence";
 import type { AppEnv } from "../context.js";
 
 const BEARER_RE = /^Bearer\s+(.+)$/i;
+const SERVICE_SCOPE = "/v1/onchain-billing/";
+const ORG_HEADER = "x-settlekit-organization";
+const ORG_ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
+/** Constant-time string comparison (length leak only). */
+function safeEqual(a: string, b: string): boolean {
+  const left = Buffer.from(a);
+  const right = Buffer.from(b);
+  return left.length === right.length && timingSafeEqual(left, right);
+}
 
 function unauthorized(message: string): SettleKitError {
   return new SettleKitError({ code: "unauthorized", message });
@@ -33,6 +51,10 @@ function unauthorized(message: string): SettleKitError {
 /** Require a valid Bearer API key on every request this middleware guards. */
 export function authMiddleware(): MiddlewareHandler<AppEnv> {
   const bootstrapKey = process.env.API_BOOTSTRAP_KEY;
+  const serviceToken = process.env.SETTLEKIT_SERVICE_TOKEN?.trim();
+  if (serviceToken !== undefined && serviceToken.length > 0 && serviceToken.length < 32) {
+    throw new Error("SETTLEKIT_SERVICE_TOKEN must be at least 32 characters");
+  }
 
   return async (c, next) => {
     const header = c.req.header("authorization");
@@ -44,6 +66,17 @@ export function authMiddleware(): MiddlewareHandler<AppEnv> {
       throw unauthorized("Authorization header must be 'Bearer <api-key>'");
     }
     const plaintext = match[1].trim();
+
+    // Hosted-checkout service path: onchain billing only, bound to one seller.
+    if (serviceToken && safeEqual(plaintext, serviceToken)) {
+      if (!c.req.path.startsWith(SERVICE_SCOPE)) throw unauthorized("Service token is not valid for this route");
+      const org = c.req.header(ORG_HEADER)?.trim();
+      if (!org || !ORG_ID_RE.test(org)) throw unauthorized(`Service token requires the ${ORG_HEADER} header`);
+      c.set("apiKeyId", "service:checkout");
+      c.set("organizationId", org);
+      await next();
+      return;
+    }
 
     // Bootstrap path: a configured static key authenticates without the store.
     // It operates on the platform default organization.
