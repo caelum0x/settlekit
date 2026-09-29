@@ -1,10 +1,12 @@
 /**
  * POST /api/v1/checkout-sessions/:sessionId/evm/payer
  *
- * Body: { payer: "0x…", fields: Record<string,string> }
+ * Body: { payer: "0x…", signature: "0x…", expiresAt: ISO, fields: Record<string,string> }
  *
  * Saves the buyer's delivery details and binds the connected wallet as the
- * payer: only a transfer sent FROM it can settle the session.
+ * payer: only a transfer sent FROM it can settle the session. The wallet must
+ * have personal_signed the payer-binding message (session, network, payer,
+ * short expiry); unsigned requests never bind or rebind a payer.
  */
 import { NextResponse } from "next/server";
 
@@ -23,7 +25,13 @@ export async function POST(request: Request, context: RouteContext): Promise<Nex
   try {
     assertSameOrigin(request);
     const body = await readJsonObject(request);
-    const result = await declareEvmPayer({ sessionId: context.params.sessionId, payer: body.payer, fields: fieldsOf(body) });
+    const result = await declareEvmPayer({
+      sessionId: context.params.sessionId,
+      payer: body.payer,
+      signature: body.signature,
+      expiresAt: body.expiresAt,
+      fields: fieldsOf(body),
+    });
     return NextResponse.json(result);
   } catch (error) {
     return errorReply(error, "Could not save the paying wallet.", "evm payer");

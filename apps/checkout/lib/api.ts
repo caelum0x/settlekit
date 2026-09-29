@@ -199,12 +199,12 @@ export function getEvmParams(sessionId: string): Promise<EvmPaymentParams> {
 /** Save delivery fields and bind the connected wallet as payer. */
 export function declareEvmPayer(
   sessionId: string,
-  payer: string,
+  proof: { payer: string; signature: string; expiresAt: string },
   fields: Record<string, string>,
 ): Promise<{ payerAddress: string }> {
   return request<{ payerAddress: string }>(sessionPath(sessionId, "evm/payer"), {
     method: "POST",
-    body: JSON.stringify({ payer, fields }),
+    body: JSON.stringify({ ...proof, fields }),
   });
 }
 

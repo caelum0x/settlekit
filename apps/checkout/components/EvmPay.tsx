@@ -13,6 +13,7 @@ import {
   buildTransferCall,
   isUserRejection,
   sendTransfer,
+  signPayerBinding,
   switchOrAddChain,
   walletChainId,
   type Eip6963ProviderDetail,
@@ -102,7 +103,11 @@ export function EvmPay(props: EvmPayProps) {
       try {
         setStage({ kind: "working", step: `Connecting to ${wallet.info.name}…` });
         const account = await requestAccount(wallet);
-        await declareEvmPayer(sessionId, account, fields);
+
+        // Prove control of the wallet before binding it as the payer.
+        setStage({ kind: "working", step: "Sign the payer confirmation in your wallet…" });
+        const proof = await signPayerBinding(wallet.provider, { sessionId, network: params.network, payer: account });
+        await declareEvmPayer(sessionId, { payer: account, ...proof }, fields);
 
         setStage({ kind: "working", step: `Switching to ${params.chainName}…` });
         await switchOrAddChain(wallet.provider, params.addChain);

@@ -267,9 +267,19 @@ describe("EVM wallet parameters", () => {
       declareEvmPayer({ sessionId: session.id, payer: "not-an-address", fields: FIELDS }, h.deps),
       "invalid_request",
     );
-    await expectCode(declareEvmPayer({ sessionId: session.id, payer: BUYER_EVM, fields: {} }, h.deps), "fields_incomplete");
+    // Signature proof itself is covered in evm-payer-binding.test.ts; accept it here.
+    const proof = { signature: "0x00", expiresAt: new Date(Date.now() + 60_000).toISOString() };
+    const trust = { verifySignature: async () => true };
+    await expectCode(
+      declareEvmPayer({ sessionId: session.id, payer: BUYER_EVM, fields: {}, ...proof }, h.deps, trust),
+      "fields_incomplete",
+    );
 
-    const { payerAddress } = await declareEvmPayer({ sessionId: session.id, payer: BUYER_EVM, fields: FIELDS }, h.deps);
+    const { payerAddress } = await declareEvmPayer(
+      { sessionId: session.id, payer: BUYER_EVM, fields: FIELDS, ...proof },
+      h.deps,
+      trust,
+    );
     expect(payerAddress).toBe(getAddress(BUYER_EVM));
     const saved = await h.checkouts.findById(session.id);
     expect(saved).toMatchObject({ payerAddress, collectedFields: FIELDS });
