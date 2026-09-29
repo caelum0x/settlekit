@@ -3242,6 +3242,46 @@ importers:
         specifier: ^2.0.5
         version: 2.1.9(@types/node@20.19.43)(lightningcss@1.32.0)
 
+  packages/onchain-billing:
+    dependencies:
+      '@settlekit/chains':
+        specifier: workspace:*
+        version: link:../chains
+      '@settlekit/common':
+        specifier: workspace:*
+        version: link:../common
+      '@settlekit/dunning':
+        specifier: workspace:*
+        version: link:../dunning
+      '@settlekit/notifications':
+        specifier: workspace:*
+        version: link:../notifications
+      '@settlekit/payments':
+        specifier: workspace:*
+        version: link:../payments
+      '@settlekit/solana':
+        specifier: workspace:*
+        version: link:../solana
+      '@solana-program/token':
+        specifier: ^0.9.0
+        version: 0.9.0(@solana/kit@5.5.1(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(utf-8-validate@6.0.6))
+      '@solana/kit':
+        specifier: 5.5.1
+        version: 5.5.1(bufferutil@4.1.0)(fastestsmallesttextencoderdecoder@1.0.22)(typescript@5.9.3)(utf-8-validate@6.0.6)
+      viem:
+        specifier: ^2.54.0
+        version: 2.56.9(bufferutil@4.1.0)(typescript@5.9.3)(utf-8-validate@6.0.6)(zod@4.4.3)
+    devDependencies:
+      '@types/node':
+        specifier: ^20.14.0
+        version: 20.19.43
+      typescript:
+        specifier: ^5.5.4
+        version: 5.9.3
+      vitest:
+        specifier: ^2.0.5
+        version: 2.1.9(@types/node@20.19.43)(lightningcss@1.32.0)
+
   packages/oss-fund:
     dependencies:
       '@anthropic-ai/sdk':

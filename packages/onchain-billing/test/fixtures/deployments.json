@@ -1,0 +1,141 @@
+{
+  "recordedAt": "2026-09-29T16:44:20.751Z",
+  "commercePayments": {
+    "8453": {
+      "authCaptureEscrow": {
+        "address": "0xf96815976523E00e65Be8f34cA5e64b4f41EB19c",
+        "bytes": 10978,
+        "keccak256": "0x33558f6cb34733174fdd6ec5ca8257834a8e4302abc08a4542f73ddf07d8702a"
+      },
+      "erc3009PaymentCollector": {
+        "address": "0x8612dfdc421f80336cd14E8EF9cb1E765dB5ab88",
+        "bytes": 3982,
+        "keccak256": "0xe27322c83d2cb91d01f59fc5c86512f4ecb5e9f300ed17120d78c55fbc5fb62f"
+      },
+      "permit2PaymentCollector": {
+        "address": "0xD69831Aed5bfe262067ec4c751f4F830EcdD446e",
+        "bytes": 4049,
+        "keccak256": "0x1878e7902a9285e308c08806bab6214aba5d013a8c78e0fa2288f86e5e83e2d6"
+      },
+      "preApprovalPaymentCollector": {
+        "address": "0xF1F9C408C787B2bC6CAEB91e5BbEc434a5c8d2Ea",
+        "bytes": 2403,
+        "keccak256": "0x49757bee314a38822e6f25db499d07edcc18e5a1b32ed6935483a4baa0e8a6e8"
+      },
+      "spendPermissionPaymentCollector": {
+        "address": "0xB508c1C0a13849693DC175307667653C5977a408",
+        "bytes": 3531,
+        "keccak256": "0x83a5815db73822895151a35f7f987410097783b10d2ea40a50a5da993d3a6e47"
+      },
+      "operatorRefundCollector": {
+        "address": "0x7a03443724d14798c4AB4622F1DAAcA761Fea486",
+        "bytes": 844,
+        "keccak256": "0x2fbd6518baaaea91574657f8b8be683e3aa72ac46f9603903ab99b6ccf4142f7"
+      }
+    },
+    "84532": {
+      "authCaptureEscrow": {
+        "address": "0xf96815976523E00e65Be8f34cA5e64b4f41EB19c",
+        "bytes": 10978,
+        "keccak256": "0x33558f6cb34733174fdd6ec5ca8257834a8e4302abc08a4542f73ddf07d8702a"
+      },
+      "erc3009PaymentCollector": {
+        "address": "0x8612dfdc421f80336cd14E8EF9cb1E765dB5ab88",
+        "bytes": 3982,
+        "keccak256": "0xe27322c83d2cb91d01f59fc5c86512f4ecb5e9f300ed17120d78c55fbc5fb62f"
+      },
+      "permit2PaymentCollector": {
+        "address": "0xD69831Aed5bfe262067ec4c751f4F830EcdD446e",
+        "bytes": 4049,
+        "keccak256": "0x1878e7902a9285e308c08806bab6214aba5d013a8c78e0fa2288f86e5e83e2d6"
+      },
+      "preApprovalPaymentCollector": {
+        "address": "0xF1F9C408C787B2bC6CAEB91e5BbEc434a5c8d2Ea",
+        "bytes": 2403,
+        "keccak256": "0x49757bee314a38822e6f25db499d07edcc18e5a1b32ed6935483a4baa0e8a6e8"
+      },
+      "spendPermissionPaymentCollector": {
+        "address": "0xB508c1C0a13849693DC175307667653C5977a408",
+        "bytes": 3531,
+        "keccak256": "0x83a5815db73822895151a35f7f987410097783b10d2ea40a50a5da993d3a6e47"
+      },
+      "operatorRefundCollector": {
+        "address": "0x7a03443724d14798c4AB4622F1DAAcA761Fea486",
+        "bytes": 844,
+        "keccak256": "0x2fbd6518baaaea91574657f8b8be683e3aa72ac46f9603903ab99b6ccf4142f7"
+      }
+    }
+  },
+  "spendPermissionManager": {
+    "1": 12610,
+    "998": 0,
+    "999": 0,
+    "4217": 0,
+    "4663": 12610,
+    "8453": 12610,
+    "42161": 12610,
+    "42431": 0,
+    "46630": 0,
+    "84532": 12610,
+    "421614": 0,
+    "11155111": 12610
+  },
+  "permit2": {
+    "1": 9152,
+    "998": 9152,
+    "999": 9152,
+    "4217": 9152,
+    "4663": 9152,
+    "8453": 9152,
+    "42161": 9152,
+    "42431": 9152,
+    "46630": 9152,
+    "84532": 9152,
+    "421614": 9152,
+    "11155111": 9152
+  },
+  "goldens": {
+    "1": {
+      "spendPermissionHash": "0x3a2ff6dd0ed6bafe63ebc1581da6ce3159e03bbf9e38bfab8297fdd2dde67507"
+    },
+    "8453": {
+      "paymentInfoTypehash": "0xae68ac7ce30c86ece8196b61a7c486d8f0061f575037fbd34e7fe4e2820c6591",
+      "paymentInfoHash": "0x00574c2633aed018e7cb3603d842c0f2fc35239fbf1e5793a9fc7f3ee9755fec",
+      "spendPermissionHash": "0xa68217f9ed66e43f8b4920ce05c5a5cd24b753ae5fc77c0f2f0614c650516b16",
+      "permit2DomainSeparator": "0x3b6f35e4fce979ef8eac3bcdc8c3fc38fe7911bb0c69c8fe72bf1fd1a17e6f07"
+    },
+    "84532": {
+      "paymentInfoTypehash": "0xae68ac7ce30c86ece8196b61a7c486d8f0061f575037fbd34e7fe4e2820c6591",
+      "paymentInfoHash": "0xad41b70e7b87b8203bb6cd6cd1cabefdef93a37cc0a0c43c34213bba5f3e5bb3",
+      "spendPermissionHash": "0xc31deca0588836e2f60595891f5f3c3d66c2f6d535300be5b74ee2a8b5f30dbc",
+      "permit2DomainSeparator": "0x010f27a92fb9a32622f44f001dc4d15706a85b33499cfc2ce9033113ab26592c"
+    }
+  },
+  "samples": {
+    "paymentInfo": {
+      "operator": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "payer": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "receiver": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+      "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "maxAmount": "25000000",
+      "preApprovalExpiry": 1900000000,
+      "authorizationExpiry": 1900604800,
+      "refundExpiry": 1907776000,
+      "minFeeBps": 0,
+      "maxFeeBps": 250,
+      "feeReceiver": "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65",
+      "salt": "123456789012345678901234567890"
+    },
+    "spendPermission": {
+      "account": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+      "spender": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+      "token": "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913",
+      "allowance": "9990000",
+      "period": 2592000,
+      "start": 1900000000,
+      "end": 1931104000,
+      "salt": "42",
+      "extraData": "0x"
+    }
+  }
+}
