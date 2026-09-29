@@ -15,7 +15,7 @@ import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
-import { isOwned, requireOwnedPayment } from "../http/tenant.js";
+import { isOwned, ownedPaymentIds, requireOwnedPayment } from "../http/tenant.js";
 import type { Context } from "hono";
 import type { Dispute } from "@settlekit/disputes";
 
@@ -68,14 +68,17 @@ export function disputeRoutes(): Hono<AppEnv> {
   app.get("/", async (c) => {
     const ctx = c.get("ctx");
     const status = c.req.query("status");
-    if (status === "open" || status === "under_review") {
-      return data(c, await ctx.disputes.listOpen());
+    // Tenant-scoped: a dispute is visible only when its payment is ours.
+    const owned = await ownedPaymentIds(c);
+    const source =
+      status === "open" || status === "under_review"
+        ? await ctx.disputes.listOpen()
+        : await ctx.disputeStore.listAll();
+    const mine = source.filter((d) => owned.has(d.paymentId));
+    if (status && status !== "open" && status !== "under_review") {
+      return data(c, mine.filter((d) => d.status === status));
     }
-    const all = await ctx.disputeStore.listAll();
-    if (status) {
-      return data(c, all.filter((d) => d.status === status));
-    }
-    return data(c, all);
+    return data(c, mine);
   });
 
   app.get("/:id", async (c) => {

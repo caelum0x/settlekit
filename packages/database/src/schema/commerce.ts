@@ -31,6 +31,8 @@ export const coupons = pgTable(
   {
     id: idColumn(),
     code: text("code").notNull().unique(),
+    /** Owning org; NULL for legacy rows, which no tenant can see. */
+    organizationId: text("organization_id"),
     name: text("name"),
     status: text("status").notNull().default("active"),
     currency: text("currency").notNull().default("USDC"),
@@ -43,6 +45,7 @@ export const coupons = pgTable(
   },
   (table) => ({
     statusIdx: index("coupons_status_idx").on(table.status),
+    orgIdx: index("coupons_organization_id_idx").on(table.organizationId),
   }),
 );
 

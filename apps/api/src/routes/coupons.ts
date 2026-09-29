@@ -10,12 +10,14 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { money, type Money } from "@settlekit/common";
-import type { CouponDiscount } from "@settlekit/coupons";
+import { money, notFound, type Money } from "@settlekit/common";
+import { normalizeCouponCode, type Coupon, type CouponDiscount } from "@settlekit/coupons";
+import type { Context } from "hono";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
+import { requireOrg } from "../http/tenant.js";
 
 const amount = z.string().regex(/^\d+(\.\d+)?$/);
 
@@ -49,6 +51,18 @@ function toDiscount(input: z.infer<typeof discountSchema>): CouponDiscount {
   return { type: "free-trial-days", days: input.days };
 }
 
+/**
+ * Load a coupon by code, requiring it belongs to the caller's org. Legacy
+ * coupons with no owner and other tenants' coupons answer 404.
+ */
+async function ownedCoupon(c: Context<AppEnv>, code: string): Promise<Coupon> {
+  const coupon = unwrapResult(await c.get("ctx").coupons.get(code));
+  if (!coupon.organizationId || coupon.organizationId !== requireOrg(c)) {
+    throw notFound(`Coupon ${normalizeCouponCode(code)} not found`);
+  }
+  return coupon;
+}
+
 export function couponRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
@@ -58,6 +72,7 @@ export function couponRoutes(): Hono<AppEnv> {
     const coupon = unwrapResult(
       await c.get("ctx").coupons.create({
         code: body.code,
+        organizationId: requireOrg(c),
         ...(body.name !== undefined ? { name: body.name } : {}),
         discount: toDiscount(body.discount),
         ...(body.status !== undefined ? { status: body.status } : {}),
@@ -73,17 +88,18 @@ export function couponRoutes(): Hono<AppEnv> {
   });
 
   app.get("/", async (c) => {
-    const coupons = await c.get("ctx").coupons.list();
+    const org = requireOrg(c);
+    const coupons = await c.get("ctx").coupons.list((co) => co.organizationId === org);
     return data(c, coupons);
   });
 
   app.get("/:code", async (c) => {
-    const coupon = unwrapResult(await c.get("ctx").coupons.get(c.req.param("code")));
-    return data(c, coupon);
+    return data(c, await ownedCoupon(c, c.req.param("code")));
   });
 
   app.post("/:code/validate", async (c) => {
     const body = await parseBody(c, applySchema);
+    await ownedCoupon(c, c.req.param("code"));
     const result = unwrapResult(
       await c.get("ctx").coupons.validate(c.req.param("code"), money(body.subtotal), {
         ...(body.customerId !== undefined ? { customerId: body.customerId } : {}),
@@ -94,6 +110,7 @@ export function couponRoutes(): Hono<AppEnv> {
 
   app.post("/:code/redeem", async (c) => {
     const body = await parseBody(c, applySchema);
+    await ownedCoupon(c, c.req.param("code"));
     const outcome = unwrapResult(
       await c.get("ctx").coupons.redeem(c.req.param("code"), money(body.subtotal), {
         ...(body.customerId !== undefined ? { customerId: body.customerId } : {}),

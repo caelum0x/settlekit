@@ -18,7 +18,7 @@ import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
-import { requireOrg, requireOwned } from "../http/tenant.js";
+import { requireOrg, requireOwned, scopeToOrg } from "../http/tenant.js";
 
 const amount = z.string().regex(/^\d+(\.\d+)?$/);
 
@@ -85,7 +85,7 @@ export function invoiceRoutes(): Hono<AppEnv> {
   app.get("/", async (c) => {
     const customerId = c.req.query("customerId");
     const invoices = await c.get("ctx").invoices.list(customerId ?? undefined);
-    return data(c, invoices);
+    return data(c, scopeToOrg(c, invoices));
   });
 
   // `:id.html` must be matched before the bare `:id` route below.

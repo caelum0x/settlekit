@@ -33,6 +33,11 @@ export type CouponStatus = "active" | "archived";
 /** A discount coupon. Immutable once created — updates produce new copies. */
 export interface Coupon {
   code: string;
+  /**
+   * Owning organization. Legacy rows created before tenant scoping have no
+   * owner (null/undefined) and are hidden from every tenant's reads.
+   */
+  organizationId?: string | null;
   name?: string;
   discount: CouponDiscount;
   currency: Money["currency"];

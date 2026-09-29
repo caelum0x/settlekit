@@ -12,7 +12,7 @@ import { notFound, type Entitlement } from "@settlekit/common";
 import type { AppEnv } from "../context.js";
 import { data } from "../http/respond.js";
 import { parseBody, validate } from "../http/validate.js";
-import { requireOwned } from "../http/tenant.js";
+import { requireOwned, scopeToOrg } from "../http/tenant.js";
 
 const verifySchema = z
   .object({
@@ -47,7 +47,7 @@ export function entitlementRoutes(): Hono<AppEnv> {
       activeOnly,
       ...(productId !== undefined ? { productId } : {}),
     });
-    return data(c, list);
+    return data(c, scopeToOrg(c, list));
   });
 
   // Verify access (feature / credits / product).
@@ -98,3 +98,4 @@ async function safeJson(c: Context<AppEnv>): Promise<unknown> {
     return {};
   }
 }
+

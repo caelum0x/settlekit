@@ -13,7 +13,7 @@ import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
-import { ownedSubscription } from "../http/tenant.js";
+import { ownedSubscription, ownedSubscriptionIds } from "../http/tenant.js";
 
 const startSchema = z.object({
   subscriptionId: z.string().min(1),
@@ -38,10 +38,11 @@ export function dunningRoutes(): Hono<AppEnv> {
   app.get("/", async (c) => {
     const ctx = c.get("ctx");
     const due = c.req.query("due");
-    if (due === "true" || due === "1") {
-      return data(c, await ctx.dunning.listDue());
-    }
-    return data(c, await ctx.dunning.listActive());
+    // Tenant-scoped: only campaigns for the caller's own subscriptions.
+    const owned = await ownedSubscriptionIds(c);
+    const campaigns =
+      due === "true" || due === "1" ? await ctx.dunning.listDue() : await ctx.dunning.listActive();
+    return data(c, campaigns.filter((d) => owned.has(d.subscriptionId)));
   });
 
   app.post("/:subscriptionId/attempt", async (c) => {

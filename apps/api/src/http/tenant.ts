@@ -59,3 +59,24 @@ export async function requireOwnedPayment(c: Context<AppEnv>, paymentId: string)
 export async function ownedSubscription(c: Context<AppEnv>, subscriptionId: string): Promise<Subscription> {
   return requireOwned(c, await c.get("ctx").subscriptions.findById(subscriptionId), "subscription", subscriptionId);
 }
+
+/** Ids of every payment owned by the caller's org (for scoping list reads). */
+export async function ownedPaymentIds(c: Context<AppEnv>): Promise<Set<string>> {
+  const payments = await c.get("ctx").payments.listByOrganization(requireOrg(c));
+  return new Set(payments.map((p) => p.id));
+}
+
+/** Ids of every subscription owned by the caller's org (for scoping list reads). */
+export async function ownedSubscriptionIds(c: Context<AppEnv>): Promise<Set<string>> {
+  const subs = await c.get("ctx").subscriptions.listByOrganization(requireOrg(c));
+  return new Set(subs.map((s) => s.id));
+}
+
+/** Keep only records stamped with the caller's org. */
+export function scopeToOrg<T extends { readonly organizationId?: string | null }>(
+  c: Context<AppEnv>,
+  records: readonly T[],
+): T[] {
+  const org = requireOrg(c);
+  return records.filter((r) => r.organizationId === org);
+}

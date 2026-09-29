@@ -64,6 +64,13 @@
       "when": 1782000200000,
       "tag": "0008_agent_economy",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1782000500000,
+      "tag": "0011_coupons_organization",
+      "breakpoints": true
     }
   ]
 }
