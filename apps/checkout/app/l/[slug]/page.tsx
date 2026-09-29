@@ -46,6 +46,12 @@ export default async function PaymentLinkPage({ params, searchParams }: PageProp
             {INTERVAL_LABEL[link.interval] ?? ""}
           </span>
         </div>
+        {INTERVAL_LABEL[link.interval] ? (
+          <p className="muted" style={{ marginTop: 8 }}>
+            Subscribe with one wallet approval capped at the price per period (or renewal invoices by email). Cancel any
+            time from your manage link.
+          </p>
+        ) : null}
         <div className="network-badges" style={{ marginTop: 12 }}>
           {link.networks.map((n) => (
             <span key={n.network} className="badge badge-network" title={`${n.asset} on ${n.name}`}>

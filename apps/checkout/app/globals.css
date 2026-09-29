@@ -642,3 +642,76 @@ a.link:hover {
   align-items: center;
   font-size: 14px;
 }
+
+/* --- Subscriptions (SubscribePay, ManageSubscription) --------------------- */
+.plain-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.sub-headline {
+  margin: 0 0 14px;
+}
+.sub-methods {
+  border: 0;
+  margin: 0 0 16px;
+  padding: 0;
+  display: grid;
+  gap: 8px;
+}
+.sub-method {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  cursor: pointer;
+}
+.sub-method.selected {
+  border-color: var(--accent);
+}
+.sub-method .help {
+  display: block;
+  margin-top: 2px;
+}
+.sub-authorize {
+  margin-bottom: 18px;
+}
+.sub-terms li {
+  padding: 4px 0;
+  font-size: 14px;
+}
+.sub-spender {
+  font-size: 12px;
+  margin: 8px 0 0;
+  word-break: break-all;
+}
+.sub-grid {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 8px 16px;
+  margin: 12px 0 18px;
+}
+.sub-grid dt {
+  color: var(--muted);
+}
+.sub-grid dd {
+  margin: 0;
+  word-break: break-word;
+}
+.badge-status-active {
+  background: var(--success);
+  color: #fff;
+}
+.badge-status-past_due,
+.badge-status-pending_grant {
+  background: var(--warn);
+  color: #fff;
+}
+.badge-status-suspended,
+.badge-status-canceled {
+  background: var(--panel-2);
+  color: var(--text);
+}

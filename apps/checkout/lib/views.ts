@@ -24,6 +24,7 @@ import type {
   ReceiptView,
 } from "./types";
 import type { ResolvedSession } from "./store";
+import { recurringInterval } from "./subscription-checkout";
 
 /** Build the order lines for a resolved session. */
 function buildLines(resolved: ResolvedSession): OrderLine[] {
@@ -70,6 +71,7 @@ export function buildSessionView(
     settlementQuote: session.settlementQuote ?? null,
     payerAddress: session.payerAddress ?? null,
     anyToken: anyTokenAvailability(session, verify, routing),
+    recurring: recurringInterval(resolved),
   };
 }
 

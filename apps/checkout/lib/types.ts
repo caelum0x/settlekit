@@ -67,6 +67,8 @@ export interface CheckoutSessionView {
   payerAddress: string | null;
   /** Whether "pay with any token" (route providers) is offered for this network. */
   anyToken: { available: boolean; reason?: string };
+  /** Billing interval when the product is sold as a subscription (buyer can subscribe). */
+  recurring: "monthly" | "yearly" | null;
 }
 
 /** A delivered entitlement / access surfaced on the success page. */

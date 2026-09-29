@@ -18,3 +18,4 @@ export const ZcashPay = dynamic(() => import("./ZcashPay").then((m) => m.ZcashPa
 export const HyperCorePay = dynamic(() => import("./HyperCorePay").then((m) => m.HyperCorePay), { loading: Loading });
 export const AnyTokenPay = dynamic(() => import("./AnyTokenPay").then((m) => m.AnyTokenPay), { loading: Loading });
 export const WalletPay = dynamic(() => import("./WalletPay").then((m) => m.WalletPay), { loading: Loading });
+export const SubscribePay = dynamic(() => import("./SubscribePay").then((m) => m.SubscribePay), { loading: Loading });

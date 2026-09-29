@@ -4,7 +4,7 @@ import { getCheckoutSession, ApiClientError } from "@/lib/api";
 import { badgeDescription, badgeText, formatAmount, formatExpiry, formatMoney } from "@/lib/format";
 import { OrderSummary } from "@/components/OrderSummary";
 import { NetworkPicker } from "@/components/NetworkPicker";
-import { AnyTokenPay, EvmPay, HyperCorePay, SolanaPay, WalletPay, ZcashPay } from "@/components/LazyPay";
+import { AnyTokenPay, EvmPay, HyperCorePay, SolanaPay, SubscribePay, WalletPay, ZcashPay } from "@/components/LazyPay";
 
 export const dynamic = "force-dynamic";
 
@@ -56,8 +56,20 @@ export default async function CheckoutPage({ params }: PageProps) {
         <OrderSummary lines={session.lines} total={session.amount} />
       </div>
 
+      {session.recurring && option.available ? (
+        <div className="card">
+          <h2>Subscribe</h2>
+          <SubscribePay
+            key={session.network}
+            sessionId={session.id}
+            requiredFields={session.requiredFields}
+            initialValues={session.collectedFields}
+          />
+        </div>
+      ) : null}
+
       <div className="card">
-        <h2>Payment</h2>
+        <h2>{session.recurring ? `Or pay for one ${session.recurring === "yearly" ? "year" : "month"} only` : "Payment"}</h2>
         <NetworkPicker sessionId={session.id} current={session.network} options={session.networkOptions} />
         <div className="payto">
           <div className="payto-row">

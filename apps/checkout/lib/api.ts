@@ -24,6 +24,8 @@ import type {
   SolanaTxResponse,
 } from "./types";
 import type { ZcashStatusResponse, ZcashUriResponse } from "./zcash-checkout";
+import type { CompleteSubscriptionResult, StartSubscriptionResult, SubscriptionOffer } from "./subscription-checkout";
+import type { CancelManagedResult } from "./manage-subscription";
 
 export class ApiClientError extends Error {
   constructor(
@@ -273,4 +275,36 @@ export function getRouteStatus(sessionId: string, originTxHash?: string): Promis
     method: "POST",
     body: JSON.stringify(originTxHash ? { originTxHash } : {}),
   });
+}
+
+/** Subscription options for a recurring checkout on its current network. */
+export function getSubscriptionOffer(sessionId: string): Promise<SubscriptionOffer> {
+  return request<SubscriptionOffer>(sessionPath(sessionId, "subscription"));
+}
+
+/** Save fields and create the subscription intent the wallet signs. */
+export function startSubscription(
+  sessionId: string,
+  payload: { method: string; payer?: string; fields: Record<string, string> },
+): Promise<StartSubscriptionResult> {
+  return request<StartSubscriptionResult>(sessionPath(sessionId, "subscription"), {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Submit the signed grant; activates, charges period 1 and delivers access. */
+export function completeSubscription(
+  sessionId: string,
+  payload: { subscriptionId: string; signature?: string; approveSignature?: string },
+): Promise<CompleteSubscriptionResult> {
+  return request<CompleteSubscriptionResult>(sessionPath(sessionId, "subscription/grant"), {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Buyer cancel from the manage page; returns the wallet revoke action. */
+export function cancelManagedSubscription(token: string): Promise<CancelManagedResult> {
+  return request<CancelManagedResult>(`/api/subscriptions/${encodeURIComponent(token)}/cancel`, { method: "POST" });
 }
