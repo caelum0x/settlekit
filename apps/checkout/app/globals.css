@@ -715,3 +715,19 @@ a.link:hover {
   background: var(--panel-2);
   color: var(--text);
 }
+
+/* --- Connect Discord ------------------------------------------------------- */
+.connect-row {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.connect-manual {
+  margin-top: 8px;
+}
+.connect-manual summary {
+  cursor: pointer;
+  font-size: 13px;
+  margin-bottom: 6px;
+}

@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 
 import type { CollectedFieldSpec } from "@/lib/types";
+import { ConnectField } from "./ConnectField";
 
 /** Controlled state for the buyer's delivery fields. */
 export function useBuyerFields(requiredFields: CollectedFieldSpec[], initialValues: Record<string, string>) {
@@ -29,6 +30,18 @@ export function BuyerFields({ idPrefix, requiredFields, fields, onChange, disabl
     <>
       {requiredFields.map((spec) => {
         const id = `${idPrefix}-field-${spec.key}`;
+        if (spec.connect) {
+          return (
+            <ConnectField
+              key={spec.key}
+              id={id}
+              spec={{ ...spec, connect: spec.connect }}
+              value={fields[spec.key] ?? ""}
+              onChange={(value) => onChange(spec.key, value)}
+              {...(disabled !== undefined ? { disabled } : {})}
+            />
+          );
+        }
         return (
           <div className="field" key={spec.key}>
             <label htmlFor={id}>{spec.label}</label>

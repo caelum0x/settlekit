@@ -17,7 +17,9 @@ import { buildNetworkOptions, networkEnv } from "./network-options";
 import { configuredSolanaCluster } from "./solana";
 import { defaultVerifyDeps } from "./store";
 import type { VerifyDeps } from "./verify-payment";
+import { discordOAuthSetup } from "./discord-connect";
 import type {
+  CollectedFieldSpec,
   CheckoutSessionView,
   DeliveredAccess,
   OrderLine,
@@ -44,6 +46,28 @@ function buildLines(resolved: ResolvedSession): OrderLine[] {
   });
 }
 
+/** Offer "Connect Discord" for the Discord id when the OAuth app is configured. */
+function withConnections(
+  specs: CollectedFieldSpec[],
+  sessionId: string,
+  collected: Record<string, string>,
+): CollectedFieldSpec[] {
+  if (!discordOAuthSetup()) return specs;
+  return specs.map((spec) =>
+    spec.key === "discordUserId"
+      ? {
+          ...spec,
+          help: "Connect your Discord account so the role goes to the right user.",
+          connect: {
+            url: `/api/discord/authorize?session=${encodeURIComponent(sessionId)}`,
+            label: "Connect Discord",
+            connectedAs: collected.discordUserId ? (collected.discordUsername ?? collected.discordUserId) : null,
+          },
+        }
+      : spec,
+  );
+}
+
 /** Build the full session view returned to the checkout page + client. */
 export function buildSessionView(
   resolved: ResolvedSession,
@@ -62,7 +86,7 @@ export function buildSessionView(
     amount: session.amount,
     lines: buildLines(resolved),
     collectedFields: session.collectedFields,
-    requiredFields: requiredFieldsForDelivery(deliveryAction),
+    requiredFields: withConnections(requiredFieldsForDelivery(deliveryAction), session.id, session.collectedFields),
     expiresAt: session.expiresAt,
     expired,
     merchantName,

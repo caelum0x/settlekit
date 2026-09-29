@@ -128,7 +128,9 @@ export interface GithubConfig {
 
 /** Discord bot credentials used for role automation. */
 export interface DiscordConfig {
+  /** Empty when DISCORD_BOT_TOKEN is unset: Discord roles stay "pending setup". */
   botToken: string;
+  configured: boolean;
 }
 
 /** File-delivery signed-URL configuration. */
@@ -370,7 +372,8 @@ export function loadConfig(env: Env = process.env): WorkerConfig {
       ),
     },
     discord: {
-      botToken: requireString(env, "DISCORD_BOT_TOKEN"),
+      botToken: (env.DISCORD_BOT_TOKEN ?? "").trim(),
+      configured: (env.DISCORD_BOT_TOKEN ?? "").trim().length > 0,
     },
     fileDelivery: {
       baseUrl: requireString(env, "FILE_DELIVERY_BASE_URL"),

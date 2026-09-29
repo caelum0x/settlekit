@@ -9,6 +9,7 @@ import { validateFields } from "@/lib/fields";
 import { truncateMiddle } from "@/lib/format";
 import { isWellFormedTxHash, txHashFormatHint } from "@/lib/tx-hash";
 import type { CollectedFieldSpec } from "@/lib/types";
+import { ConnectField } from "./ConnectField";
 import { CopyButton } from "./CopyButton";
 
 interface PaymentFormProps {
@@ -158,7 +159,17 @@ export function PaymentForm({
         </div>
       </div>
 
-      {requiredFields.map((spec) => (
+      {requiredFields.map((spec) =>
+        spec.connect ? (
+          <ConnectField
+            key={spec.key}
+            id={`field-${spec.key}`}
+            spec={{ ...spec, connect: spec.connect }}
+            value={fields[spec.key] ?? ""}
+            onChange={(value) => onFieldChange(spec.key, value)}
+            invalid={fieldErrors[spec.key] === true}
+          />
+        ) : (
         <div className="field" key={spec.key}>
           <label htmlFor={`field-${spec.key}`}>{spec.label}</label>
           <input
@@ -174,7 +185,8 @@ export function PaymentForm({
           />
           <div className="help">{spec.help}</div>
         </div>
-      ))}
+        ),
+      )}
 
       <div className="field">
         <label htmlFor="txHash">Transaction hash</label>

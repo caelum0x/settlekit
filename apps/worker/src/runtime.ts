@@ -65,6 +65,7 @@ import {
   routeWatchJob,
   githubDeliveryRetryJob,
   subscriptionChargeJob,
+  discordDeliveryRetryJob,
   type JobContext,
 } from "./jobs/index.js";
 
@@ -334,6 +335,7 @@ export function buildRuntime(deps: RuntimeDeps): WorkerRuntime {
     { job: routeWatchJob, intervalMs: intervals.routeWatchMs },
     // No-op until a GitHub App installation id is configured.
     { job: githubDeliveryRetryJob, intervalMs: intervals.githubDeliveryRetryMs },
+    { job: discordDeliveryRetryJob, intervalMs: intervals.githubDeliveryRetryMs },
     // No-op until onchain billing is configured (operator key / checkout URL).
     { job: subscriptionChargeJob, intervalMs: intervals.subscriptionChargeMs },
   ];

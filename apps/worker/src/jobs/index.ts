@@ -21,6 +21,7 @@ export { zcashWatchJob } from "./zcash-watch.js";
 export { routeWatchJob } from "./route-watch.js";
 export { githubDeliveryRetryJob } from "./github-delivery-retry-job.js";
 export { subscriptionChargeJob } from "./subscription-charge.js";
+export { discordDeliveryRetryJob } from "./discord-delivery-retry-job.js";
 
 import type { Job } from "./types.js";
 import { deliveryRunnerJob } from "./delivery-runner-job.js";
@@ -40,6 +41,7 @@ import { zcashWatchJob } from "./zcash-watch.js";
 import { routeWatchJob } from "./route-watch.js";
 import { githubDeliveryRetryJob } from "./github-delivery-retry-job.js";
 import { subscriptionChargeJob } from "./subscription-charge.js";
+import { discordDeliveryRetryJob } from "./discord-delivery-retry-job.js";
 
 /** Stable list of the worker's primary scheduled jobs (plan §17). */
 export const workerJobs = [
@@ -60,6 +62,7 @@ export const workerJobs = [
   "route-watch",
   "github-delivery-retry",
   "subscription-charge",
+  "discord-delivery-retry",
 ] as const;
 
 export type WorkerJobName = (typeof workerJobs)[number];
@@ -84,5 +87,6 @@ export function allJobs(): Job[] {
     routeWatchJob,
     githubDeliveryRetryJob,
     subscriptionChargeJob,
+    discordDeliveryRetryJob,
   ];
 }

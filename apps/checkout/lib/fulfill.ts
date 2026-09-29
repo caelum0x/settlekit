@@ -12,15 +12,20 @@
  * it stays `pending` (setup missing or GitHub error) — never a fake success.
  */
 import { grantFromPayment, type EntitlementRepository } from "@settlekit/entitlements";
-import type { DeliveryAction, Entitlement, Payment, Product } from "@settlekit/common";
+import type { DeliveryAction, DiscordRoleGrant, Entitlement, Payment, Product } from "@settlekit/common";
 
 import { entitlementIdForPayment } from "./deliver";
 import { deliverGitHubAccess, isGitHubAction, type GitHubDelivery } from "./github-delivery";
+import { deliverDiscordRole, getDiscordDelivery, isDiscordAction, type DiscordDelivery } from "./discord-delivery";
 
 export interface FulfillmentDeps {
   entitlements: EntitlementRepository;
   /** Resolved lazily so GitHub setup is only read when a GitHub product sells. */
   github: () => GitHubDelivery;
+  /** Discord bot (role grants); defaults to the env-configured bot. */
+  discord?: () => DiscordDelivery;
+  /** Where granted roles are recorded so access-sync can revoke them on refund / expiry. */
+  discordGrants?: { save(grant: DiscordRoleGrant): Promise<DiscordRoleGrant> };
 }
 
 export interface FulfillInput {
@@ -43,6 +48,23 @@ export async function fulfillPayment(deps: FulfillmentDeps, input: FulfillInput)
     ...grantFromPayment({ payment, product, deliveryAction: action, now }),
     id,
   };
+  if (isDiscordAction(action)) {
+    const outcome = await deliverDiscordRole({
+      discord: (deps.discord ?? getDiscordDelivery)(),
+      action,
+      product,
+      payment,
+      entitlementId: id,
+      discordUserId: input.fields.discordUserId ?? "",
+    });
+    if (outcome.status === "delivered") await deps.discordGrants?.save(outcome.grant);
+    if (outcome.status === "failed") {
+      console.error(`[checkout] Discord delivery failed for payment ${payment.id}: ${outcome.reason}`);
+    }
+    return deps.entitlements.save(
+      outcome.status === "delivered" ? { ...granted, status: "active", resourceId: outcome.target } : { ...granted, status: "pending" },
+    );
+  }
   if (!isGitHubAction(action)) return deps.entitlements.save(granted);
 
   const outcome = await deliverGitHubAccess({

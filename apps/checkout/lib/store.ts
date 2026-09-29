@@ -49,6 +49,7 @@ import { verifyOnChainPayment } from "./arc";
 import { CheckoutError, isUniqueViolation } from "./errors";
 import { fulfillPayment, type FulfillmentDeps } from "./fulfill";
 import { getGitHubDelivery } from "./github-delivery";
+import { getDiscordDelivery } from "./discord-delivery";
 import { getEvmRuntime } from "./evm";
 import { getHyperCoreRuntime } from "./hypercore";
 import { getSolanaRuntime } from "./solana";
@@ -82,7 +83,9 @@ export function defaultStoreDeps(): StoreDeps {
   return {
     backend,
     verify: defaultVerifyDeps(),
-    fulfillment: { entitlements: backend.entitlements, github: () => getGitHubDelivery() },
+    fulfillment: { entitlements: backend.entitlements, github: () => getGitHubDelivery(), discord: () => getDiscordDelivery(),
+      ...(backend.discordGrants ? { discordGrants: backend.discordGrants } : {}),
+    },
   };
 }
 
@@ -355,6 +358,7 @@ export async function getDeliveredAccess(
   return materializeDelivery(payment, action, product, session.collectedFields, {
     ...(entitlement ? { entitlement } : {}),
     githubReady: deps.fulfillment.github().ok,
+    discordReady: (deps.fulfillment.discord ?? getDiscordDelivery)().ok,
   });
 }
 

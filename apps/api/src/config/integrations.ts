@@ -43,6 +43,7 @@ import {
 
 export type { PaymentVerifiers, ZcashRuntime } from "./verifier-registry.js";
 import {
+  buildDiscordClient,
   createDeliveryClients,
   type DeliveryGrantSink,
 } from "../wiring/delivery-clients.js";
@@ -180,11 +181,15 @@ export function buildIntegrations(
         : {}),
     });
   } else {
-    deliveryClients = createInMemoryDeliveryClients({
+    const inMemory = createInMemoryDeliveryClients({
       licenseTokenSecret: config.licenseTokenSecret,
       fileDelivery: config.fileDelivery,
       ...sharedStores,
     });
+    // A configured Discord bot grants real roles even before GitHub is set up.
+    deliveryClients = config.discord
+      ? { ...inMemory, discord: buildDiscordClient({ discordApi, grants: options.grantSink ?? createInMemoryGrantSink() }) }
+      : inMemory;
   }
 
   const arcClient = config.arc

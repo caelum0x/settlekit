@@ -245,6 +245,14 @@ export async function startSubscription(sessionId: string, input: StartSubscript
     payTo: payToFor(session, session.network),
     ...(method !== "renewal_invoice" ? { payer } : {}),
     ...(fields.email ? { email: fields.email } : {}),
+    ...(fields.githubUsername || fields.discordUserId
+      ? {
+          buyer: {
+            ...(fields.githubUsername ? { githubUsername: fields.githubUsername } : {}),
+            ...(fields.discordUserId ? { discordUserId: fields.discordUserId } : {}),
+          },
+        }
+      : {}),
   });
   await saveCollectedFields(sessionId, { ...fields, [SUBSCRIBE_INTENT_FIELD]: intent.subscription.id });
   return {

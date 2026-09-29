@@ -26,6 +26,7 @@ import {
   notFound,
   toBaseUnits,
   validationError,
+  type Customer,
   type Payment,
 } from "@settlekit/common";
 import { checkPayTo, type Hex } from "@settlekit/chains";
@@ -65,6 +66,13 @@ const createSchema = z.object({
   periods: z.number().int().min(1).max(120).optional(),
   /** Link to an existing core subscription (else one is created on first charge). */
   subscriptionId: z.string().min(1).optional(),
+  /** Delivery identities collected at checkout (GitHub invite, Discord role). */
+  buyer: z
+    .object({
+      githubUsername: z.string().trim().min(1).max(39).optional(),
+      discordUserId: z.string().regex(/^\d{15,21}$/).optional(),
+    })
+    .optional(),
 });
 
 const grantSchema = z.object({
@@ -202,6 +210,7 @@ export function onchainBillingRoutes(): Hono<AppEnv> {
     await assertCustomerNotForeign(c, body.customerId);
     if (body.subscriptionId) await ownedCoreSubscription(c, body.subscriptionId);
     const organizationId = requireOrg(c);
+    await upsertBuyer(ctx, organizationId, body);
     const checkoutSessionId = await recordSession(ctx, {
       organizationId,
       customerId: body.customerId,
@@ -555,4 +564,26 @@ async function settleRefund(ctx: AppContext, payment: Payment, amount: string, r
     (e) => e.grantedBy.type === "payment" && e.grantedBy.id === payment.id && e.status !== "revoked",
   );
   for (const e of granted) await ctx.entitlements.revoke(e.id, `refunded (${reason})`);
+}
+
+/** Create / refresh the buyer's customer record so delivery knows their email, GitHub and Discord ids. */
+async function upsertBuyer(
+  ctx: AppContext,
+  organizationId: string,
+  body: { customerId: string; email?: string | undefined; payer?: string | undefined; buyer?: { githubUsername?: string | undefined; discordUserId?: string | undefined } | undefined },
+): Promise<void> {
+  const existing = await ctx.customers.findById(body.customerId);
+  const email = body.email ?? existing?.email;
+  if (!email) return;
+  const identities = {
+    ...(body.buyer?.githubUsername ? { githubUsername: body.buyer.githubUsername } : {}),
+    ...(body.buyer?.discordUserId ? { discordUserId: body.buyer.discordUserId } : {}),
+    ...(body.payer && !existing?.walletAddress ? { walletAddress: body.payer } : {}),
+  };
+  if (existing && Object.keys(identities).length === 0 && existing.email === email) return;
+  await ctx.customers.save({
+    ...(existing ?? { id: body.customerId, organizationId, metadata: {}, createdAt: new Date().toISOString() }),
+    email,
+    ...identities,
+  } satisfies Customer);
 }

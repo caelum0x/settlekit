@@ -11,7 +11,8 @@
  *  - github access -> the REAL GitHub App invite run once by ./fulfill; this
  *                     module only renders its stored outcome (active invite
  *                     or pending) and never fabricates an invite link
- *  - discord role  -> @settlekit/common Discord role grant record
+ *  - discord role  -> the REAL bot role grant run once by ./fulfill; rendered
+ *                     from its stored outcome (granted or pending), never faked
  *
  * These run server-side and are deterministic for a given session (so the
  * success page is stable on refresh): we derive entitlement ids and tokens
@@ -47,6 +48,8 @@ export interface FulfillmentState {
   entitlement?: Entitlement;
   /** Whether a GitHub App is configured on this deployment. */
   githubReady: boolean;
+  /** Whether the Discord bot is configured on this deployment. */
+  discordReady?: boolean;
 }
 
 /**
@@ -74,7 +77,7 @@ export function materializeDelivery(
     case "github_team_add":
       return [githubTeamAccess(action, fields, state)];
     case "discord_role_add":
-      return [discordRoleAccess(action, fields)];
+      return [discordRoleAccess(action, fields, state)];
     default: {
       const accessUrl = sellerLink(product, "accessUrl");
       return [
@@ -242,14 +245,28 @@ function githubTeamAccess(
 function discordRoleAccess(
   action: Extract<DeliveryAction, { type: "discord_role_add" }>,
   fields: Record<string, string>,
+  state: FulfillmentState,
 ): DeliveredAccess {
-  const userId = fields.discordUserId ?? "";
+  const who = fields.discordUsername ?? fields.discordUserId ?? "your account";
+  if (state.entitlement?.status !== "active") {
+    return {
+      kind: "discord_role",
+      title: "Discord role",
+      value: state.discordReady ? "Role not granted yet" : "Pending setup",
+      isLink: false,
+      pending: true,
+      detail: state.discordReady
+        ? `Your payment is confirmed, but Discord did not accept the role for ${who} yet (join the server if you have not). It is retried automatically.`
+        : "Your payment is confirmed. The seller has not finished connecting the Discord bot, so your role is granted as soon as setup is complete.",
+    };
+  }
+  const [guildId] = (state.entitlement.resourceId ?? `${action.guildId}/`).split("/");
   return {
     kind: "discord_role",
     title: "Discord role granted",
-    value: "https://discord.com/channels/@me",
+    value: guildId ? `https://discord.com/channels/${guildId}` : "https://discord.com/channels/@me",
     isLink: true,
-    detail: `Role ${action.roleId} granted to user ${userId} in guild ${action.guildId}. Open Discord to see the new channels.`,
+    detail: `The paid role was added to ${who}. Open the server in Discord to see the new channels.`,
   };
 }
 

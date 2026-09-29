@@ -8,7 +8,14 @@
  */
 
 import { OctokitGitHubApi } from "@settlekit/github";
-import { createDiscordClient } from "@settlekit/discord";
+import { createDiscordClient, type DiscordApi } from "@settlekit/discord";
+
+function unconfiguredDiscordApi(): DiscordApi {
+  const fail = async (): Promise<never> => {
+    throw new Error("Discord bot is not configured (DISCORD_BOT_TOKEN)");
+  };
+  return { listGuilds: fail, listGuildRoles: fail, addRole: fail, removeRole: fail };
+}
 import { loadConfig, ConfigError } from "./config.js";
 import { buildRuntime } from "./runtime.js";
 import { startHealthServer } from "./health-server.js";
@@ -36,11 +43,11 @@ async function main(): Promise<void> {
     installationId: config.github.installationId,
   });
 
-  // Real fetch-backed Discord bot transport.
-  const discordApi = createDiscordClient({
-    botToken: config.discord.botToken,
-    auditReason: "SettleKit access automation",
-  });
+  // Real fetch-backed Discord bot transport; without a bot token every call
+  // fails with "pending setup" and Discord entitlements stay pending until set.
+  const discordApi: DiscordApi = config.discord.configured
+    ? createDiscordClient({ botToken: config.discord.botToken, auditReason: "SettleKit access automation" })
+    : unconfiguredDiscordApi();
 
   // In Postgres mode, ensure the default org/merchant exist before jobs run so
   // payment/subscription/entitlement upserts never violate the merchant FK.

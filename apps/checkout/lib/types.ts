@@ -28,6 +28,8 @@ export interface CollectedFieldSpec {
   inputType: "text" | "email";
   required: boolean;
   placeholder: string;
+  /** Account connection (OAuth) that fills this field, e.g. "Connect Discord". */
+  connect?: { url: string; label: string; connectedAs: string | null };
 }
 
 /** Order line, resolved with product + price for display. */

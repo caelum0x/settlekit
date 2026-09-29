@@ -10,7 +10,15 @@ export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: { sessionId: string };
+  searchParams: { discord?: string };
 }
+
+const DISCORD_NOTICE: Record<string, { ok: boolean; text: string }> = {
+  connected: { ok: true, text: "Discord connected. Your role is added as soon as the payment settles." },
+  failed: { ok: false, text: "Discord did not connect. Try again, or enter your user ID manually." },
+  canceled: { ok: false, text: "Discord connection was canceled." },
+  unavailable: { ok: false, text: "Connecting Discord is not available on this checkout; enter your user ID instead." },
+};
 
 /**
  * Hosted checkout page. Server-fetches the checkout session from the SettleKit
@@ -21,7 +29,7 @@ interface PageProps {
  * the network. Expired sessions redirect to the
  * /expired page; completed sessions redirect to /success.
  */
-export default async function CheckoutPage({ params }: PageProps) {
+export default async function CheckoutPage({ params, searchParams }: PageProps) {
   const { sessionId } = params;
 
   let session;
@@ -48,8 +56,15 @@ export default async function CheckoutPage({ params }: PageProps) {
   // The Arc demo wallet (offline simulation) only applies to Arc sessions.
   const isArc = session.network === "arc";
 
+  const discordNotice = searchParams.discord ? DISCORD_NOTICE[searchParams.discord] : undefined;
+
   return (
     <div>
+      {discordNotice ? (
+        <div className={`alert ${discordNotice.ok ? "alert-success" : "alert-error"}`} role="status">
+          {discordNotice.text}
+        </div>
+      ) : null}
       <div className="card">
         <h2>Order summary</h2>
         <p className="merchant">Sold by {session.merchantName}</p>

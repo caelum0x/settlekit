@@ -167,7 +167,7 @@ function buildGithubClient(deps: DeliveryWiringDeps): GithubAccessClient {
 }
 
 /** A Discord role adapter backed by the real granter/revoker functions. */
-function buildDiscordClient(deps: DeliveryWiringDeps): DiscordRoleClient {
+export function buildDiscordClient(deps: Pick<DeliveryWiringDeps, "discordApi" | "grants">): DiscordRoleClient {
   return {
     async addRole(input) {
       const grant = await grantDiscordRole(deps.discordApi, {

@@ -11,6 +11,7 @@ import {
   type NetworkRow,
 } from "@/lib/merchant-types";
 import { NetworkBadge } from "./NetworkBadge";
+import { discordBotInviteUrl } from "@/lib/config";
 
 interface ProductFormProps {
   /** The merchant's accepted networks (per-product toggles choose a subset). */
@@ -190,16 +191,37 @@ export function ProductForm({ networks, product, submitLabel, onSaved }: Product
         </div>
       ) : null}
       {kind === "discord_role" ? (
-        <div className="form-row">
-          <div className="field">
-            <label htmlFor="p-guild">Server ID</label>
-            <input id="p-guild" className="input mono" value={guildId} onChange={(e) => setGuildId(e.target.value)} required />
+        <>
+          <div className="form-row">
+            <div className="field">
+              <label htmlFor="p-guild">Server ID</label>
+              <input id="p-guild" className="input mono" value={guildId} onChange={(e) => setGuildId(e.target.value)} inputMode="numeric" placeholder="123456789012345678" required />
+              <span className={fieldError("delivery.guildId") ? "field-error" : "field-hint"}>
+                {fieldError("delivery.guildId") ?? "Discord: Server Settings > Widget, or right-click the server > Copy Server ID."}
+              </span>
+            </div>
+            <div className="field">
+              <label htmlFor="p-role">Role ID</label>
+              <input id="p-role" className="input mono" value={roleId} onChange={(e) => setRoleId(e.target.value)} inputMode="numeric" placeholder="123456789012345678" required />
+              <span className={fieldError("delivery.roleId") ? "field-error" : "field-hint"}>
+                {fieldError("delivery.roleId") ?? "Server Settings > Roles > right-click the paid role > Copy Role ID."}
+              </span>
+            </div>
           </div>
-          <div className="field">
-            <label htmlFor="p-role">Role ID</label>
-            <input id="p-role" className="input mono" value={roleId} onChange={(e) => setRoleId(e.target.value)} required />
-          </div>
-        </div>
+          <p className="field-hint">
+            Buyers connect their Discord account at checkout and the SettleKit bot adds this role after payment.{" "}
+            {discordBotInviteUrl(guildId.trim()) ? (
+              <>
+                <a className="link" href={discordBotInviteUrl(guildId.trim()) ?? "#"} target="_blank" rel="noreferrer">
+                  Add the SettleKit bot to your server
+                </a>{" "}
+                and drag its role above the paid role.
+              </>
+            ) : (
+              <>Discord delivery shows &quot;pending setup&quot; to buyers until the platform bot is configured; roles are granted automatically once it is.</>
+            )}
+          </p>
+        </>
       ) : null}
       {kind === "access" ? (
         <div className="field">
