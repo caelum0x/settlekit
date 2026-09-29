@@ -1,0 +1,233 @@
+# SettleKit Operator (Tameion entry) — Render Blueprint.
+#
+# New -> Blueprint -> this repo, blueprint path `render.tameion.yaml`.
+# Provisions only what the autonomous operator needs on Arc testnet:
+#
+#   tameion-db        Postgres (API, worker and operator stores; the operator
+#                     self-creates operator_decisions / operator_bills /
+#                     operator_escalations as jsonb tables)
+#   tameion-api       REST API (Docker): checkout, payments, /v1/operator/*,
+#                     public /v1/public/operator/{proof,verify/:id}
+#   tameion-worker    background worker (Docker): payment confirmation and
+#                     the operator tick (revenue -> decisions, due bills,
+#                     daily tick, 72h escalation expiry)
+#   tameion-console   operator console (Next.js): owner pages + public /proof
+#                     and /connect onboarding
+#
+# `sync: false` values are secrets the owner fills in the Render dashboard.
+# Nothing here is presented as on-chain unless OPERATOR_VAULT_ADDRESS is set;
+# without it the operator only runs with OPERATOR_SIMULATION=1 and every
+# surface is labelled "simulation".
+
+databases:
+  - name: tameion-db
+    databaseName: tameion
+    user: tameion
+    plan: free
+
+services:
+  # ---- API --------------------------------------------------------------------
+  - type: web
+    name: tameion-api
+    runtime: docker
+    dockerfilePath: ./apps/api/Dockerfile
+    dockerContext: .
+    plan: free
+    healthCheckPath: /health
+    preDeployCommand: node /app/packages/database/dist/cli.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 8787
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tameion-db
+          property: connectionString
+      # Signing secrets (auto-generated).
+      - key: LICENSE_TOKEN_SECRET
+        generateValue: true
+      - key: WEBHOOK_SIGNING_SECRET
+        generateValue: true
+      - key: AUTH_COOKIE_SECRET
+        generateValue: true
+      - key: FILE_DOWNLOAD_SECRET
+        generateValue: true
+      # Owner-capable key the console uses server-side (bootstrap key = owner).
+      - key: API_BOOTSTRAP_KEY
+        generateValue: true
+      # Additional API key ids allowed to approve/reject escalations and PUT policy.
+      - key: OPERATOR_OWNER_KEY_IDS
+        sync: false
+      # Arc testnet settlement verification (enables the arc payment verifier).
+      - key: ARC_CHAIN_ID
+        value: "5042002"
+      - key: ARC_RPC_URL
+        value: https://rpc.testnet.arc.network
+      - key: ARC_EXPLORER_URL
+        value: https://testnet.arcscan.app
+      # Operator runtime. The operator acts for exactly one org and one vault.
+      - key: OPERATOR_ORG_ID
+        sync: false
+      - key: OPERATOR_VAULT_ADDRESS
+        sync: false
+      # Operator signer: Circle DCW (preferred) or a viem key.
+      - key: OPERATOR_WALLET_ADDRESS
+        sync: false
+      - key: OPERATOR_PRIVATE_KEY
+        sync: false
+      - key: OPERATOR_SIGNER
+        sync: false
+      # Owner signer for approve/reject/policy transactions (DCW address or key).
+      - key: OWNER_WALLET_ADDRESS
+        sync: false
+      - key: OWNER_PRIVATE_KEY
+        sync: false
+      # Circle: DCW contract execution + Compliance Engine screening.
+      - key: CIRCLE_API_KEY
+        sync: false
+      - key: CIRCLE_ENTITY_SECRET
+        sync: false
+      - key: ARC_USDC_TOKEN_ID
+        sync: false
+      - key: OPERATOR_X402_WALLET_ID
+        sync: false
+      - key: OPERATOR_X402_ALLOWED_HOSTS
+        sync: false
+      # Claude (heuristic engine is used when unset).
+      - key: ANTHROPIC_API_KEY
+        sync: false
+      - key: OPERATOR_MODEL_ROUTINE
+        sync: false
+      - key: OPERATOR_MODEL_CRITICAL
+        sync: false
+      # Default policy (must match the vault; PUT /v1/operator/policy refuses drift).
+      - key: OPERATOR_PER_TX_CAP_USDC
+        value: "1000"
+      - key: OPERATOR_DAILY_CAP_USDC
+        value: "1500"
+      - key: OPERATOR_ESCALATE_ABOVE_USDC
+        value: "500"
+      - key: OPERATOR_ALLOWLIST
+        sync: false
+      # Escalation alerts.
+      - key: RESEND_API_KEY
+        sync: false
+      - key: OPERATOR_ALERT_EMAIL
+        sync: false
+      - key: OPERATOR_DISCORD_WEBHOOK_URL
+        sync: false
+      - key: OPERATOR_CONSOLE_URL
+        sync: false
+      # Set to 1 only for a labelled demo without a vault.
+      - key: OPERATOR_SIMULATION
+        sync: false
+
+  # ---- Worker -----------------------------------------------------------------
+  - type: worker
+    name: tameion-worker
+    runtime: docker
+    dockerfilePath: ./apps/worker/Dockerfile
+    dockerContext: .
+    plan: starter
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: tameion-db
+          property: connectionString
+      - key: WEBHOOK_SIGNING_SECRET
+        fromService: { name: tameion-api, type: web, envVarKey: WEBHOOK_SIGNING_SECRET }
+      - key: LICENSE_TOKEN_SECRET
+        fromService: { name: tameion-api, type: web, envVarKey: LICENSE_TOKEN_SECRET }
+      - key: ARC_CHAIN_ID
+        value: "5042002"
+      - key: ARC_RPC_URL
+        value: https://rpc.testnet.arc.network
+      - key: ARC_USDC_ADDRESS
+        value: "0x3600000000000000000000000000000000000000"
+      - key: ARC_EXPLORER_URL
+        value: https://testnet.arcscan.app
+      # Operator tick cadence (shared with payout reconcile), ms.
+      - key: WORKER_PAYOUT_RECONCILE_INTERVAL_MS
+        value: "60000"
+      # Same operator runtime settings as the API (one org, one vault).
+      - key: OPERATOR_ORG_ID
+        fromService: { name: tameion-api, type: web, envVarKey: OPERATOR_ORG_ID }
+      - key: OPERATOR_VAULT_ADDRESS
+        fromService: { name: tameion-api, type: web, envVarKey: OPERATOR_VAULT_ADDRESS }
+      - key: OPERATOR_WALLET_ADDRESS
+        fromService: { name: tameion-api, type: web, envVarKey: OPERATOR_WALLET_ADDRESS }
+      - key: OPERATOR_PRIVATE_KEY
+        fromService: { name: tameion-api, type: web, envVarKey: OPERATOR_PRIVATE_KEY }
+      - key: OPERATOR_SIGNER
+        fromService: { name: tameion-api, type: web, envVarKey: OPERATOR_SIGNER }
+      - key: OWNER_WALLET_ADDRESS
+        fromService: { name: tameion-api, type: web, envVarKey: OWNER_WALLET_ADDRESS }
+      - key: OWNER_PRIVATE_KEY
+        fromService: { name: tameion-api, type: web, envVarKey: OWNER_PRIVATE_KEY }
+      - key: CIRCLE_API_KEY
+        fromService: { name: tameion-api, type: web, envVarKey: CIRCLE_API_KEY }
+      - key: CIRCLE_ENTITY_SECRET
+        fromService: { name: tameion-api, type: web, envVarKey: CIRCLE_ENTITY_SECRET }
+      - key: ANTHROPIC_API_KEY
+        fromService: { name: tameion-api, type: web, envVarKey: ANTHROPIC_API_KEY }
+      - key: OPERATOR_ALLOWLIST
+        fromService: { name: tameion-api, type: web, envVarKey: OPERATOR_ALLOWLIST }
+      - key: OPERATOR_SIMULATION
+        fromService: { name: tameion-api, type: web, envVarKey: OPERATOR_SIMULATION }
+      - key: RESEND_API_KEY
+        fromService: { name: tameion-api, type: web, envVarKey: RESEND_API_KEY }
+      - key: OPERATOR_ALERT_EMAIL
+        fromService: { name: tameion-api, type: web, envVarKey: OPERATOR_ALERT_EMAIL }
+      # The worker validates every delivery integration at boot. Tameion sells
+      # no GitHub/Discord/file products, so any non-empty placeholder works
+      # (e.g. GITHUB_APP_ID=1, GITHUB_INSTALLATION_ID=1, the rest "unused").
+      - key: GITHUB_APP_ID
+        sync: false
+      - key: GITHUB_APP_PRIVATE_KEY
+        sync: false
+      - key: GITHUB_INSTALLATION_ID
+        sync: false
+      - key: DISCORD_BOT_TOKEN
+        sync: false
+      - key: FILE_DELIVERY_BASE_URL
+        sync: false
+      - key: FILE_DELIVERY_SECRET
+        sync: false
+
+  # ---- Operator console (Next.js) -----------------------------------------------
+  - type: web
+    name: tameion-console
+    runtime: node
+    plan: free
+    # Filtered install: only the console and its (dependency-free) tree.
+    buildCommand: corepack enable && pnpm install --frozen-lockfile --filter @settlekit/operator-console && pnpm --filter @settlekit/operator-console build
+    startCommand: pnpm --filter @settlekit/operator-console exec next start -p $PORT
+    healthCheckPath: /proof
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: NODE_ENV
+        value: production
+      # Server-to-server API base URL (the API's public URL on Render).
+      - key: OPERATOR_API_URL
+        sync: false
+      # Owner-capable API key; read on the server only, never sent to browsers.
+      # Use the API's API_BOOTSTRAP_KEY or a key listed in OPERATOR_OWNER_KEY_IDS.
+      - key: OPERATOR_CONSOLE_API_KEY
+        fromService: { name: tameion-api, type: web, envVarKey: API_BOOTSTRAP_KEY }
+      # Owner login.
+      - key: CONSOLE_OWNER_PASSWORD
+        sync: false
+      - key: CONSOLE_SESSION_SECRET
+        generateValue: true
+      - key: ARC_EXPLORER_URL
+        value: https://testnet.arcscan.app
+      # Hosted checkout base; onboarding links are ${CHECKOUT_URL}/c/:sessionId.
+      - key: CHECKOUT_URL
+        sync: false
+      # Agent (operator) address shown in generated vault deploy commands.
+      - key: OPERATOR_WALLET_ADDRESS
+        fromService: { name: tameion-api, type: web, envVarKey: OPERATOR_WALLET_ADDRESS }
