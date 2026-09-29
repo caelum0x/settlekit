@@ -14,7 +14,7 @@ import type { IsoTimestamp, Money, PaymentNetwork } from "@settlekit/common";
 export type SettlementStatus = "pending" | "submitted" | "settled" | "failed";
 
 /** Which backend produced a receipt. */
-export type SettlementProviderName = "gateway" | "circle" | "local";
+export type SettlementProviderName = "gateway" | "circle" | "local" | "solana";
 
 /** A request to move USDC to one recipient. `reference` is the business
  * idempotency key — the same reference must never settle twice. */

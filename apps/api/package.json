@@ -70,7 +70,8 @@
     "@settlekit/x402-client": "workspace:*",
     "@settlekit/streaming": "workspace:*",
     "hono": "^4.6.14",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "@settlekit/solana": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

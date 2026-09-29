@@ -38,7 +38,8 @@
     "@settlekit/settlement-core": "workspace:*",
     "@settlekit/streaming": "workspace:*",
     "@settlekit/webhooks": "workspace:*",
-    "viem": "^2.21.0"
+    "viem": "^2.21.0",
+    "@settlekit/solana": "workspace:*"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",

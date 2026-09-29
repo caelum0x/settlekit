@@ -17,6 +17,7 @@
     { "path": "./packages/escrow" },
     { "path": "./packages/payments" },
     { "path": "./packages/arc" },
+    { "path": "./packages/solana" },
     { "path": "./packages/circle" },
     { "path": "./packages/cctp" },
     { "path": "./packages/onchain" },
