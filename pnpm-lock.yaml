@@ -202,6 +202,9 @@ importers:
       '@settlekit/onchain':
         specifier: workspace:*
         version: link:../../packages/onchain
+      '@settlekit/onchain-billing':
+        specifier: workspace:*
+        version: link:../../packages/onchain-billing
       '@settlekit/oss-fund':
         specifier: workspace:*
         version: link:../../packages/oss-fund
@@ -2000,6 +2003,9 @@ importers:
       '@settlekit/discord':
         specifier: workspace:*
         version: link:../../packages/discord
+      '@settlekit/dunning':
+        specifier: workspace:*
+        version: link:../../packages/dunning
       '@settlekit/entitlements':
         specifier: workspace:*
         version: link:../../packages/entitlements
@@ -2015,6 +2021,9 @@ importers:
       '@settlekit/notifications':
         specifier: workspace:*
         version: link:../../packages/notifications
+      '@settlekit/onchain-billing':
+        specifier: workspace:*
+        version: link:../../packages/onchain-billing
       '@settlekit/payments':
         specifier: workspace:*
         version: link:../../packages/payments
@@ -3468,6 +3477,9 @@ importers:
       '@settlekit/marketplace-core':
         specifier: workspace:*
         version: link:../marketplace-core
+      '@settlekit/onchain-billing':
+        specifier: workspace:*
+        version: link:../onchain-billing
       '@settlekit/payee-registry':
         specifier: workspace:*
         version: link:../payee-registry
