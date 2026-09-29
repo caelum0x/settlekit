@@ -54,6 +54,7 @@ function setup(
     signerFor: (caip2) => (caip2 === asset.caip2 ? fake.signer : undefined),
     gasGuard: guard,
     maxAmountPerSettlement: 100_000_000n,
+    allowedPayTo: "any",
     ...overrides,
   });
   return { facilitator, fake, gas, guard };
@@ -366,6 +367,7 @@ describe("settle", () => {
       signerFor: () => fake.signer,
       gasGuard: new GasGuard(fakeGas(), { networks: {} }),
       maxAmountPerSettlement: 100_000_000n,
+      allowedPayTo: "any",
     });
     const requirements = requirementsFor(HYPEREVM, ONE_USDC);
     const result = await facilitator.settle(await signPayment(requirements), requirements);

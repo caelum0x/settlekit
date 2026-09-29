@@ -39,8 +39,11 @@ export interface SettleKitFacilitatorConfig {
   gasGuard: GasGuard;
   /** Max atomic amount per settlement: one value for all networks or per CAIP-2. */
   maxAmountPerSettlement: bigint | Readonly<Record<string, bigint>>;
-  /** Optional recipient allowlist (merchant payTo addresses). */
-  allowedPayTo?: readonly string[];
+  /**
+   * Recipient allowlist (merchant payTo addresses). Unset or empty refuses
+   * every recipient; pass "any" to open the relayer to arbitrary recipients.
+   */
+  allowedPayTo?: readonly string[] | "any";
   nonceStore?: NonceStore;
   /** Kill switch; checked on every call so it can be flipped at runtime. */
   killSwitch?: () => boolean;
@@ -111,7 +114,8 @@ export function createSettleKitFacilitator(config: SettleKitFacilitatorConfig): 
   const policy: PolicyConfig = {
     assets,
     maxAmountFor: maxAmountResolver(config.maxAmountPerSettlement),
-    allowedPayTo: new Set((config.allowedPayTo ?? []).map((address) => address.toLowerCase())),
+    allowedPayTo:
+      config.allowedPayTo === "any" ? "any" : new Set((config.allowedPayTo ?? []).map((address) => address.toLowerCase())),
     killed,
   };
 

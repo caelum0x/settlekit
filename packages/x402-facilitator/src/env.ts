@@ -5,8 +5,9 @@
  *   X402_FACILITATOR_NETWORKS         comma list (default ethereum,hyperevm,robinhood)
  *   X402_FACILITATOR_ALLOW_EXPERIMENTAL  1 to enable Tempo Permit2 / Robinhood testnet
  *   X402_FACILITATOR_MAX_AMOUNT       max USD per settlement (default 100)
- *   X402_FACILITATOR_ALLOWED_PAY_TO   comma list of recipient addresses (default: the
- *                                     caller's defaultAllowedPayTo, else any)
+ *   X402_FACILITATOR_ALLOWED_PAY_TO   comma list of recipient addresses, or "*" to settle
+ *                                     to any recipient (default: the caller's
+ *                                     defaultAllowedPayTo; empty refuses every recipient)
  *   X402_FACILITATOR_KILL             1 refuses every verify/settle (read per call)
  *   X402_GAS_MAX_FEE_<KEY>            per-settlement fee cap, native base units
  *   X402_GAS_DAILY_BUDGET_<KEY>       rolling 24h fee cap, native base units
@@ -30,6 +31,7 @@ import {
 import { getFacilitatorAsset, toAtomicAmount, type FacilitatorAsset } from "./assets.js";
 import { createSettleKitFacilitator, type SettleKitFacilitator } from "./facilitator.js";
 import { GasGuard, type NetworkGasBudget } from "./gas-guard.js";
+import { InMemoryNonceStore, type NonceStore } from "./nonce-store.js";
 import { createRelayer } from "./relayer.js";
 
 export const DEFAULT_FACILITATOR_NETWORKS: readonly EvmChainKey[] = ["ethereum", "hyperevm", "robinhood"];
@@ -87,6 +89,8 @@ export interface FacilitatorFromEnv {
   relayerAddress: Hex;
   /** Enabled networks that were skipped (no asset, experimental, no gas budget). */
   skipped: readonly string[];
+  /** Boot-time warnings (in-memory nonce store, closed recipient allowlist). */
+  warnings: readonly string[];
 }
 
 /**
@@ -97,6 +101,20 @@ export interface FacilitatorFromEnv {
 export interface LoadFacilitatorOptions {
   /** Recipient allowlist used when X402_FACILITATOR_ALLOWED_PAY_TO is unset. */
   defaultAllowedPayTo?: readonly string[];
+  /**
+   * Shared replay store (Postgres in production). Without one the facilitator
+   * falls back to a process-local store and reports a warning: replay
+   * protection then only holds within a single instance and is lost on restart.
+   */
+  nonceStore?: NonceStore;
+}
+
+/** Resolve the recipient allowlist: explicit env, else the caller's own recipients. */
+export function resolveAllowedPayTo(env: Env, defaults: readonly string[] = []): readonly string[] | "any" {
+  const configured = readEnv(env, "X402_FACILITATOR_ALLOWED_PAY_TO");
+  if (configured === undefined) return [...new Set(defaults.map((address) => address.trim()).filter(Boolean))];
+  if (configured.trim() === "*") return "any";
+  return configured.split(",").map((part) => part.trim()).filter(Boolean);
 }
 
 export function loadFacilitatorFromEnv(env: Env = process.env, options: LoadFacilitatorOptions = {}): FacilitatorFromEnv | null {
@@ -134,11 +152,18 @@ export function loadFacilitatorFromEnv(env: Env = process.env, options: LoadFaci
     networks: Object.fromEntries(enabled.map(({ asset, budget }) => [asset.caip2, budget])),
   });
   const maxAmount = BigInt(toAtomicAmount(readEnv(env, "X402_FACILITATOR_MAX_AMOUNT") ?? "100", 6));
-  const configured = readEnv(env, "X402_FACILITATOR_ALLOWED_PAY_TO");
-  const allowedPayTo =
-    configured !== undefined
-      ? configured.split(",").map((part) => part.trim()).filter(Boolean)
-      : [...(options.defaultAllowedPayTo ?? [])];
+  const allowedPayTo = resolveAllowedPayTo(env, options.defaultAllowedPayTo);
+  const warnings: string[] = [];
+  if (allowedPayTo !== "any" && allowedPayTo.length === 0) {
+    warnings.push(
+      "x402 facilitator refuses every recipient: set X402_EVM_PAY_TO / X402_PAY_TO_<CHAIN> or X402_FACILITATOR_ALLOWED_PAY_TO",
+    );
+  }
+  if (allowedPayTo === "any") warnings.push("x402 facilitator settles to ANY recipient (X402_FACILITATOR_ALLOWED_PAY_TO=*)");
+  const nonceStore = options.nonceStore ?? new InMemoryNonceStore();
+  if (!options.nonceStore) {
+    warnings.push("x402 facilitator is using an in-memory nonce store (local dev only): set DATABASE_URL for shared replay protection");
+  }
 
   // Mixed environments are allowed per network (e.g. HyperEVM mainnet with
   // Robinhood testnet), so build one facilitator per environment in use.
@@ -152,10 +177,11 @@ export function loadFacilitatorFromEnv(env: Env = process.env, options: LoadFaci
       gasGuard,
       maxAmountPerSettlement: maxAmount,
       allowedPayTo,
+      nonceStore,
       killSwitch: () => readEnv(env, "X402_FACILITATOR_KILL") === "1",
     }),
   );
-  return { facilitator: combineFacilitators(parts), relayerAddress: relayer.address, skipped };
+  return { facilitator: combineFacilitators(parts), relayerAddress: relayer.address, skipped, warnings };
 }
 
 /** Route calls to the facilitator that owns the requirements' network. */

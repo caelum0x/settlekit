@@ -39,6 +39,7 @@ import {
   getFacilitatorAsset,
   loadFacilitatorFromEnv,
   requirementsExtraFor,
+  type NonceStore,
   type SettleKitFacilitator,
 } from "@settlekit/x402-facilitator";
 import { HTTPFacilitatorClient, type FacilitatorClient } from "@x402/core/server";
@@ -151,21 +152,44 @@ function remoteNetwork(env: Env, network: PaymentNetwork, payTo: string): AgentP
 export interface LoadAgentPaymentsOptions {
   /** Inject the local facilitator (tests); defaults to loading it from env. */
   localFacilitator?: SettleKitFacilitator | null;
+  /** Shared replay store for the local facilitator (Postgres when DATABASE_URL is set). */
+  nonceStore?: NonceStore;
+  /** Boot warnings sink (default console.warn). */
+  warn?: (message: string) => void;
+}
+
+/**
+ * This deployment's own EVM receiving addresses: X402_EVM_PAY_TO plus every
+ * per-chain X402_PAY_TO_<CHAIN> (Solana excluded; the local relayer is EVM-only).
+ */
+export function ownEvmRecipients(env: Env): string[] {
+  return Object.keys(env)
+    .filter((key) => key === "X402_EVM_PAY_TO" || /^X402_PAY_TO_(?!SOLANA$)[A-Z]+$/.test(key))
+    .map((key) => readEnv(env, key))
+    .filter((value): value is string => value !== undefined && /^0x[0-9a-fA-F]{40}$/.test(value));
 }
 
 /** Build the runtime from env, or null when no network can be offered and MPP is off. */
 export function loadAgentPayments(env: Env = process.env, options: LoadAgentPaymentsOptions = {}): AgentPaymentsRuntime | null {
   const notes: string[] = [];
   // The relayer only settles to this deployment's own EVM recipients unless
-  // X402_FACILITATOR_ALLOWED_PAY_TO says otherwise.
-  const ownRecipients = Object.keys(env)
-    .filter((key) => key === "X402_EVM_PAY_TO" || /^X402_PAY_TO_(?!SOLANA$)[A-Z]+$/.test(key))
-    .map((key) => readEnv(env, key))
-    .filter((value): value is string => value !== undefined);
+  // X402_FACILITATOR_ALLOWED_PAY_TO names others (or "*" opens it).
   const loaded =
-    options.localFacilitator === undefined ? loadFacilitatorFromEnv(env, { defaultAllowedPayTo: ownRecipients }) : null;
+    options.localFacilitator === undefined
+      ? loadFacilitatorFromEnv(env, {
+          defaultAllowedPayTo: ownEvmRecipients(env),
+          ...(options.nonceStore ? { nonceStore: options.nonceStore } : {}),
+        })
+      : null;
   const local = options.localFacilitator === undefined ? (loaded?.facilitator ?? null) : options.localFacilitator;
-  if (loaded) notes.push(...loaded.skipped.map((reason) => `local facilitator skipped ${reason}`));
+  if (loaded) {
+    notes.push(...loaded.skipped.map((reason) => `local facilitator skipped ${reason}`));
+    const warn = options.warn ?? ((message: string) => console.warn(`[x402] ${message}`));
+    for (const warning of loaded.warnings) {
+      notes.push(warning);
+      warn(warning);
+    }
+  }
 
   const wanted = new Set(listEnv(env, "X402_NETWORKS", OFFERABLE));
   const remoteWanted = listEnv(env, "X402_REMOTE_NETWORKS", DEFAULT_REMOTE_NETWORKS);

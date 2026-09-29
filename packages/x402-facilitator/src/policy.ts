@@ -32,8 +32,12 @@ export interface PolicyConfig {
   assets: ReadonlyMap<string, FacilitatorAsset>;
   /** Max atomic amount one settlement may move, per CAIP-2 network. */
   maxAmountFor: (caip2: string) => bigint;
-  /** Lowercased recipient allowlist; empty means any recipient. */
-  allowedPayTo: ReadonlySet<string>;
+  /**
+   * Lowercased recipient allowlist, or "any" when explicitly opened. An empty
+   * set refuses every recipient (fail closed: the relayer never pays gas to
+   * move funds to an address the operator did not name).
+   */
+  allowedPayTo: ReadonlySet<string> | "any";
   /** True while the kill switch is engaged. */
   killed: () => boolean;
 }
@@ -136,7 +140,7 @@ export function checkPolicy(
     return fail(REASONS.assetNotAllowed, "Permit2 authorization is for a different token", auth.from);
   }
 
-  if (config.allowedPayTo.size > 0 && !config.allowedPayTo.has(requirements.payTo.toLowerCase())) {
+  if (config.allowedPayTo !== "any" && !config.allowedPayTo.has(requirements.payTo.toLowerCase())) {
     return fail(REASONS.recipientNotAllowed, "recipient is not on the facilitator allowlist", auth.from);
   }
 

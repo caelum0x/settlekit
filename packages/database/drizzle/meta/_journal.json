@@ -85,6 +85,13 @@
       "when": 1782000500000,
       "tag": "0011_coupons_organization",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1782000600000,
+      "tag": "0012_x402_nonces",
+      "breakpoints": true
     }
   ]
 }

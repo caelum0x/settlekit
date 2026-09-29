@@ -161,6 +161,7 @@ import {
   PgAgentJobStore,
   InMemoryAgentJobStore,
   type AgentJobStore,
+  PgX402NonceStore,
 } from "@settlekit/persistence";
 import { loadConfig } from "./config/env.js";
 import { buildIntegrations, type PaymentVerifiers, type ZcashRuntime } from "./config/integrations.js";
@@ -555,7 +556,7 @@ export async function createContext(): Promise<AppContext> {
     payouts: new PayoutService(payoutStore, () => generateId("payoutWallet")),
     payoutStore,
     platformFeeSchedule,
-    agentPayments: loadAgentPayments(process.env),
+    agentPayments: loadAgentPayments(process.env, db ? { nonceStore: new PgX402NonceStore(db) } : {}),
   };
   return { ...base, onchainBilling: await buildApiOnchainBilling(base) };
 }

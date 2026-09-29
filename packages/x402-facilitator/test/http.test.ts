@@ -20,6 +20,7 @@ function handler() {
     signerFor: () => fake.signer,
     gasGuard: new GasGuard(fakeGas(), { networks: { "eip155:999": { maxFeePerSettlement: 10n ** 16n } } }),
     maxAmountPerSettlement: 100_000_000n,
+    allowedPayTo: "any",
   });
   return { handle: createFacilitatorHttpHandler(facilitator, { authToken: TOKEN, basePath: "/facilitator" }), fake };
 }

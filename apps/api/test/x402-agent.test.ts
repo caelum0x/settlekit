@@ -375,6 +375,7 @@ describe("/v1/x402/facilitator (self-hosted)", () => {
         { networks: { "eip155:999": { maxFeePerSettlement: 10n ** 15n } } },
       ),
       maxAmountPerSettlement: 100_000_000n,
+      allowedPayTo: "any",
     });
     const { app } = await harness({ ...runtime, localFacilitator, facilitatorToken: "facilitator-secret" });
     const supported = await app.request("/v1/x402/facilitator/supported");
