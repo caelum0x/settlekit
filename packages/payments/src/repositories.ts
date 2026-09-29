@@ -42,6 +42,11 @@ export interface PaymentRepository extends Repository<Payment> {
   findConfirmedByOrganization(organizationId: string): Promise<Payment[]>;
   /** All payments (any status) for an organization, newest first. */
   listByOrganization(organizationId: string): Promise<Payment[]>;
+  /**
+   * The most recent confirmed payments across every organization, newest
+   * first (public proof of settlement). Optional for custom stores.
+   */
+  listRecentConfirmed?(limit: number): Promise<Payment[]>;
 }
 
 export interface SubscriptionRepository extends Repository<Subscription> {

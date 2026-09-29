@@ -14,6 +14,14 @@ export interface OrgSettings {
   payoutCurrency: string;
   webhookSecret: string;
   defaultRail: "arc" | "circle" | "x402";
+  /** Networks the merchant accepts payments on (onboarding). */
+  acceptedNetworks?: string[];
+  /** Receiving address per accepted network (onboarding). */
+  payToByNetwork?: Record<string, string>;
+  /** ISO time the merchant finished onboarding. */
+  onboardedAt?: string;
+  /** Demo / test account: never shown on the public proof page. */
+  testAccount?: boolean;
 }
 
 /** Sensible defaults applied when an org has no settings yet. */
@@ -63,6 +71,15 @@ export class PgOrgSettingsStore implements OrgSettingsStore {
     const current = { ...defaultOrgSettings(row?.name ?? undefined), ...asPartial(row?.metadata?.settings) };
     const next = { ...current, ...patch };
     const metadata = { ...(row?.metadata ?? {}), settings: next };
+    if (row === undefined) {
+      // Self-serve merchants get their organization row on first save;
+      // an UPDATE alone would silently drop their settings.
+      await this.db
+        .insert(organizations)
+        .values({ id: organizationId, name: next.orgName, slug: organizationId, status: "active", metadata })
+        .onConflictDoUpdate({ target: organizations.id, set: { metadata } });
+      return next;
+    }
     await this.db.update(organizations).set({ metadata }).where(eq(organizations.id, organizationId));
     return next;
   }

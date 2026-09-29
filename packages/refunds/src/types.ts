@@ -24,6 +24,11 @@ export interface Refund {
   status: RefundStatus;
   /** Set when the refund settled or failed. */
   failureReason?: string;
+  /**
+   * On-chain transaction that returned the funds, as reported by the
+   * merchant (merchants refund from their own wallet; not re-verified).
+   */
+  txHash?: string;
   createdAt: IsoTimestamp;
   updatedAt: IsoTimestamp;
 }

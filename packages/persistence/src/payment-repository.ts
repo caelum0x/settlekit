@@ -66,6 +66,17 @@ export class PgPaymentRepository implements PaymentRepository {
     return unpackDocs<Payment>(rows).filter((p) => p.organizationId === organizationId);
   }
 
+  async listRecentConfirmed(limit: number): Promise<Payment[]> {
+    const rows = await this.db
+      .select({ metadata: payments.metadata })
+      .from(payments)
+      .where(eq(payments.status, "confirmed"));
+    const at = (p: Payment): string => p.confirmedAt ?? p.createdAt;
+    return unpackDocs<Payment>(rows)
+      .sort((a, b) => at(b).localeCompare(at(a)))
+      .slice(0, limit);
+  }
+
   async listByOrganization(organizationId: string): Promise<Payment[]> {
     const rows = await this.db.select({ metadata: payments.metadata }).from(payments);
     return unpackDocs<Payment>(rows).filter((p) => p.organizationId === organizationId);

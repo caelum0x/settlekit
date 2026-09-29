@@ -100,6 +100,11 @@ export class InMemoryPaymentRepository implements PaymentRepository {
     return newestFirst(matches).map(clone);
   }
 
+  async listRecentConfirmed(limit: number): Promise<Payment[]> {
+    const matches = [...this.store.values()].filter((p) => p.status === "confirmed");
+    return newestFirst(matches).slice(0, limit).map(clone);
+  }
+
   async listByOrganization(organizationId: string): Promise<Payment[]> {
     const matches = [...this.store.values()].filter((p) => p.organizationId === organizationId);
     return newestFirst(matches).map(clone);

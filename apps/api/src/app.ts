@@ -61,6 +61,8 @@ import { onchainEscrowRoutes } from "./routes/onchain-escrow.js";
 import { authRoutes } from "./routes/auth.js";
 import { leptonRoutes } from "./routes/lepton.js";
 import { fundRoutes } from "./routes/fund.js";
+import { merchantRoutes } from "./routes/merchant.js";
+import { publicRoutes } from "./routes/public.js";
 
 /** Build the full SettleKit API app. Pass a context to share/isolate state. */
 export function createApp(ctx: AppContext): Hono<AppEnv> {
@@ -128,6 +130,10 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
   // v1 api-key guard. POST /v1/circle/webhooks.
   app.route("/v1/circle", circleWebhookRoutes());
 
+  // Payment links + public proof are PUBLIC: buyers open checkout sessions
+  // from a seller's link, visitors read settled on-chain payments.
+  app.route("/v1/public", publicRoutes());
+
   // Everything else under /v1 requires a valid Bearer API key.
   const v1 = new Hono<AppEnv>();
   v1.use("*", authMiddleware());
@@ -178,6 +184,9 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
 
   // ---- Onboarding (merchant activation funnel) ---------------------------
   v1.route("/onboarding", onboardingRoutes());
+
+  // ---- Merchant workspace (dashboard onboarding, payments, payouts) -------
+  v1.route("/merchant", merchantRoutes());
 
   // ---- Organization settings ---------------------------------------------
   v1.route("/settings", settingsRoutes());

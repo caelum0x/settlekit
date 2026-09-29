@@ -89,7 +89,7 @@ const createSchema = z
  * payable (the paying tx must include it) and a locked ZEC quote when Zcash
  * is payable (the buyer owes exactly that many zatoshis).
  */
-async function withNetworkBindings(ctx: AppContext, session: CheckoutSession): Promise<CheckoutSession> {
+export async function withNetworkBindings(ctx: AppContext, session: CheckoutSession): Promise<CheckoutSession> {
   const accepted = session.acceptedNetworks ?? [session.network];
   const withReference = accepted.includes("solana") ? { ...session, paymentReference: createReference() } : session;
   if (!accepted.includes("zcash")) return withReference;
