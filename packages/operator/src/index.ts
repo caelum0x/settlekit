@@ -33,3 +33,5 @@ export * from "./vault-transport.js";
 export * from "./vault-executor.js";
 export * from "./vault-clients.js";
 export * from "./circle-entity-secret.js";
+export * from "./notifier.js";
+export * from "./bills.js";

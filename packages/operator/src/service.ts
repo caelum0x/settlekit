@@ -72,9 +72,14 @@ export class OperatorService {
 
   /** Decide on and act upon one event; returns the recorded decision. */
   async handle(event: OperatorEvent): Promise<DecisionRecord> {
+    return this.handleWith(event, this.deps.engine);
+  }
+
+  /** Handle an event with a specific engine (e.g. deterministic intake rules). */
+  async handleWith(event: OperatorEvent, engine: DecisionEngine): Promise<DecisionRecord> {
     const started = this.now();
     const ctx = await this.engineContext(event.orgId, started);
-    const decision = await this.deps.engine.decide(event, ctx);
+    const decision = await engine.decide(event, ctx);
     const draft = this.draft(event, decision, started);
     const anchorHash = commitmentHash(draft);
     const results = await this.execute(event.orgId, draft.id, anchorHash, decision.proposals);
