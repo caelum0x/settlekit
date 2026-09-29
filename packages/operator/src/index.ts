@@ -28,3 +28,8 @@ export { OPERATOR_SYSTEM_PROMPT, eventMessage } from "./prompts.js";
 export * from "./engine.js";
 export * from "./execution.js";
 export * from "./service.js";
+export * from "./vault-abi.js";
+export * from "./vault-transport.js";
+export * from "./vault-executor.js";
+export * from "./vault-clients.js";
+export * from "./circle-entity-secret.js";

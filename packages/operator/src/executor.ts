@@ -42,6 +42,12 @@ export interface OwnerExecutor {
   unpause(): Promise<TxResult>;
 }
 
+/** On-chain configuration reads, used to refuse off-chain policy drift. */
+export interface VaultStateReader {
+  caps(): Promise<VaultCaps>;
+  isAllowlisted(payee: string): Promise<boolean>;
+}
+
 /** Custom errors of OperatorVault, by name. */
 export type VaultErrorCode =
   | "IsPaused"

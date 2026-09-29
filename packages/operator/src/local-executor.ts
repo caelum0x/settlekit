@@ -16,6 +16,7 @@ import {
   type PayResult,
   type TxResult,
   type VaultCaps,
+  type VaultStateReader,
 } from "./executor.js";
 import { BUCKETS, EMPTY_BUCKETS, sumBuckets, type Bucket, type BucketBalances, type SpendRecord, type VaultSnapshot } from "./types.js";
 
@@ -64,7 +65,7 @@ export interface LocalExecutorOptions {
 
 const norm = (address: string): string => address.toLowerCase();
 
-export class LocalExecutor implements OperatorExecutor, OwnerExecutor {
+export class LocalExecutor implements OperatorExecutor, OwnerExecutor, VaultStateReader {
   private state: LocalState;
   private readonly now: () => Date;
 
@@ -96,6 +97,14 @@ export class LocalExecutor implements OperatorExecutor, OwnerExecutor {
 
   escalation(id: number): LocalEscalation | undefined {
     return this.state.escalations[id];
+  }
+
+  async caps(): Promise<VaultCaps> {
+    return this.state.caps;
+  }
+
+  async isAllowlisted(payee: string): Promise<boolean> {
+    return this.state.allowlist.includes(norm(payee));
   }
 
   spentToday(): bigint {
