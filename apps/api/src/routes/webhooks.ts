@@ -13,7 +13,7 @@ import { buildWebhookEvent, signPayload, serializeEvent } from "@settlekit/webho
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
-import { requireOrg } from "../http/tenant.js";
+import { requireOrg, requireOwned } from "../http/tenant.js";
 
 const EVENT_TYPES = [
   "payment.confirmed",
@@ -113,9 +113,8 @@ export function webhookRoutes(): Hono<AppEnv> {
   });
 
   app.get("/events/:id", async (c) => {
-    const event = await c.get("ctx").webhookEvents.findById(c.req.param("id"));
-    if (!event) throw notFound("webhook event not found", { id: c.req.param("id") });
-    return data(c, event);
+    const id = c.req.param("id");
+    return data(c, requireOwned(c, await c.get("ctx").webhookEvents.findById(id), "webhook event", id));
   });
 
   return app;

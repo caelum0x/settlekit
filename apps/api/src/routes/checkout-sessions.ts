@@ -7,9 +7,9 @@
  * Buyer delivery fields can be merged with `collectFields`; sessions can be
  * canceled/expired through the pure transition functions.
  */
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { z } from "zod";
-import { notFound, validationError, PAYMENT_NETWORKS, type CheckoutSession, type PaymentNetwork } from "@settlekit/common";
+import { validationError, PAYMENT_NETWORKS, type CheckoutSession, type PaymentNetwork } from "@settlekit/common";
 import { checkPayTo } from "@settlekit/chains";
 import {
   cancelSession,
@@ -22,7 +22,7 @@ import { createReference } from "@settlekit/solana";
 import type { AppContext, AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
-import { requireOrg } from "../http/tenant.js";
+import { requireOrg, requireOwned } from "../http/tenant.js";
 import { payToFor } from "./payment-verification.js";
 import { lockZcashQuoteFor } from "./zcash-quote.js";
 
@@ -105,18 +105,28 @@ const collectSchema = z.object({
   fields: z.record(z.string()),
 });
 
+/** Load the `:id` checkout session, requiring it belongs to the caller's org. */
+async function ownedSession(c: Context<AppEnv>): Promise<CheckoutSession> {
+  const id = c.req.param("id") ?? "";
+  return requireOwned(c, await c.get("ctx").checkouts.findById(id), "checkout session", id);
+}
+
 export function checkoutRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
   app.post("/", async (c) => {
     const ctx = c.get("ctx");
     const body = await parseBody(c, createSchema);
+    const org = requireOrg(c);
 
-    // Resolve each line item's Price from the price store for total math.
+    // Resolve each line item's Price from the price store for total math. A
+    // price is only usable by the org owning its product; another tenant's
+    // price is reported exactly like a missing one (no existence leak).
     const priced: PricedLineItem[] = await Promise.all(
       body.items.map(async (item) => {
         const price = await ctx.prices.findById(item.priceId);
-        if (!price) {
+        const product = price ? await ctx.products.findById(price.productId) : undefined;
+        if (!price || product?.organizationId !== org) {
           throw validationError(`price not found: ${item.priceId}`, { priceId: item.priceId });
         }
         return {
@@ -132,7 +142,7 @@ export function checkoutRoutes(): Hono<AppEnv> {
     );
 
     const draft = createCheckoutSession({
-      organizationId: requireOrg(c),
+      organizationId: org,
       merchantId: body.merchantId,
       ...(body.customerId !== undefined ? { customerId: body.customerId } : {}),
       items: priced,
@@ -154,17 +164,17 @@ export function checkoutRoutes(): Hono<AppEnv> {
     return created(c, saved);
   });
 
+  // Single-session routes are owner-only (another org's id answers 404). The
+  // buyer-facing checkout app reads sessions straight from the store by their
+  // capability id and does not go through these merchant API routes.
   app.get("/:id", async (c) => {
-    const session = await c.get("ctx").checkouts.findById(c.req.param("id"));
-    if (!session) throw notFound("checkout session not found", { id: c.req.param("id") });
-    return data(c, session);
+    return data(c, await ownedSession(c));
   });
 
   // Merge buyer-supplied delivery fields into an open session.
   app.post("/:id/collect-fields", async (c) => {
     const ctx = c.get("ctx");
-    const session = await ctx.checkouts.findById(c.req.param("id"));
-    if (!session) throw notFound("checkout session not found", { id: c.req.param("id") });
+    const session = await ownedSession(c);
     const body = await parseBody(c, collectSchema);
     const updated = await ctx.checkouts.save(collectFields(session, body.fields));
     return data(c, updated);
@@ -172,15 +182,13 @@ export function checkoutRoutes(): Hono<AppEnv> {
 
   app.post("/:id/cancel", async (c) => {
     const ctx = c.get("ctx");
-    const session = await ctx.checkouts.findById(c.req.param("id"));
-    if (!session) throw notFound("checkout session not found", { id: c.req.param("id") });
+    const session = await ownedSession(c);
     return data(c, await ctx.checkouts.save(cancelSession(session)));
   });
 
   app.post("/:id/expire", async (c) => {
     const ctx = c.get("ctx");
-    const session = await ctx.checkouts.findById(c.req.param("id"));
-    if (!session) throw notFound("checkout session not found", { id: c.req.param("id") });
+    const session = await ownedSession(c);
     return data(c, await ctx.checkouts.save(expireSession(session)));
   });
 

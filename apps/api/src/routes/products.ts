@@ -5,14 +5,14 @@
  * domain functions; persistence uses the in-memory product store on the context.
  * Prices attach to a product and feed checkout total math downstream.
  */
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { z } from "zod";
-import { generateId, notFound, type Price } from "@settlekit/common";
+import { generateId, type Price, type Product } from "@settlekit/common";
 import { createProductDraft, publishProduct } from "@settlekit/product-catalog";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
-import { requireOrg } from "../http/tenant.js";
+import { requireOrg, requireOwned } from "../http/tenant.js";
 
 const PRODUCT_TYPES = [
   "saas_plan",
@@ -68,6 +68,11 @@ const createPriceSchema = z.object({
   creditsGranted: z.number().int().positive().optional(),
 });
 
+/** Load a product by id, requiring it belongs to the caller's org (else 404). */
+async function ownedProduct(c: Context<AppEnv>, id: string): Promise<Product> {
+  return requireOwned(c, await c.get("ctx").products.findById(id), "product", id);
+}
+
 export function productRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
@@ -102,17 +107,14 @@ export function productRoutes(): Hono<AppEnv> {
 
   // Get a product.
   app.get("/:id", async (c) => {
-    const product = await c.get("ctx").products.findById(c.req.param("id"));
-    if (!product) throw notFound("product not found", { id: c.req.param("id") });
-    return data(c, product);
+    return data(c, await ownedProduct(c, c.req.param("id")));
   });
 
   // Publish a product (requires an active price).
   app.post("/:id/publish", async (c) => {
     const ctx = c.get("ctx");
     const id = c.req.param("id");
-    const product = await ctx.products.findById(id);
-    if (!product) throw notFound("product not found", { id });
+    const product = await ownedProduct(c, id);
     const prices = await ctx.prices.list((p) => p.productId === id);
     const published = publishProduct(product, prices);
     return data(c, await ctx.products.save(published));
@@ -122,8 +124,7 @@ export function productRoutes(): Hono<AppEnv> {
   app.post("/:id/prices", async (c) => {
     const ctx = c.get("ctx");
     const productId = c.req.param("id");
-    const product = await ctx.products.findById(productId);
-    if (!product) throw notFound("product not found", { id: productId });
+    await ownedProduct(c, productId);
 
     const body = await parseBody(c, createPriceSchema);
     const price: Price = {
@@ -144,6 +145,7 @@ export function productRoutes(): Hono<AppEnv> {
   // List prices for a product.
   app.get("/:id/prices", async (c) => {
     const productId = c.req.param("id");
+    await ownedProduct(c, productId);
     const prices = await c.get("ctx").prices.list((p) => p.productId === productId);
     return data(c, prices);
   });

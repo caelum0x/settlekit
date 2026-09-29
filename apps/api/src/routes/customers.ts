@@ -6,11 +6,11 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
-import { generateId, notFound, type Customer } from "@settlekit/common";
+import { generateId, type Customer } from "@settlekit/common";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
-import { requireOrg } from "../http/tenant.js";
+import { requireOrg, requireOwned } from "../http/tenant.js";
 
 const createCustomerSchema = z.object({
   // Derived from the authenticated org (tenant scope); ignored if supplied.
@@ -49,9 +49,8 @@ export function customerRoutes(): Hono<AppEnv> {
   });
 
   app.get("/:id", async (c) => {
-    const customer = await c.get("ctx").customers.findById(c.req.param("id"));
-    if (!customer) throw notFound("customer not found", { id: c.req.param("id") });
-    return data(c, customer);
+    const id = c.req.param("id");
+    return data(c, requireOwned(c, await c.get("ctx").customers.findById(id), "customer", id));
   });
 
   return app;

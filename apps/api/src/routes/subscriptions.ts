@@ -17,7 +17,7 @@ import {
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
-import { requireOrg } from "../http/tenant.js";
+import { requireOrg, requireOwned, ownedSubscription } from "../http/tenant.js";
 
 const createSchema = z.object({
   // Derived from the authenticated org (tenant scope); ignored if supplied.
@@ -34,16 +34,16 @@ export function subscriptionRoutes(): Hono<AppEnv> {
   app.post("/", async (c) => {
     const ctx = c.get("ctx");
     const body = await parseBody(c, createSchema);
+    // Tenant-scoped: the product (and the price hanging off it) must be the
+    // caller's own; another org's ids answer 404 like missing ones.
+    const product = requireOwned(c, await ctx.products.findById(body.productId), "product", body.productId);
     const price = await ctx.prices.findById(body.priceId);
-    if (!price) throw notFound("price not found", { id: body.priceId });
+    if (!price || price.productId !== product.id) throw notFound("price not found", { id: body.priceId });
     if (price.interval === "one_time") {
       throw validationError("subscriptions require a recurring price interval", {
         priceId: price.id,
       });
     }
-    const product = await ctx.products.findById(body.productId);
-    if (!product) throw notFound("product not found", { id: body.productId });
-
     const subscription = createSubscription({
       organizationId: requireOrg(c),
       customerId: body.customerId,
@@ -66,15 +66,12 @@ export function subscriptionRoutes(): Hono<AppEnv> {
   });
 
   app.get("/:id", async (c) => {
-    const sub = await c.get("ctx").subscriptions.findById(c.req.param("id"));
-    if (!sub) throw notFound("subscription not found", { id: c.req.param("id") });
-    return data(c, sub);
+    return data(c, await ownedSubscription(c, c.req.param("id")));
   });
 
   app.post("/:id/renew", async (c) => {
     const ctx = c.get("ctx");
-    const sub = await ctx.subscriptions.findById(c.req.param("id"));
-    if (!sub) throw notFound("subscription not found", { id: c.req.param("id") });
+    const sub = await ownedSubscription(c, c.req.param("id"));
     const price = await ctx.prices.findById(sub.priceId);
     if (!price) throw notFound("price not found", { id: sub.priceId });
     const interval = price.interval === "yearly" ? "yearly" : "monthly";
@@ -83,8 +80,7 @@ export function subscriptionRoutes(): Hono<AppEnv> {
 
   app.post("/:id/cancel", async (c) => {
     const ctx = c.get("ctx");
-    const sub = await ctx.subscriptions.findById(c.req.param("id"));
-    if (!sub) throw notFound("subscription not found", { id: c.req.param("id") });
+    const sub = await ownedSubscription(c, c.req.param("id"));
     return data(c, await ctx.subscriptions.save(cancelSubscription(sub)));
   });
 

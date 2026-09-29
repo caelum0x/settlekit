@@ -15,6 +15,9 @@ import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
+import { isOwned, requireOwnedPayment } from "../http/tenant.js";
+import type { Context } from "hono";
+import type { Dispute } from "@settlekit/disputes";
 
 const openSchema = z.object({
   paymentId: z.string().min(1),
@@ -32,11 +35,26 @@ const resolveSchema = z.object({
   outcome: z.enum(["won", "lost", "refunded"]),
 });
 
+/**
+ * Load a dispute by id, requiring its payment belongs to the caller's org. A
+ * foreign dispute answers 404 exactly like a missing one.
+ */
+async function ownedDispute(c: Context<AppEnv>, id: string): Promise<Dispute> {
+  const ctx = c.get("ctx");
+  const dispute = await ctx.disputes.get(id);
+  if (!dispute || !isOwned(c, await ctx.payments.findById(dispute.paymentId))) {
+    throw notFound(`dispute ${id} not found`, { id });
+  }
+  return dispute;
+}
+
 export function disputeRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
   app.post("/", async (c) => {
     const body = await parseBody(c, openSchema);
+    // Tenant-scoped: disputes can only be opened on the caller's own payments.
+    await requireOwnedPayment(c, body.paymentId);
     const dispute = unwrapResult(
       await c.get("ctx").disputes.open({
         paymentId: body.paymentId,
@@ -61,17 +79,14 @@ export function disputeRoutes(): Hono<AppEnv> {
   });
 
   app.get("/:id", async (c) => {
-    const dispute = await c.get("ctx").disputes.get(c.req.param("id"));
-    if (!dispute) {
-      throw notFound(`dispute ${c.req.param("id")} not found`);
-    }
-    return data(c, dispute);
+    return data(c, await ownedDispute(c, c.req.param("id")));
   });
 
   app.post("/:id/evidence", async (c) => {
+    const { id } = await ownedDispute(c, c.req.param("id"));
     const body = await parseBody(c, evidenceSchema);
     const dispute = unwrapResult(
-      await c.get("ctx").disputes.submitEvidence(c.req.param("id"), {
+      await c.get("ctx").disputes.submitEvidence(id, {
         kind: body.kind,
         description: body.description,
         value: body.value,
@@ -81,8 +96,9 @@ export function disputeRoutes(): Hono<AppEnv> {
   });
 
   app.post("/:id/resolve", async (c) => {
+    const { id } = await ownedDispute(c, c.req.param("id"));
     const body = await parseBody(c, resolveSchema);
-    const dispute = unwrapResult(await c.get("ctx").disputes.resolve(c.req.param("id"), body.outcome));
+    const dispute = unwrapResult(await c.get("ctx").disputes.resolve(id, body.outcome));
     return data(c, dispute);
   });
 

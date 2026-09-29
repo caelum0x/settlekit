@@ -9,14 +9,14 @@
  *   GET/PATCH  /v1/bundles/:id
  *   POST       /v1/bundles/:id/publish
  */
-import { Hono } from "hono";
+import { Hono, type Context } from "hono";
 import { z } from "zod";
-import { money, type Money } from "@settlekit/common";
+import { money, type Bundle, type Money } from "@settlekit/common";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
-import { requireOrg } from "../http/tenant.js";
+import { requireOrg, requireOwned } from "../http/tenant.js";
 
 const createSchema = z.object({
   merchantId: z.string().min(1),
@@ -34,6 +34,12 @@ const patchSchema = z.object({
   description: z.string().optional(),
   status: z.enum(["draft", "active", "archived"]).optional(),
 });
+
+/** Load a bundle by id, requiring it belongs to the caller's org (else 404). */
+async function ownedBundle(c: Context<AppEnv>, id: string): Promise<Bundle> {
+  const found = await c.get("ctx").bundles.getBundle(id);
+  return requireOwned(c, found.ok ? found.value : undefined, "bundle", id);
+}
 
 export function bundleRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
@@ -63,14 +69,13 @@ export function bundleRoutes(): Hono<AppEnv> {
   });
 
   app.get("/:id", async (c) => {
-    const bundle = unwrapResult(await c.get("ctx").bundles.getBundle(c.req.param("id")));
-    return data(c, bundle);
+    return data(c, await ownedBundle(c, c.req.param("id")));
   });
 
   // Patch mutable bundle fields (immutably persisted through the store).
   app.patch("/:id", async (c) => {
     const ctx = c.get("ctx");
-    const current = unwrapResult(await ctx.bundles.getBundle(c.req.param("id")));
+    const current = await ownedBundle(c, c.req.param("id"));
     const body = await parseBody(c, patchSchema);
     if (body.status === "archived") {
       return data(c, unwrapResult(await ctx.bundles.archiveBundle(current.id)));
@@ -87,7 +92,7 @@ export function bundleRoutes(): Hono<AppEnv> {
 
   app.post("/:id/publish", async (c) => {
     const ctx = c.get("ctx");
-    const current = unwrapResult(await ctx.bundles.getBundle(c.req.param("id")));
+    const current = await ownedBundle(c, c.req.param("id"));
     const published = {
       ...current,
       status: "active" as const,
