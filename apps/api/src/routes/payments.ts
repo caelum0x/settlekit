@@ -148,7 +148,9 @@ export function paymentRoutes(): Hono<AppEnv> {
     // must have paid the session's payTo for this network at least the
     // invoiced amount (Zcash: exactly the locked quote), no earlier than the
     // session, from the declared payer, carrying the session's Solana
-    // reference / Tempo memo where applicable. No verifier for the network
+    // reference / Tempo memo where applicable (a route provider's destination
+    // fill stored on the session is bound by payTo, amount and block time
+    // instead, matching the checkout and worker). No verifier for the network
     // means the payment cannot be confirmed (fail closed), and a tx hash can
     // back only one payment, so one transfer never settles two sessions.
     requireVerifier(ctx, payment.network);

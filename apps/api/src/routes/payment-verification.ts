@@ -86,6 +86,8 @@ export interface OnChainCheck {
   requireMemo?: boolean;
   /** Locked Zcash quote. */
   settlementQuote?: SettlementQuote;
+  /** Route-provider destination fill (no Solana Pay reference / payer / memo binding). */
+  routedFill?: boolean;
 }
 
 /** The address `session` must be paid at on `network`. */
@@ -116,10 +118,11 @@ export function sessionCheck(session: CheckoutSession, network: PaymentNetwork, 
     resource: `checkout_session:${session.id}`,
     notBefore: session.createdAt,
     sessionId: session.id,
-    ...(session.paymentReference !== undefined ? { reference: session.paymentReference } : {}),
+    ...(session.paymentReference !== undefined && !routed ? { reference: session.paymentReference } : {}),
     ...(session.payerAddress !== undefined && !routed ? { payer: session.payerAddress } : {}),
     ...(session.requireMemo === true && !routed ? { requireMemo: true } : {}),
     ...(session.settlementQuote !== undefined ? { settlementQuote: session.settlementQuote } : {}),
+    ...(routed ? { routedFill: true } : {}),
   };
 }
 
