@@ -373,6 +373,15 @@ export interface Invoice {
   metadata: Record<string, string>;
 }
 
+/** Result of sending an invoice or payment request. */
+export interface SentInvoice {
+  invoice: Invoice;
+  payUrl: string;
+  checkoutSessionId: string;
+  emailedTo: string | null;
+  emailSkipped?: string;
+}
+
 export interface OrgSettings {
   orgName: string;
   supportEmail: string;

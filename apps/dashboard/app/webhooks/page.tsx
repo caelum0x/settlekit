@@ -24,6 +24,7 @@ const EVENT_TYPES = [
   "entitlement.revoked",
   "delivery.succeeded",
   "delivery.failed",
+  "invoice.paid",
 ] as const;
 const DEFAULT_EVENTS = EVENT_TYPES.slice(0, 4).join(", ");
 

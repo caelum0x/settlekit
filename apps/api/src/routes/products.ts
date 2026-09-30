@@ -13,6 +13,7 @@ import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { requireOrg, requireOwned } from "../http/tenant.js";
+import { isInvoiceProduct } from "../merchant/invoice-payments.js";
 
 const PRODUCT_TYPES = [
   "saas_plan",
@@ -101,7 +102,7 @@ export function productRoutes(): Hono<AppEnv> {
   app.get("/", async (c) => {
     // Tenant-scoped: only the authenticated organization's products.
     const org = requireOrg(c);
-    const products = await c.get("ctx").products.list((p) => p.organizationId === org);
+    const products = await c.get("ctx").products.list((p) => p.organizationId === org && !isInvoiceProduct(p));
     return data(c, products);
   });
 

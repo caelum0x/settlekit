@@ -153,6 +153,8 @@ export interface CheckoutSession {
   requireMemo?: boolean;
   /** Any-token route in progress (see {@link CheckoutRoute}). */
   route?: CheckoutRoute;
+  /** Invoice this session pays (invoices and payment requests). */
+  invoiceId?: string;
   successUrl?: string;
   cancelUrl?: string;
   /** ISO timestamp after which the session can no longer be paid. */

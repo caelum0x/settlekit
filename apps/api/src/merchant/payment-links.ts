@@ -39,30 +39,44 @@ interface ResolvedLink {
   payTo: Partial<Record<PaymentNetwork, string>>;
 }
 
-async function resolveLink(ctx: AppContext, slug: string): Promise<ResolvedLink> {
-  const product = await findBySlug(ctx, slug);
-  if (!product || product.status !== "active") throw notFound("This payment link is not active");
-  const price = await activePrice(ctx, product.id);
-  if (!price) throw notFound("This payment link has no price yet");
-  const profile = await loadProfile(ctx, product.organizationId);
-  const productNetworks = Array.isArray(product.metadata.acceptedNetworks)
-    ? (product.metadata.acceptedNetworks as PaymentNetwork[])
-    : null;
+/**
+ * Networks an org can be paid on right now, in checkout order: the merchant's
+ * accepted networks that have a receiving address, optionally narrowed to a
+ * product's list, with networks this deployment can verify first.
+ */
+export async function payableNetworks(
+  ctx: AppContext,
+  organizationId: string,
+  productNetworks: readonly PaymentNetwork[] | null = null,
+): Promise<{ merchantName: string; accepted: PaymentNetwork[]; payTo: Partial<Record<PaymentNetwork, string>> }> {
+  const profile = await loadProfile(ctx, organizationId);
   const enabled = new Set(networkCatalog().filter((n) => n.enabled).map((n) => n.network));
   const accepted = profile.acceptedNetworks
     .filter((n) => profile.payToByNetwork[n] !== undefined)
     .filter((n) => productNetworks === null || productNetworks.includes(n))
     // Networks this deployment can verify come first (the default network).
     .sort((a, b) => Number(enabled.has(b)) - Number(enabled.has(a)));
+  return { merchantName: profile.orgName, accepted, payTo: profile.payToByNetwork };
+}
+
+async function resolveLink(ctx: AppContext, slug: string): Promise<ResolvedLink> {
+  const product = await findBySlug(ctx, slug);
+  if (!product || product.status !== "active") throw notFound("This payment link is not active");
+  const price = await activePrice(ctx, product.id);
+  if (!price) throw notFound("This payment link has no price yet");
+  const productNetworks = Array.isArray(product.metadata.acceptedNetworks)
+    ? (product.metadata.acceptedNetworks as PaymentNetwork[])
+    : null;
+  const { merchantName, accepted, payTo } = await payableNetworks(ctx, product.organizationId, productNetworks);
   if (accepted.length === 0) throw notFound("The seller has not finished setting up payments");
   return {
     product,
     priceId: price.id,
     priceUsd: price.amount,
     interval: price.interval,
-    merchantName: profile.orgName,
+    merchantName,
     accepted,
-    payTo: profile.payToByNetwork,
+    payTo,
   };
 }
 
@@ -84,7 +98,8 @@ export async function linkSummary(ctx: AppContext, slug: string): Promise<Paymen
   };
 }
 
-async function bind(ctx: AppContext, draft: CheckoutSession): Promise<CheckoutSession> {
+/** Attach network bindings, dropping Zcash when its quote is unavailable. */
+export async function bindSession(ctx: AppContext, draft: CheckoutSession): Promise<CheckoutSession> {
   try {
     return await withNetworkBindings(ctx, draft);
   } catch (err) {
@@ -130,7 +145,14 @@ export async function openLinkSession(
     ...(options.successUrl ? { successUrl: options.successUrl } : {}),
     ...(options.cancelUrl ? { cancelUrl: options.cancelUrl } : {}),
   });
-  const session = await bind(ctx, { ...draft, acceptedNetworks: link.accepted, payToByNetwork });
+  const session = await bindSession(ctx, { ...draft, acceptedNetworks: link.accepted, payToByNetwork });
+  return session.settlementQuote !== undefined
+    ? saveZcashSession(ctx, { ...session, settlementQuote: session.settlementQuote }, payToFor(session, "zcash"))
+    : ctx.checkouts.save(session);
+}
+
+/** Persist a bound session (Zcash sessions reserve their amount tag atomically). */
+export function saveBoundSession(ctx: AppContext, session: CheckoutSession): Promise<CheckoutSession> {
   return session.settlementQuote !== undefined
     ? saveZcashSession(ctx, { ...session, settlementQuote: session.settlementQuote }, payToFor(session, "zcash"))
     : ctx.checkouts.save(session);

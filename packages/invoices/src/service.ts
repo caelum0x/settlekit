@@ -29,6 +29,7 @@ import {
 import type { InvoiceLineItem } from "./line-items.js";
 import { renderInvoiceHtml, renderInvoiceText, type Merchant } from "./render.js";
 import type { InvoiceStore } from "./store.js";
+import { PAY_TOKEN_KEY, isPayTokenShape } from "./payment.js";
 
 /** Inputs accepted when creating an invoice (number is auto-assigned). */
 export interface CreateInvoiceServiceInput {
@@ -65,7 +66,7 @@ export class InvoiceService {
     if (input.customerId.trim().length === 0) {
       return err(validationError("customerId is required"));
     }
-    this.sequence += 1;
+    this.sequence = (await this.highestSequence()) + 1;
     const createInput: CreateInvoiceInput = {
       organizationId: input.organizationId,
       customerId: input.customerId,
@@ -128,6 +129,40 @@ export class InvoiceService {
     const found = await this.get(id);
     if (!found.ok) return found;
     return ok(renderInvoiceText(found.value, merchant));
+  }
+
+  /**
+   * Apply a pure update (e.g. attach a pay token or checkout session) to an
+   * invoice and persist it. Throws from `apply` map to validation errors.
+   */
+  update(id: string, apply: (invoice: Invoice) => Invoice): Promise<Result<Invoice, SettleKitError>> {
+    return this.transition(id, apply);
+  }
+
+  /** Persist an already-derived invoice (e.g. a reconciled, settled copy). */
+  save(invoice: Invoice): Promise<Invoice> {
+    return this.store.save(invoice);
+  }
+
+  /** The invoice exposed at a public pay token, or null. */
+  async findByPayToken(token: string): Promise<Invoice | null> {
+    if (!isPayTokenShape(token)) return null;
+    const matches = await this.store.list((inv) => inv.metadata[PAY_TOKEN_KEY] === token);
+    return matches[0] ?? null;
+  }
+
+  /**
+   * The highest sequence already issued under this prefix, so numbering
+   * continues after a restart instead of reusing INV-000001.
+   */
+  private async highestSequence(): Promise<number> {
+    const all = await this.store.list();
+    const pattern = new RegExp(`^${this.prefix.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}-(\\d+)$`);
+    return all.reduce((max, inv) => {
+      const match = pattern.exec(inv.number);
+      const n = match ? Number.parseInt(match[1] ?? "0", 10) : 0;
+      return Math.max(max, n, this.sequence);
+    }, this.sequence);
   }
 
   /** Load, apply a pure transition, persist — mapping throws to Result errors. */

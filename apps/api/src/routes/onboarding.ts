@@ -16,6 +16,7 @@ import { Hono } from "hono";
 import type { AppEnv, AppContext } from "../context.js";
 import { data } from "../http/respond.js";
 import { requireOrg } from "../http/tenant.js";
+import { isInvoiceProduct } from "../merchant/invoice-payments.js";
 
 /** A single activation step, with where to go to complete it. */
 export interface OnboardingStep {
@@ -42,7 +43,7 @@ async function computeOnboarding(
   ctx: AppContext,
   organizationId: string,
 ): Promise<OnboardingStatus> {
-  const products = await ctx.products.list((p) => p.organizationId === organizationId);
+  const products = await ctx.products.list((p) => p.organizationId === organizationId && !isInvoiceProduct(p));
   const productIds = new Set(products.map((p) => p.id));
 
   const [prices, confirmedPayments, payouts] = await Promise.all([

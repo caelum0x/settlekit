@@ -58,7 +58,8 @@ export type WebhookEventType =
   | "entitlement.granted"
   | "entitlement.revoked"
   | "delivery.succeeded"
-  | "delivery.failed";
+  | "delivery.failed"
+  | "invoice.paid";
 
 export interface WebhookEndpoint {
   id: string;

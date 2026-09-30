@@ -187,6 +187,7 @@ const KNOWN_EVENT_TYPES = new Set<WebhookEventType>([
   "entitlement.revoked",
   "delivery.succeeded",
   "delivery.failed",
+  "invoice.paid",
 ]);
 
 function asEventType(value: string): WebhookEventType {

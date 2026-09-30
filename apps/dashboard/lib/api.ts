@@ -12,6 +12,7 @@ import { cookies } from "next/headers";
 import { API_URL } from "./config";
 
 import type {
+  SentInvoice,
   AgentService,
   AnalyticsSummary,
   ApiKey,
@@ -118,7 +119,9 @@ async function request<T>(path: string, init?: RequestInit): Promise<{ data: T |
       cache: "no-store",
     });
     if (!res.ok) {
-      return { data: null, error: `API ${res.status} ${res.statusText}` };
+      const failure = (await res.json().catch(() => null)) as { error?: { message?: string } } | null;
+      const detail = failure?.error?.message;
+      return { data: null, error: detail ? `${detail} (API ${res.status})` : `API ${res.status} ${res.statusText}` };
     }
     const body = (await res.json()) as { data?: T } | T;
     const data =
@@ -132,6 +135,11 @@ async function request<T>(path: string, init?: RequestInit): Promise<{ data: T |
       error: err instanceof Error ? err.message : "Network error",
     };
   }
+}
+
+/** Fetch a binary API resource (PDF, CSV) with the merchant's session. */
+export async function fetchApiRaw(path: string): Promise<Response> {
+  return fetch(`${API_URL}${path}`, { headers: authHeader(), cache: "no-store" });
 }
 
 async function getList<T>(path: string): Promise<ApiList<T>> {
@@ -366,6 +374,12 @@ export const api = {
       customerId: string;
       lineItems?: { description: string; quantity: number; unitAmount: string }[];
     }) => post<Invoice>("/v1/invoices", input),
+    /** Issue + email the pay link (idempotent: the link stays the same). */
+    send: (id: string, payerEmail?: string) =>
+      post<SentInvoice>(`/v1/invoices/${encodeURIComponent(id)}/send`, payerEmail ? { payerEmail } : {}),
+    /** Ad-hoc payment request: amount + memo, sent to an email. */
+    request: (input: { amount: string; description: string; payerEmail: string; dueAt?: string }) =>
+      post<SentInvoice>("/v1/invoices/requests", input),
   },
 
   // ---- Delivery ----

@@ -1228,6 +1228,46 @@ curl -X POST http://localhost:8787/v1/invoices/inv_3c7d.../void -H "Authorizatio
 { "data": { "id": "inv_3c7d...", "status": "void" } }
 ```
 
+Voiding also cancels any open checkout session of the invoice, so an old pay link can no longer be paid.
+
+### POST /v1/invoices/:id/send
+
+Make an invoice payable onchain. Finalizes a draft, binds a public pay page (`<CHECKOUT_PUBLIC_URL>/i/<token>`), opens a checkout session for the invoice total on the merchant's accepted networks, and emails the link (when `RESEND_API_KEY` is set). Idempotent: re-sending keeps the same link. Requires a receiving wallet in payment settings.
+
+```bash
+curl -X POST http://localhost:8787/v1/invoices/inv_3c7d.../send \
+  -H "Authorization: Bearer $SK_API_KEY" -H "content-type: application/json" \
+  -d '{"payerEmail":"billing@client.com"}'
+```
+
+```json
+{ "data": { "invoice": { "status": "open", "metadata": { "payToken": "..." } }, "payUrl": "https://pay.example.com/i/...", "checkoutSessionId": "cs_...", "emailedTo": "billing@client.com" } }
+```
+
+The invoice turns `paid` by itself once a confirmed onchain payment exists for one of its checkout sessions (checked on every read and by the worker's `invoice-settle` job), and an `invoice.paid` webhook is queued.
+
+### POST /v1/invoices/requests
+
+An ad-hoc payment request: one amount and memo, sent immediately. A customer is created for the payer email on first use.
+
+```bash
+curl -X POST http://localhost:8787/v1/invoices/requests \
+  -H "Authorization: Bearer $SK_API_KEY" -H "content-type: application/json" \
+  -d '{"amount":"250.00","description":"Website redesign, deposit","payerEmail":"billing@client.com"}'
+```
+
+### GET /v1/invoices/:id.pdf
+
+The invoice as a PDF (a receipt with the settlement transaction once paid).
+
+### Public invoice routes (no API key)
+
+The pay token is the capability.
+
+- `GET /v1/public/invoices/:token` returns the buyer-safe invoice view (line items, totals, status, `payable`).
+- `POST /v1/public/invoices/:token/sessions` returns the open checkout session id (reused while payable, re-opened when expired).
+- `GET /v1/public/invoices/:token/pdf` returns the PDF.
+
 ---
 
 ## Refunds

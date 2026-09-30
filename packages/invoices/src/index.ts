@@ -35,3 +35,24 @@ export { InMemoryInvoiceStore } from "./store.js";
 
 export type { CreateInvoiceServiceInput, InvoiceServiceOptions } from "./service.js";
 export { InvoiceService } from "./service.js";
+
+export {
+  PAY_TOKEN_KEY,
+  SESSION_IDS_KEY,
+  PAYER_EMAIL_KEY,
+  INVOICE_KIND_KEY,
+  isPayTokenShape,
+  payTokenOf,
+  withPayToken,
+  withPayerEmail,
+  checkoutSessionIdsOf,
+  latestCheckoutSessionId,
+  withCheckoutSession,
+  unpayableReason,
+  settleInvoice,
+  reconcileInvoice,
+} from "./payment.js";
+export type { InvoiceSettlement, ConfirmedPaymentLookup } from "./payment.js";
+
+export { renderInvoicePdf } from "./pdf.js";
+export type { InvoicePdfOptions, TaxParty } from "./pdf.js";

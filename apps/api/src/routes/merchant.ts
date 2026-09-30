@@ -39,6 +39,7 @@ import { listCustomers } from "../merchant/customers.js";
 import { readBalances } from "../merchant/balances.js";
 import { refundSucceededWebhook } from "@settlekit/persistence";
 import { emitWebhook } from "../webhooks/outbox.js";
+import { isInvoiceProduct } from "../merchant/invoice-payments.js";
 
 const refundSchema = z.object({
   reason: z.enum(["duplicate", "fraudulent", "customer_request", "delivery_failed"]).default("customer_request"),
@@ -75,7 +76,7 @@ export function merchantRoutes(): Hono<AppEnv> {
     const [profile, payments, products] = await Promise.all([
       loadProfile(ctx, org),
       ctx.payments.listByOrganization(org),
-      ctx.products.list((p) => p.organizationId === org),
+      ctx.products.list((p) => p.organizationId === org && !isInvoiceProduct(p)),
     ]);
     const confirmed = payments.filter((p) => p.status === "confirmed");
     const byNetwork: Record<string, { count: number; volumeUsd: number }> = {};
@@ -145,7 +146,7 @@ export function merchantRoutes(): Hono<AppEnv> {
   app.get("/products", async (c) => {
     const ctx = c.get("ctx");
     const org = requireOrg(c);
-    const products = await ctx.products.list((p) => p.organizationId === org);
+    const products = await ctx.products.list((p) => p.organizationId === org && !isInvoiceProduct(p));
     const views = await Promise.all(products.map((p) => productView(ctx, p)));
     return data(c, views.sort((a, b) => b.createdAt.localeCompare(a.createdAt)));
   });

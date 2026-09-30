@@ -29,3 +29,8 @@ export function discordBotInviteUrl(guildId?: string): string | null {
 export function paymentLinkUrl(slug: string): string {
   return `${CHECKOUT_URL}/l/${slug}`;
 }
+
+/** Public pay page for an invoice / payment request token. */
+export function invoicePayUrl(token: string): string {
+  return `${CHECKOUT_URL}/i/${encodeURIComponent(token)}`;
+}

@@ -28,6 +28,7 @@ const EVENT_TYPES = [
   "entitlement.revoked",
   "delivery.succeeded",
   "delivery.failed",
+  "invoice.paid",
 ] as const;
 
 const createEndpointSchema = z.object({

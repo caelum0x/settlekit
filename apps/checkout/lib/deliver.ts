@@ -65,6 +65,19 @@ export function materializeDelivery(
 ): DeliveredAccess[] {
   const entitlementId = entitlementIdForPayment(payment);
 
+  // Invoices and payment requests deliver nothing but the settlement itself.
+  if (product.metadata.kind === "invoice") {
+    return [
+      {
+        kind: "saas_entitlement",
+        title: product.name,
+        value: "Paid",
+        isLink: false,
+        detail: "The seller has been notified. Your receipt PDF is available from the invoice link.",
+      },
+    ];
+  }
+
   switch (action.type) {
     case "license_key_create":
       return [licenseKeyAccess(payment, product, entitlementId)];

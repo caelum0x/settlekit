@@ -27,7 +27,7 @@ import type {
 import type { RoyaltyLegStore } from "@settlekit/citation-toll";
 import type { StreamStore } from "@settlekit/streaming";
 import type { OnchainBillingRuntime } from "@settlekit/onchain-billing";
-import type { WebhookOutbox } from "@settlekit/persistence";
+import type { PgInvoiceStore, WebhookOutbox } from "@settlekit/persistence";
 import type { WorkerConfig } from "../config.js";
 import type { WorkerStore } from "../stores.js";
 import type { Logger } from "../logger.js";
@@ -86,9 +86,14 @@ export interface JobContext {
   onchainBilling?: OnchainBillingRuntime;
   /** Seller webhook outbox (Postgres mode); absent -> no seller webhooks are queued. */
   webhooks?: WebhookOutbox;
+  /** Invoice store (invoice-settle job); absent -> that job no-ops. */
+  invoices?: InvoiceStoreLike;
   /** Injectable clock for deterministic tests. */
   now: () => Date;
 }
+
+/** The invoice store contract (the Postgres store's shape; in-memory in tests). */
+export type InvoiceStoreLike = Pick<PgInvoiceStore, "save" | "findById" | "list">;
 
 /** Outcome summary of a single job tick. */
 export interface JobResult {

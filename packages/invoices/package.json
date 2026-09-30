@@ -10,17 +10,21 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist"
+  ],
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run"
   },
   "dependencies": {
     "@settlekit/common": "workspace:*",
-    "@settlekit/tax": "workspace:*"
+    "@settlekit/tax": "workspace:*",
+    "pdfkit": "^0.17.2"
   },
   "devDependencies": {
     "@types/node": "^20.14.0",
+    "@types/pdfkit": "^0.17.6",
     "typescript": "^5.5.4",
     "vitest": "^2.0.5"
   }

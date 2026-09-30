@@ -32,6 +32,7 @@ import {
   PgRoyaltyLegStore,
   PgStreamStore,
   PgWebhookOutbox,
+  PgInvoiceStore,
 } from "@settlekit/persistence";
 import { InMemoryPayoutStore, type PayoutStore } from "@settlekit/payouts";
 import type {
@@ -67,8 +68,10 @@ import {
   subscriptionChargeJob,
   discordDeliveryRetryJob,
   operatorTickJob,
+  invoiceSettleJob,
   type JobContext,
 } from "./jobs/index.js";
+import type { InvoiceStoreLike } from "./jobs/types.js";
 
 /** External integrations injected into the runtime. */
 export interface RuntimeDeps {
@@ -93,6 +96,8 @@ export interface RuntimeDeps {
   routingFetch?: RouteFetch;
   /** Override the email transport (tests inject an in-memory transport). */
   emailTransport?: EmailTransport;
+  /** Invoice store for the invoice-settle job (defaults to Postgres when DATABASE_URL is set). */
+  invoiceStore?: InvoiceStoreLike;
   /** Override the outbound webhook HTTP sender (tests inject an in-memory one). */
   webhookSender?: HttpSender;
   /** Override the logger. */
@@ -258,6 +263,8 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
   const streamStore: StreamStore | undefined =
     deps.streamStore ?? (db ? new PgStreamStore(db) : undefined);
 
+  const invoices: InvoiceStoreLike | undefined = deps.invoiceStore ?? (db ? new PgInvoiceStore(db) : undefined);
+
   const ctx: JobContext = {
     config: deps.config,
     stores,
@@ -282,6 +289,7 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     ...(streamStore !== undefined ? { streamStore } : {}),
     ...(deps.onchainBilling ? { onchainBilling: deps.onchainBilling } : {}),
     ...(db ? { webhooks: new PgWebhookOutbox(db) } : {}),
+    ...(invoices !== undefined ? { invoices } : {}),
     now,
   };
 
@@ -341,6 +349,8 @@ export function buildRuntime(deps: RuntimeDeps): WorkerRuntime {
     { job: subscriptionChargeJob, intervalMs: intervals.subscriptionChargeMs },
     // No-op unless the operator vault is configured.
     { job: operatorTickJob, intervalMs: intervals.payoutReconcileMs },
+    // Marks sent invoices paid once a session settles (no-op without a DB).
+    { job: invoiceSettleJob, intervalMs: intervals.receiptEmailMs },
   ];
 
   const scheduler = new Scheduler(scheduled, ctx, logger);

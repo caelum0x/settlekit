@@ -6,8 +6,10 @@
  *   subscription.charged   an onchain subscription period was collected
  *   subscription.canceled  an onchain subscription was canceled
  *   refund.succeeded       a refund was sent (operator wallet or recorded manually)
+ *   invoice.paid           an invoice / payment request settled on-chain
  */
 import { fromBaseUnits, type Payment } from "@settlekit/common";
+import type { Invoice } from "@settlekit/invoices";
 import type { OnchainCharge, OnchainSubscription } from "@settlekit/onchain-billing";
 import type { WebhookEmitInput } from "./webhook-outbox.js";
 
@@ -117,6 +119,28 @@ export function refundSucceededWebhook(input: RefundWebhookInput): WebhookEmitIn
       reason: input.reason,
       txHash: input.txHash,
       source: input.source,
+    },
+  };
+}
+
+/** `invoice.paid`: an invoice or payment request was settled on-chain. */
+export function invoicePaidWebhook(invoice: Invoice): WebhookEmitInput {
+  return {
+    organizationId: invoice.organizationId,
+    type: "invoice.paid",
+    key: invoice.id,
+    data: {
+      invoiceId: invoice.id,
+      number: invoice.number,
+      customerId: invoice.customerId,
+      amount: invoice.total.amount,
+      currency: invoice.currency,
+      paidAt: invoice.paidAt ?? null,
+      paymentId: invoice.metadata.paymentId ?? null,
+      checkoutSessionId: invoice.metadata.paidCheckoutSessionId ?? null,
+      network: invoice.metadata.paidNetwork ?? null,
+      txHash: invoice.metadata.paidTxHash ?? null,
+      kind: invoice.metadata.kind ?? "invoice",
     },
   };
 }
