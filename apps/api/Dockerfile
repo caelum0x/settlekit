@@ -6,6 +6,9 @@
 FROM node:22-alpine AS base
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
+# Non-interactive build: lets the prod-deps `pnpm install --prod` purge the
+# modules dir without a TTY prompt (ERR_PNPM_ABORTED_REMOVE_MODULES_DIR_NO_TTY).
+ENV CI=true
 RUN corepack enable
 WORKDIR /app
 
