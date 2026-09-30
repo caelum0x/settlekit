@@ -1159,6 +1159,10 @@ Team roles (dashboard sessions): owner and admin (full access; only an owner gra
 - `PATCH /v1/team/members/:accountId` with `{ "role" }` and `DELETE /v1/team/members/:accountId` manage members; the last owner cannot be removed or demoted.
 - `POST /v1/auth/invitations/accept` (public) with `{ "token", "password"? }` joins the organization; new people set a password and get a session.
 
+## Growth metrics
+
+`GET /v1/analytics/metrics?days=30` (1-365) returns checkout conversion (sessions opened vs paid, invoices excluded), per-payment-link stats (opened, paid, conversion, revenue), window and all-time revenue, paying and repeat customers, average revenue per customer, and subscription churn, ARPU and an estimated lifetime value (ARPU divided by monthly churn; null while nothing has churned).
+
 ## Hosted storefront
 
 `POST /v1/settings` with `store: { enabled, slug, title?, tagline?, logoUrl? (https), accentColor? (#rrggbb), seoDescription?, customDomain? }` publishes a branded page at `<checkout>/store/<slug>` listing the merchant's active products; each opens its payment link. Slugs and domains are unique across merchants. Public data: `GET /v1/public/stores/:slug` and `GET /v1/public/stores/by-domain/:domain`. For a custom domain, point it at the checkout host, have the host (Railyard or Caddy) route it, and set `CHECKOUT_PRIMARY_HOSTS` on the checkout app so requests for `/` on any other host show that domain's store. Checkout still buys one product per checkout session.

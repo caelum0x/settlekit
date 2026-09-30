@@ -25,6 +25,7 @@ import {
 import type { AppEnv, AppContext } from "../context.js";
 import { data } from "../http/respond.js";
 import { requireOrg } from "../http/tenant.js";
+import { computeGrowthMetrics } from "../analytics/metrics.js";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -112,6 +113,34 @@ async function computeSummary(ctx: AppContext, organizationId: string, now: Date
 
 export function analyticsRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
+
+  // Conversion, per-link stats, churn and LTV over a window (default 30 days).
+  app.get("/metrics", async (c) => {
+    const ctx = c.get("ctx");
+    const org = requireOrg(c);
+    const days = Math.min(Math.max(Number(c.req.query("days") ?? 30) || 30, 1), 365);
+    const now = new Date();
+    const since = new Date(now.getTime() - days * DAY_MS);
+    const [sessions, payments, subscriptions, products, prices] = await Promise.all([
+      ctx.checkouts.listCreatedSince ? ctx.checkouts.listCreatedSince(since) : Promise.resolve([]),
+      ctx.payments.listByOrganization(org),
+      ctx.subscriptions.listByOrganization(org),
+      ctx.products.list((p) => p.organizationId === org),
+      ctx.prices.list(),
+    ]);
+    return data(
+      c,
+      computeGrowthMetrics({
+        sessions: sessions.filter((s) => s.organizationId === org),
+        payments,
+        subscriptions,
+        products,
+        prices,
+        now,
+        days,
+      }),
+    );
+  });
 
   app.get("/summary", async (c) => {
     const ctx = c.get("ctx");

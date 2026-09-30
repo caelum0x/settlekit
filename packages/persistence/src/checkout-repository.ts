@@ -2,7 +2,7 @@
  * Postgres-backed {@link CheckoutRepository} (reference packaged-interface adapter).
  * Canonical CheckoutSession in `metadata.__doc`; columns projected for querying.
  */
-import { eq, type Database, checkoutSessions } from "@settlekit/database";
+import { eq, gte, type Database, checkoutSessions } from "@settlekit/database";
 import type { CheckoutSession } from "@settlekit/common";
 import type { CheckoutRepository } from "@settlekit/payments";
 import { packDoc, unpackDoc, unpackDocs } from "./codec.js";
@@ -58,5 +58,15 @@ export class PgCheckoutRepository implements CheckoutRepository {
       .from(checkoutSessions)
       .where(eq(checkoutSessions.status, "open"));
     return [...unpackDocs<CheckoutSession>(rows)].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  }
+
+  async listCreatedSince(since: Date): Promise<CheckoutSession[]> {
+    const rows = await this.db
+      .select({ metadata: checkoutSessions.metadata })
+      .from(checkoutSessions)
+      .where(gte(checkoutSessions.createdAt, since));
+    return [...unpackDocs<CheckoutSession>(rows)]
+      .filter((s) => Date.parse(s.createdAt) >= since.getTime())
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   }
 }

@@ -55,6 +55,11 @@ export class InMemoryCheckoutRepository implements CheckoutRepository {
     return newestFirst(open).map(clone);
   }
 
+  async listCreatedSince(since: Date): Promise<CheckoutSession[]> {
+    const recent = [...this.store.values()].filter((s) => Date.parse(s.createdAt) >= since.getTime());
+    return newestFirst(recent).map(clone);
+  }
+
   /** Number of stored sessions (handy in tests/dev tooling). */
   size(): number {
     return this.store.size;

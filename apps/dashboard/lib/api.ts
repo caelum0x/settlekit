@@ -13,6 +13,7 @@ import { API_URL } from "./config";
 
 import type {
   SentInvoice,
+  GrowthMetrics,
   TeamInvitation,
   TeamMember,
   WebhookDelivery,
@@ -191,6 +192,7 @@ const ZERO: Money = { amount: 0, currency: "USDC" };
 export const api = {
   // ---- Overview / analytics ----
   analytics: {
+    metrics: (days = 30) => getItem<GrowthMetrics>(`/v1/analytics/metrics?days=${days}`),
     async summary(): Promise<AnalyticsSummary> {
       const { data } = await getItem<AnalyticsSummary>("/v1/analytics/summary");
       return (

@@ -559,3 +559,14 @@ export interface PayoutBalance {
   netToMerchant: DecimalMoney;
   feeSchedule: FeeSchedule;
 }
+
+/** GET /v1/analytics/metrics */
+export interface GrowthMetrics {
+  windowDays: number;
+  checkouts: { opened: number; paid: number; conversion: number };
+  links: { productId: string; name: string; slug: string | null; opened: number; paid: number; conversion: number; revenue: string }[];
+  revenue: { window: string; allTime: string };
+  customers: { paying: number; repeat: number; repeatRate: number };
+  averageRevenuePerCustomer: string;
+  subscriptions: { active: number; churned: number; churnRate: number; arpu: string; estimatedLifetimeValue: string | null };
+}

@@ -28,6 +28,8 @@ export interface CheckoutRepository extends Repository<CheckoutSession> {
    * payment tags unique and to watch open sessions for incoming payments.
    */
   findOpen(): Promise<CheckoutSession[]>;
+  /** Sessions created at or after `since`, newest first (analytics). */
+  listCreatedSince?(since: Date): Promise<CheckoutSession[]>;
 }
 
 export interface PaymentRepository extends Repository<Payment> {
