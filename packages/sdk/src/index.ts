@@ -75,7 +75,7 @@ export type { AnalyticsSummary } from "./resources/analytics.js";
 export { CouponsResource } from "./resources/coupons.js";
 export type { Coupon, CouponDiscount, CreateCouponInput, CouponApplyResult } from "./resources/coupons.js";
 export { InvoicesResource } from "./resources/invoices.js";
-export type { Invoice, InvoiceLineItemInput, CreateInvoiceInput } from "./resources/invoices.js";
+export type { Invoice, InvoiceLineItemInput, CreateInvoiceInput, SentInvoice, PaymentRequestInput } from "./resources/invoices.js";
 export { PayoutsResource } from "./resources/payouts.js";
 export type { Payout, CreatePayoutInput } from "./resources/payouts.js";
 export { RefundsResource } from "./resources/refunds.js";

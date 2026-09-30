@@ -53,7 +53,7 @@ export default async function CouponsPage() {
     <>
       <PageHeader
         title="Coupons"
-        description="Discount codes — percent off, fixed amount off, or free-trial days, with redemption and per-customer limits."
+        description="Discount codes: percent off or a fixed amount off, with redemption and per-customer limits. Buyers enter a code at checkout, or share a link with ?promo=CODE added to it."
       />
       <ErrorBanner error={coupons.error} />
       <Card title="Your coupons">

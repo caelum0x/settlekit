@@ -96,6 +96,10 @@ export function buildSessionView(
     payerAddress: session.payerAddress ?? null,
     anyToken: anyTokenAvailability(session, verify, routing),
     recurring: recurringInterval(resolved),
+    discount: session.discount
+      ? { code: session.discount.couponCode, subtotal: session.discount.subtotal, amountOff: session.discount.amountOff }
+      : null,
+    promoAllowed: session.discount === undefined && session.invoiceId === undefined && session.status === "open" && !expired,
   };
 }
 

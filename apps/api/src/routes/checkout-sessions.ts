@@ -25,6 +25,7 @@ import { parseBody } from "../http/validate.js";
 import { requireOrg, requireOwned } from "../http/tenant.js";
 import { payToFor } from "./payment-verification.js";
 import { lockZcashQuoteFor, saveZcashSession } from "./zcash-quote.js";
+import { applyPromo } from "../merchant/session-promo.js";
 
 const NETWORKS = PAYMENT_NETWORKS as unknown as readonly [PaymentNetwork, ...PaymentNetwork[]];
 
@@ -54,6 +55,8 @@ const createSchema = z
     cancelUrl: z.string().url().optional(),
     collectedFields: z.record(z.string()).optional(),
     ttlDays: z.number().int().positive().optional(),
+    /** Optional promo code; the session amount becomes the discounted total. */
+    couponCode: z.string().trim().min(1).max(64).optional(),
   })
   .superRefine((body, ctx) => {
     // Every payable network needs a valid destination for ITS chain: funds
@@ -153,8 +156,12 @@ export function checkoutRoutes(): Hono<AppEnv> {
       ...(body.collectedFields !== undefined ? { collectedFields: body.collectedFields } : {}),
       ...(body.ttlDays !== undefined ? { ttlDays: body.ttlDays } : {}),
     });
+    const discounted =
+      body.couponCode !== undefined
+        ? await applyPromo(ctx, draft, body.couponCode, new Map(priced.map((p) => [p.price.id, p.price])))
+        : draft;
     const session = await withNetworkBindings(ctx, {
-      ...draft,
+      ...discounted,
       ...(body.acceptedNetworks !== undefined ? { acceptedNetworks: body.acceptedNetworks } : {}),
       ...(body.payToByNetwork !== undefined ? { payToByNetwork: body.payToByNetwork } : {}),
       ...(body.requireMemo === true ? { requireMemo: true } : {}),

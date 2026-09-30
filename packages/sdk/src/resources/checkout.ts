@@ -24,6 +24,8 @@ export interface CreateCheckoutSessionInput {
   cancelUrl?: string;
   collectedFields?: Record<string, string>;
   ttlDays?: number;
+  /** Promo code; the session amount becomes the discounted total. */
+  couponCode?: string;
 }
 
 /** Client for checkout session endpoints. */

@@ -71,6 +71,10 @@ export interface CheckoutSessionView {
   anyToken: { available: boolean; reason?: string };
   /** Billing interval when the product is sold as a subscription (buyer can subscribe). */
   recurring: "monthly" | "yearly" | null;
+  /** Promo code applied to this session (amount is already discounted). */
+  discount: { code: string; subtotal: Money; amountOff: Money } | null;
+  /** Whether the buyer can still enter a promo code on this checkout. */
+  promoAllowed: boolean;
 }
 
 /** A delivered entitlement / access surfaced on the success page. */

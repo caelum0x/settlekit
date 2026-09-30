@@ -21,7 +21,7 @@ import {
   refundPayment,
 } from "@settlekit/payments";
 import { completeSession } from "@settlekit/payments";
-import { paymentConfirmedWebhook } from "@settlekit/persistence";
+import { paymentConfirmedWebhook, redeemSessionCoupon } from "@settlekit/persistence";
 import type { AppEnv, AppContext } from "../context.js";
 import { emitWebhook } from "../webhooks/outbox.js";
 import { created, data } from "../http/respond.js";
@@ -170,7 +170,10 @@ export function paymentRoutes(): Hono<AppEnv> {
 
     // Complete the session (idempotent) and grant entitlements for each product.
     if (session.status === "open") {
-      await ctx.checkouts.save(completeSession(session));
+      const completed = completeSession(session);
+      // Count the promo redemption once, now that the discounted price is paid.
+      const redeemed = await redeemSessionCoupon(ctx.couponStore, completed, savedPayment.customerId);
+      await ctx.checkouts.save(redeemed ?? completed);
     }
 
     const entitlements = await grantEntitlements(ctx, savedPayment.id);

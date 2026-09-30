@@ -14,6 +14,7 @@ import { withNetworkBindings } from "../routes/checkout-sessions.js";
 import { saveZcashSession } from "../routes/zcash-quote.js";
 import { payToFor } from "../routes/payment-verification.js";
 import { loadProfile } from "./profile.js";
+import { applyPromo } from "./session-promo.js";
 import { networkCatalog } from "./network-catalog.js";
 import { activePrice, findBySlug, merchantIdFor } from "./products.js";
 
@@ -126,7 +127,7 @@ export async function bindSession(ctx: AppContext, draft: CheckoutSession): Prom
 export async function openLinkSession(
   ctx: AppContext,
   slug: string,
-  options: { successUrl?: string; cancelUrl?: string } = {},
+  options: { successUrl?: string; cancelUrl?: string; promo?: string } = {},
 ): Promise<CheckoutSession> {
   const link = await resolveLink(ctx, slug);
   const price = await ctx.prices.findById(link.priceId);
@@ -145,7 +146,8 @@ export async function openLinkSession(
     ...(options.successUrl ? { successUrl: options.successUrl } : {}),
     ...(options.cancelUrl ? { cancelUrl: options.cancelUrl } : {}),
   });
-  const session = await bindSession(ctx, { ...draft, acceptedNetworks: link.accepted, payToByNetwork });
+  const discounted = options.promo ? await applyPromo(ctx, draft, options.promo, new Map([[price.id, price]])) : draft;
+  const session = await bindSession(ctx, { ...discounted, acceptedNetworks: link.accepted, payToByNetwork });
   return session.settlementQuote !== undefined
     ? saveZcashSession(ctx, { ...session, settlementQuote: session.settlementQuote }, payToFor(session, "zcash"))
     : ctx.checkouts.save(session);

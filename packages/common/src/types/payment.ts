@@ -111,6 +111,15 @@ export interface CheckoutLineItem {
   quantity: number;
 }
 
+/** A coupon applied to a checkout session. */
+export interface CheckoutDiscount {
+  couponCode: string;
+  subtotal: Money;
+  amountOff: Money;
+  /** Set once the redemption was counted (after the payment confirmed). */
+  redeemedAt?: string;
+}
+
 export interface CheckoutSession {
   id: string;
   organizationId: string;
@@ -155,6 +164,11 @@ export interface CheckoutSession {
   route?: CheckoutRoute;
   /** Invoice this session pays (invoices and payment requests). */
   invoiceId?: string;
+  /**
+   * Promo code applied to this session. `amount` is already the discounted
+   * total (what the verifier expects on-chain); `subtotal` is the list total.
+   */
+  discount?: CheckoutDiscount;
   successUrl?: string;
   cancelUrl?: string;
   /** ISO timestamp after which the session can no longer be paid. */

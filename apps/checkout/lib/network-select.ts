@@ -29,8 +29,8 @@ function pinnedPayTo(session: CheckoutSession): Partial<Record<PaymentNetwork, s
   return Object.fromEntries(acceptedNetworksOf(session).map((network) => [network, payToFor(session, network)]));
 }
 
-/** Load a session and assert its network may still change. */
-async function switchableSession(sessionId: string, deps: StoreDeps, now: Date): Promise<CheckoutSession> {
+/** Load a session and assert its network (or price) may still change. */
+export async function switchableSession(sessionId: string, deps: StoreDeps, now: Date): Promise<CheckoutSession> {
   const session = await deps.backend.checkouts.findById(sessionId);
   if (!session) throw new CheckoutError("session_not_found", "Checkout session not found.");
   if (session.status === "completed") {
@@ -60,7 +60,7 @@ async function switchableSession(sessionId: string, deps: StoreDeps, now: Date):
  * Zcash quote is saved through {@link saveWithZcashTag}, which picks the
  * session's amount tag atomically per payTo.
  */
-async function bindAndSave(
+export async function bindAndSave(
   session: CheckoutSession,
   network: PaymentNetwork,
   deps: StoreDeps,

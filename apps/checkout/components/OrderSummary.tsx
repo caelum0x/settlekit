@@ -6,10 +6,12 @@ import type { OrderLine } from "@/lib/types";
 interface OrderSummaryProps {
   lines: OrderLine[];
   total: Money;
+  /** Applied promo code (total is already discounted). */
+  discount?: { code: string; amountOff: Money } | null;
 }
 
 /** Renders priced line items + the total. Pure presentational server component. */
-export function OrderSummary({ lines, total }: OrderSummaryProps) {
+export function OrderSummary({ lines, total, discount }: OrderSummaryProps) {
   return (
     <div>
       {lines.map((line) => (
@@ -26,6 +28,14 @@ export function OrderSummary({ lines, total }: OrderSummaryProps) {
           <div className="line-amount">{formatMoney(line.lineTotal)}</div>
         </div>
       ))}
+      {discount ? (
+        <div className="line-discount">
+          <span>
+            Promo <span className="mono">{discount.code}</span>
+          </span>
+          <span>-{formatMoney(discount.amountOff)}</span>
+        </div>
+      ) : null}
       <div className="total">
         <span>Total</span>
         <span className="amount">{formatMoney(total)}</span>

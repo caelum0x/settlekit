@@ -731,3 +731,30 @@ a.link:hover {
   font-size: 13px;
   margin-bottom: 6px;
 }
+
+/* ---------- Promo code ---------- */
+.link-button {
+  background: none;
+  border: 0;
+  padding: 0;
+  margin-top: 12px;
+  color: inherit;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+  opacity: 0.8;
+}
+.promo {
+  margin-top: 12px;
+}
+.field-error {
+  color: #d64545;
+  font-size: 13px;
+  margin-top: 6px;
+}
+.line-discount {
+  display: flex;
+  justify-content: space-between;
+  opacity: 0.85;
+  padding: 6px 0;
+}

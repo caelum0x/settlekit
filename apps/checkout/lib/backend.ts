@@ -32,6 +32,8 @@ import {
   PgWebhookOutbox,
   PgDiscordRoleGrantStore,
   PgCustomerStore,
+  PgCouponStore,
+  type CouponStore,
   type WebhookOutbox,
 } from "@settlekit/persistence";
 import type { CheckoutSession, Customer, DeliveryAction, DiscordRoleGrant, Price, Product } from "@settlekit/common";
@@ -56,6 +58,8 @@ export interface CheckoutBackend {
   readonly discordGrants?: { save(grant: DiscordRoleGrant): Promise<DiscordRoleGrant> };
   /** Seller webhook outbox (Postgres mode only; the worker delivers). */
   readonly webhooks?: WebhookOutbox;
+  /** Seller promo codes (Postgres mode only; no promo field otherwise). */
+  readonly coupons?: CouponStore;
   /** Whether this backend is Postgres-backed (real catalog) or seeded. */
   readonly persistent: boolean;
   findProduct(id: string): Promise<Product | undefined>;
@@ -92,6 +96,7 @@ function createPostgresBackend(databaseUrl: string): CheckoutBackend {
     webhooks: new PgWebhookOutbox(db),
     discordGrants: new PgDiscordRoleGrantStore(db),
     customers: new PgCustomerStore(db),
+    coupons: new PgCouponStore(db),
     persistent: true,
     async findProduct(id) {
       return (await products.findById(id)) ?? undefined;

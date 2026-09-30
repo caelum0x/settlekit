@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { getCheckoutSession, ApiClientError } from "@/lib/api";
 import { badgeDescription, badgeText, formatAmount, formatExpiry, formatMoney } from "@/lib/format";
 import { OrderSummary } from "@/components/OrderSummary";
+import { PromoCode } from "@/components/PromoCode";
 import { NetworkPicker } from "@/components/NetworkPicker";
 import { AnyTokenPay, EvmPay, HyperCorePay, SolanaPay, SubscribePay, WalletPay, ZcashPay } from "@/components/LazyPay";
 
@@ -10,7 +11,7 @@ export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: { sessionId: string };
-  searchParams: { discord?: string };
+  searchParams: { discord?: string; promo?: string };
 }
 
 const DISCORD_NOTICE: Record<string, { ok: boolean; text: string }> = {
@@ -68,7 +69,13 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
       <div className="card">
         <h2>Order summary</h2>
         <p className="merchant">Sold by {session.merchantName}</p>
-        <OrderSummary lines={session.lines} total={session.amount} />
+        <OrderSummary lines={session.lines} total={session.amount} discount={session.discount} />
+        {searchParams.promo === "refused" && !session.discount ? (
+          <p className="field-error" role="status">
+            The promo code from your link could not be applied, so the full price is shown.
+          </p>
+        ) : null}
+        {session.promoAllowed ? <PromoCode sessionId={session.id} /> : null}
       </div>
 
       {session.recurring && option.available ? (

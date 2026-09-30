@@ -585,6 +585,10 @@ A missing `priceId` returns `400 validation_error`.
 curl http://localhost:8787/v1/checkout-sessions/cs_2b7e... -H "Authorization: Bearer $SK_API_KEY"
 ```
 
+#### Promo codes
+
+Add `"couponCode": "LAUNCH20"` to apply one of your coupons. The session `amount` becomes the discounted total (what the buyer pays and what onchain verification expects) and `discount` records the code, list subtotal and amount off. The redemption is counted once, when the payment confirms. Codes that give a free trial, cover the whole price, or belong to another seller are refused with a 400. Payment links accept the same through `/l/<slug>?promo=CODE`, and buyers can enter a code on the hosted checkout until a payment is recorded.
+
 ### POST /v1/checkout-sessions/:id/collect-fields
 
 Merge buyer-supplied delivery fields into an open session.

@@ -41,7 +41,7 @@ import {
   type Product,
 } from "@settlekit/common";
 import { findReference } from "@settlekit/solana";
-import { emitWebhookSafely, paymentConfirmedWebhook, type PaymentContext } from "@settlekit/persistence";
+import { emitWebhookSafely, paymentConfirmedWebhook, redeemSessionCoupon, type PaymentContext } from "@settlekit/persistence";
 
 import { getBackend, type CheckoutBackend } from "./backend";
 import { entitlementIdForPayment, materializeDelivery } from "./deliver";
@@ -309,7 +309,19 @@ async function recordCustomer(backend: CheckoutBackend, session: CheckoutSession
 }
 
 /** Run fulfillment for a newly confirmed payment; never fails the payment. */
+/** Count a discounted session's promo redemption once; never fails the payment. */
+async function redeemPromo(backend: CheckoutBackend, session: CheckoutSession, payment: Payment): Promise<void> {
+  if (!backend.coupons || !session.discount || session.discount.redeemedAt) return;
+  try {
+    const redeemed = await redeemSessionCoupon(backend.coupons, session, payment.customerId);
+    if (redeemed) await backend.checkouts.save(redeemed);
+  } catch (error) {
+    console.error(`[checkout] could not count promo redemption for payment ${payment.id}:`, error);
+  }
+}
+
 async function fulfillOnce(deps: StoreDeps, session: CheckoutSession, payment: Payment): Promise<void> {
+  await redeemPromo(deps.backend, session, payment);
   await recordCustomer(deps.backend, session, payment);
   await emitWebhookSafely(deps.backend.webhooks, paymentConfirmedWebhook(payment, webhookContext(session)));
   const productId = session.lineItems[0]?.productId;

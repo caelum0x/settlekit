@@ -7,7 +7,13 @@ export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: { slug: string };
-  searchParams: { error?: string };
+  searchParams: { error?: string; promo?: string };
+}
+
+/** A promo code from the URL, or undefined when absent or malformed. */
+function cleanPromo(raw: string | undefined): string | undefined {
+  const code = raw?.trim();
+  return code && /^[A-Za-z0-9_-]{1,64}$/.test(code) ? code : undefined;
 }
 
 const INTERVAL_LABEL: Record<string, string> = { monthly: " / month", yearly: " / year" };
@@ -33,6 +39,7 @@ export default async function PaymentLinkPage({ params, searchParams }: PageProp
     );
   }
 
+  const promo = cleanPromo(searchParams.promo);
   return (
     <div>
       <div className="card">
@@ -67,7 +74,12 @@ export default async function PaymentLinkPage({ params, searchParams }: PageProp
             We could not open a checkout just now. Please try again.
           </div>
         ) : null}
-        <StartCheckout slug={link.slug} auto={!searchParams.error} />
+        {promo ? (
+          <p className="muted" style={{ marginBottom: 10 }}>
+            Promo code <span className="mono">{promo}</span> is applied at checkout.
+          </p>
+        ) : null}
+        <StartCheckout slug={link.slug} auto={!searchParams.error} {...(promo ? { promo } : {})} />
       </div>
     </div>
   );

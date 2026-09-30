@@ -6,6 +6,8 @@ interface StartCheckoutProps {
   slug: string;
   /** Open the checkout automatically on load (off after an error). */
   auto: boolean;
+  /** Promo code carried by the link (`?promo=CODE`). */
+  promo?: string;
 }
 
 /**
@@ -13,10 +15,10 @@ interface StartCheckoutProps {
  * buyer to it. Runs in the browser only, so crawlers never create sessions;
  * the form still works without JavaScript.
  */
-export function StartCheckout({ slug, auto }: StartCheckoutProps) {
+export function StartCheckout({ slug, auto, promo }: StartCheckoutProps) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(auto);
-  const action = `/l/${encodeURIComponent(slug)}/start`;
+  const action = `/l/${encodeURIComponent(slug)}/start${promo ? `?promo=${encodeURIComponent(promo)}` : ""}`;
 
   async function start(): Promise<void> {
     setBusy(true);

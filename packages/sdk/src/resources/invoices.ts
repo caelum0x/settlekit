@@ -35,6 +35,26 @@ export interface CreateInvoiceInput {
   metadata?: Record<string, string>;
 }
 
+/** Result of sending an invoice or payment request. */
+export interface SentInvoice {
+  invoice: Invoice;
+  /** Public pay page the client opens to pay onchain. */
+  payUrl: string;
+  checkoutSessionId: string;
+  emailedTo: string | null;
+  emailSkipped?: string;
+}
+
+/** Input for {@link InvoicesResource.request}. */
+export interface PaymentRequestInput {
+  amount: string;
+  description: string;
+  payerEmail?: string;
+  customerId?: string;
+  dueAt?: string;
+  metadata?: Record<string, string>;
+}
+
 /** Client for invoice endpoints. */
 export class InvoicesResource {
   constructor(private readonly http: HttpClient) {}
@@ -63,6 +83,16 @@ export class InvoicesResource {
   /** Mark an open invoice paid. */
   pay(id: string, options?: RequestOptions): Promise<Invoice> {
     return this.http.post<Invoice>(`/v1/invoices/${encodeURIComponent(id)}/pay`, undefined, options);
+  }
+
+  /** Issue the invoice, open its checkout and email the pay link. */
+  send(id: string, input: { payerEmail?: string } = {}, options?: RequestOptions): Promise<SentInvoice> {
+    return this.http.post<SentInvoice>(`/v1/invoices/${encodeURIComponent(id)}/send`, input, options);
+  }
+
+  /** Create and send an ad-hoc payment request (one amount + memo). */
+  request(input: PaymentRequestInput, options?: RequestOptions): Promise<SentInvoice> {
+    return this.http.post<SentInvoice>("/v1/invoices/requests", input, options);
   }
 
   /** Void a draft or open invoice. */

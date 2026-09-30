@@ -56,12 +56,33 @@ export async function getPaymentLink(slug: string): Promise<PaymentLinkSummary> 
   return call<PaymentLinkSummary>(`/v1/public/links/${encodeURIComponent(slug)}`);
 }
 
+const PROMO_RE = /^[A-Za-z0-9_-]{1,64}$/;
+
 /** Open a fresh checkout session for one visit; returns its id. */
-export async function startPaymentLink(slug: string): Promise<string> {
+export async function startPaymentLink(slug: string, promo?: string): Promise<string> {
   if (!SLUG_RE.test(slug)) throw new PaymentLinkError(404, "This payment link does not exist");
+  const code = promo && PROMO_RE.test(promo) ? promo : undefined;
   const data = await call<{ sessionId: string }>(`/v1/public/links/${encodeURIComponent(slug)}/sessions`, {
     method: "POST",
-    body: "{}",
+    body: JSON.stringify(code ? { promo: code } : {}),
   });
   return data.sessionId;
+}
+
+/**
+ * Open a session with the link's promo code; when the code is refused (400),
+ * open it at full price instead so the buyer can still pay. Returns the
+ * session id and whether the promo was applied.
+ */
+export async function startPaymentLinkWithPromo(
+  slug: string,
+  promo: string | undefined,
+): Promise<{ sessionId: string; promo: "applied" | "refused" | "none" }> {
+  if (!promo) return { sessionId: await startPaymentLink(slug), promo: "none" };
+  try {
+    return { sessionId: await startPaymentLink(slug, promo), promo: "applied" };
+  } catch (error) {
+    if (!(error instanceof PaymentLinkError) || error.status !== 400) throw error;
+    return { sessionId: await startPaymentLink(slug), promo: "refused" };
+  }
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { PaymentLinkError, startPaymentLink } from "@/lib/payment-link";
+import { PaymentLinkError, startPaymentLinkWithPromo } from "@/lib/payment-link";
 
 export const dynamic = "force-dynamic";
 
@@ -12,8 +12,9 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request, { params }: { params: { slug: string } }) {
   const wantsJson = request.headers.get("accept")?.includes("application/json") ?? false;
   try {
-    const sessionId = await startPaymentLink(params.slug);
-    const url = `/c/${encodeURIComponent(sessionId)}`;
+    const promo = new URL(request.url).searchParams.get("promo") ?? undefined;
+    const started = await startPaymentLinkWithPromo(params.slug, promo);
+    const url = `/c/${encodeURIComponent(started.sessionId)}${started.promo === "refused" ? "?promo=refused" : ""}`;
     if (wantsJson) return NextResponse.json({ url });
     return NextResponse.redirect(new URL(url, request.url), 303);
   } catch (error) {

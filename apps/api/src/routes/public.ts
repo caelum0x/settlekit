@@ -32,6 +32,8 @@ const slugSchema = z.string().regex(/^[a-z0-9-]{4,64}$/, "invalid payment link")
 const sessionSchema = z.object({
   successUrl: z.string().url().optional(),
   cancelUrl: z.string().url().optional(),
+  /** Promo code from the link (`/l/<slug>?promo=CODE`). */
+  promo: z.string().trim().min(1).max(64).optional(),
 });
 
 export function publicRoutes(): Hono<AppEnv> {
