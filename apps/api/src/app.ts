@@ -46,6 +46,7 @@ import { escrowRoutes } from "./routes/escrow.js";
 import { couponRoutes } from "./routes/coupons.js";
 import { invoiceRoutes } from "./routes/invoices.js";
 import { billingRoutes } from "./routes/billing.js";
+import { exportRoutes } from "./routes/exports.js";
 import { refundRoutes } from "./routes/refunds.js";
 import { dunningRoutes } from "./routes/dunning.js";
 import { disputeRoutes } from "./routes/disputes.js";
@@ -209,6 +210,8 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
   v1.route("/invoices", invoiceRoutes());
   // SettleKit's own fee statements for this merchant (platform revenue).
   v1.route("/billing", billingRoutes());
+  // Accounting exports (CSV, Xero / QuickBooks bank statement imports).
+  v1.route("/exports", exportRoutes());
 
   // ---- Commerce engines: refunds, dunning, disputes, payouts -------------
   v1.route("/refunds", refundRoutes());

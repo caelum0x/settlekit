@@ -1142,6 +1142,17 @@ curl -X POST http://localhost:8787/v1/coupons/LAUNCH20/redeem \
 
 ---
 
+## Accounting exports
+
+`/v1/exports` — **Auth required.** Tenant-scoped CSV downloads. Optional `?from=YYYY-MM-DD&to=YYYY-MM-DD` (to is exclusive). Every text cell is guarded against spreadsheet formula injection.
+
+- `GET /v1/exports/payments.csv`, `refunds.csv`, `invoices.csv`, `payouts.csv`: one row per record.
+- `GET /v1/exports/ledger.csv`: every USDC wallet movement (payments in, succeeded refunds out) with network and transaction hash.
+- `GET /v1/exports/xero.csv`: Xero bank statement import (`*Date` as DD/MM/YYYY, `*Amount`, Payee, Description, Reference). In Xero, create a bank account named "USDC wallet", then use Import a statement.
+- `GET /v1/exports/quickbooks.csv`: QuickBooks Online bank upload, three columns (Date as MM/DD/YYYY, Description, Amount). In QuickBooks, go to Banking, Upload transactions, and pick the USDC account.
+
+The dashboard links all of them from the Payments page.
+
 ## Platform fee statements
 
 `/v1/billing` — **Auth required.** SettleKit's per-payment fee is billed once a month. When `PLATFORM_BILLING_ORG_ID` is set, the API issues each merchant a statement for the previous month (confirmed payments x the fee schedule) as an invoice from the platform org, paid through the hosted checkout like any invoice. Totals below `PLATFORM_BILLING_MIN_USD` roll into the next month. A statement left unpaid past its due date plus `PLATFORM_BILLING_GRACE_DAYS` limits new products to the free plan until it is paid (`402 payment_required` with the pay link).

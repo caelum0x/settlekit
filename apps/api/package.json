@@ -46,6 +46,7 @@
     "@settlekit/dunning": "workspace:*",
     "@settlekit/entitlements": "workspace:*",
     "@settlekit/escrow": "workspace:*",
+    "@settlekit/exports": "workspace:*",
     "@settlekit/file-delivery": "workspace:*",
     "@settlekit/gateway": "workspace:*",
     "@settlekit/github": "workspace:*",

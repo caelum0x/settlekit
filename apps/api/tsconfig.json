@@ -10,6 +10,7 @@
     { "path": "../../packages/onchain-billing" },
     { "path": "../../packages/common" },
     { "path": "../../packages/pricing" },
+    { "path": "../../packages/exports" },
     { "path": "../../packages/solana" },
     { "path": "../../packages/zcash" },
     { "path": "../../packages/chains" },

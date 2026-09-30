@@ -38,6 +38,12 @@ export default async function PaymentsPage({ searchParams }: PageProps) {
     <>
       <PageHeader title="Payments" description="Every payment on every network, verified on-chain before access is delivered." />
       <ErrorBanner error={payments.error} />
+      <p className="dim small" style={{ marginBottom: 12 }}>
+        Export for your books: <a className="link" href="/exports/payments">Payments CSV</a> ·{" "}
+        <a className="link" href="/exports/xero">Xero bank statement</a> ·{" "}
+        <a className="link" href="/exports/quickbooks">QuickBooks bank upload</a> ·{" "}
+        <a className="link" href="/exports/ledger">Full ledger</a>
+      </p>
       <div className="filter-bar">
         {STATUS_FILTERS.map((f) => (
           <Link key={f.value} href={query({ status: f.value })} className={`filter-pill${status === f.value ? " active" : ""}`}>

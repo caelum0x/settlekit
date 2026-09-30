@@ -178,6 +178,9 @@ importers:
       '@settlekit/escrow':
         specifier: workspace:*
         version: link:../../packages/escrow
+      '@settlekit/exports':
+        specifier: workspace:*
+        version: link:../../packages/exports
       '@settlekit/file-delivery':
         specifier: workspace:*
         version: link:../../packages/file-delivery
