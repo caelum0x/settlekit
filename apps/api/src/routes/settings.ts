@@ -23,6 +23,16 @@ const patchSchema = z.object({
   payoutCurrency: z.string().min(1).optional(),
   webhookSecret: z.string().optional(),
   defaultRail: z.enum(["arc", "circle", "x402"]).optional(),
+  /** Exact origins allowed to embed the checkout (embed.js success callback). */
+  embedOrigins: z
+    .array(
+      z
+        .string()
+        .trim()
+        .regex(/^https:\/\/[a-z0-9.-]+(:\d{2,5})?$|^http:\/\/localhost(:\d{2,5})?$/i, "origins look like https://shop.example.com"),
+    )
+    .max(20)
+    .optional(),
   /** Checkout tax + seller tax identity printed on receipts. */
   tax: z
     .object({
@@ -51,7 +61,11 @@ export function settingsRoutes(): Hono<AppEnv> {
   app.post("/", async (c) => {
     const body = await parseBody(c, patchSchema);
     // Drop any client-supplied organizationId; the tenant is the authenticated org.
-    const { organizationId, tax, ...rest } = body;
+    const { organizationId, tax, embedOrigins, ...raw } = body;
+    const rest = {
+      ...raw,
+      ...(embedOrigins !== undefined ? { embedOrigins: [...new Set(embedOrigins.map((o) => o.toLowerCase()))] } : {}),
+    };
     void organizationId;
     let patch: typeof rest & { tax?: ReturnType<typeof normalizeTaxSettings> } = rest;
     if (tax !== undefined) {

@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import { Archivo, IBM_Plex_Mono } from "next/font/google";
 
 import "./globals.css";
+import { EmbedBridge } from "@/components/EmbedBridge";
 
 const archivo = Archivo({
   subsets: ["latin"],
@@ -32,6 +33,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${archivo.variable} ${plexMono.variable}`}>
       <body>
+        <EmbedBridge />
         <div className="page">
           <header className="topbar">
             <span className="brand">SettleKit</span>

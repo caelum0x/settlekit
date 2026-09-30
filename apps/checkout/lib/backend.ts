@@ -64,6 +64,8 @@ export interface CheckoutBackend {
   readonly coupons?: CouponStore;
   /** Seller tax settings (Postgres mode only; untaxed otherwise). */
   taxSettings?(organizationId: string): Promise<TaxSettings | undefined>;
+  /** Sites the seller allows to embed the checkout (Postgres mode only). */
+  embedOrigins?(organizationId: string): Promise<string[]>;
   /** Whether this backend is Postgres-backed (real catalog) or seeded. */
   readonly persistent: boolean;
   findProduct(id: string): Promise<Product | undefined>;
@@ -104,6 +106,9 @@ function createPostgresBackend(databaseUrl: string): CheckoutBackend {
     coupons: new PgCouponStore(db),
     async taxSettings(organizationId) {
       return (await orgSettings.get(organizationId)).tax;
+    },
+    async embedOrigins(organizationId) {
+      return (await orgSettings.get(organizationId)).embedOrigins ?? [];
     },
     persistent: true,
     async findProduct(id) {

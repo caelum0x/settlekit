@@ -146,6 +146,7 @@ export async function openInvoiceSession(
     network,
     ttlDays: 1,
     ...(payerEmail ? { collectedFields: { email: payerEmail } } : {}),
+    ...(invoice.metadata.successUrl ? { successUrl: invoice.metadata.successUrl } : {}),
   });
   const session = await saveBoundSession(
     ctx,
@@ -228,7 +229,7 @@ export function invoiceEmail(invoice: Invoice, merchantName: string, payUrl: str
 export async function sendInvoice(
   ctx: AppContext,
   invoice: Invoice,
-  options: { payerEmail?: string; env?: NodeJS.ProcessEnv } = {},
+  options: { payerEmail?: string; env?: NodeJS.ProcessEnv; skipEmail?: boolean } = {},
 ): Promise<SendInvoiceResult> {
   let current = invoice.status === "draft" ? finalizeInvoice(invoice) : invoice;
   const reason = unpayableReason(current);
@@ -245,6 +246,7 @@ export async function sendInvoice(
   const payUrl = payUrlFor(token, options.env);
   const base = { invoice: opened.invoice, payUrl, checkoutSessionId: opened.session.id };
 
+  if (options.skipEmail) return { ...base, emailedTo: null, emailSkipped: "not requested" };
   if (!payerEmail) return { ...base, emailedTo: null, emailSkipped: "no payer email on the invoice or customer" };
   if (!ctx.email) return { ...base, emailedTo: null, emailSkipped: "email is not configured (RESEND_API_KEY)" };
   const { merchantName } = await payableNetworks(ctx, current.organizationId);

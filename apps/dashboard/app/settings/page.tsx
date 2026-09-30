@@ -10,6 +10,16 @@ import { getCurrentAccount } from "@/lib/session";
 import { SimpleCreateForm } from "@/components/forms/SimpleCreateForm";
 import { describeTax, parseTaxForm } from "@/lib/tax-form";
 
+async function saveEmbedOrigins(values: Record<string, string>): Promise<string | null> {
+  "use server";
+  const embedOrigins = (values.origins ?? "")
+    .split(/[\s,]+/)
+    .map((o) => o.trim().replace(/\/+$/, ""))
+    .filter(Boolean);
+  const { error } = await api.settings.update({ embedOrigins });
+  return error;
+}
+
 async function saveTax(values: Record<string, string>): Promise<string | null> {
   "use server";
   let tax;
@@ -68,6 +78,28 @@ export default async function SettingsPage() {
               name: "reverseCharge",
               label: "EU reverse charge for businesses",
               options: [{ value: "no", label: "No" }, { value: "yes", label: "Yes" }],
+            },
+          ]}
+        />
+      </Card>
+
+      <Card title="Embedding">
+        <p className="page-desc" style={{ marginBottom: 12 }}>
+          {settings.embedOrigins && settings.embedOrigins.length > 0
+            ? `Sites that can embed your checkout and receive the success event: ${settings.embedOrigins.join(", ")}.`
+            : "No sites yet. Your checkout still opens in an overlay anywhere; listed sites also receive the success event."}
+        </p>
+        <SimpleCreateForm
+          submitLabel="Save sites"
+          successMessage="Embedding sites saved."
+          action={saveEmbedOrigins}
+          fields={[
+            {
+              name: "origins",
+              label: "Your sites",
+              type: "textarea",
+              placeholder: "https://shop.example.com",
+              hint: "One per line, https only, no paths. Saving replaces the list.",
             },
           ]}
         />

@@ -253,3 +253,32 @@ describe("payable invoices", () => {
     expect(unknown.status).toBe(404);
   });
 });
+
+describe("payment requests for plugins", () => {
+  it("can skip the email and return the payer to the store after paying", async () => {
+    const h = await harness();
+    await onboard(h.app);
+    const res = await call(h.app, "POST", "/v1/invoices/requests", {
+      amount: "42.00",
+      description: "Order #1001",
+      payerEmail: "shopper@store.test",
+      sendEmail: false,
+      successUrl: "https://store.test/checkout/order-received/1001?key=wc_order_abc",
+      metadata: { wc_order_id: "1001" },
+    });
+    expect(res.status).toBe(201);
+    expect(res.json.data.emailedTo).toBeNull();
+    expect(h.sent).toHaveLength(0);
+    const session = await h.ctx.checkouts.findById(res.json.data.checkoutSessionId);
+    expect(session?.successUrl).toBe("https://store.test/checkout/order-received/1001?key=wc_order_abc");
+    expect(res.json.data.invoice.metadata.wc_order_id).toBe("1001");
+
+    const insecure = await call(h.app, "POST", "/v1/invoices/requests", {
+      amount: "1",
+      description: "x",
+      payerEmail: "a@b.test",
+      successUrl: "http://evil.test/",
+    });
+    expect(insecure.status).toBe(400);
+  });
+});

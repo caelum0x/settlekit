@@ -389,6 +389,7 @@ export interface OrgSettings {
   webhookSecret: string;
   defaultRail: "arc" | "circle" | "x402";
   tax?: TaxSettings;
+  embedOrigins?: string[];
 }
 
 /** Checkout tax + seller tax identity (receipts). */

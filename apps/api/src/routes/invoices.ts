@@ -71,6 +71,10 @@ const requestSchema = z.object({
   customerId: z.string().min(1).optional(),
   dueAt: z.string().datetime().optional(),
   metadata: z.record(z.string()).optional(),
+  /** Email the pay link to payerEmail (default true). Plugins that redirect set false. */
+  sendEmail: z.boolean().optional(),
+  /** Where the hosted checkout returns the payer after paying (https). */
+  successUrl: z.string().url().refine((v) => v.startsWith("https://") || v.startsWith("http://localhost"), "successUrl must be https").optional(),
 });
 
 function toLineItem(input: z.infer<typeof lineItemSchema>): InvoiceLineItem {
@@ -147,10 +151,17 @@ export function invoiceRoutes(): Hono<AppEnv> {
         customerId,
         lineItems: [{ description: body.description, quantity: 1, unitAmount: money(body.amount) }],
         ...(body.dueAt !== undefined ? { dueAt: body.dueAt } : {}),
-        metadata: { ...(body.metadata ?? {}), kind: "payment_request" },
+        metadata: {
+          ...(body.metadata ?? {}),
+          kind: "payment_request",
+          ...(body.successUrl ? { successUrl: body.successUrl } : {}),
+        },
       }),
     );
-    const sent = await sendInvoice(ctx, invoice, body.payerEmail ? { payerEmail: body.payerEmail } : {});
+    const sent = await sendInvoice(ctx, invoice, {
+      ...(body.payerEmail ? { payerEmail: body.payerEmail } : {}),
+      ...(body.sendEmail === false ? { skipEmail: true } : {}),
+    });
     return created(c, sent);
   });
 

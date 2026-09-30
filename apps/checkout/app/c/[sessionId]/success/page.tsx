@@ -8,6 +8,8 @@ import {
 } from "@/lib/format";
 import { OrderSummary } from "@/components/OrderSummary";
 import { AccessList } from "@/components/AccessList";
+import { EmbedSuccess } from "@/components/EmbedSuccess";
+import { embedOriginsForSession } from "@/lib/embed";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +37,7 @@ export default async function SuccessPage({ params }: PageProps) {
     throw error;
   }
 
+  const embedOrigins = await embedOriginsForSession(sessionId).catch(() => []);
   // The receipt amount is the authoritative settled total.
   const total = receipt.amount;
   const INTERNAL_FIELDS = new Set(["subscribeIntentId", "onchainSubscriptionId", "periodIndex"]);
@@ -42,6 +45,7 @@ export default async function SuccessPage({ params }: PageProps) {
 
   return (
     <div>
+      <EmbedSuccess sessionId={sessionId} paymentId={receipt.paymentId} allowedOrigins={embedOrigins} />
       <div className="card center">
         <div className="big-status">Payment confirmed</div>
         <p className="muted">

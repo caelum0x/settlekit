@@ -18,6 +18,20 @@ const BUTTON_SNIPPET = `<a href="${CHECKOUT_URL}/l/your-product-slug"
   Subscribe with USDC
 </a>`;
 
+const OVERLAY_SNIPPET = `<script src="${CHECKOUT_URL}/embed.js" async></script>
+
+<a href="${CHECKOUT_URL}/l/your-product-slug" data-settlekit-checkout>Subscribe with USDC</a>
+
+<script>
+  // Optional: react when the payment settles (sites listed under
+  // Settings > Embedding receive this; others still get a working checkout).
+  document.addEventListener("settlekit:success", (event) => {
+    console.info("paid", event.detail.sessionId, event.detail.paymentId);
+  });
+  // Or open it from code:
+  // SettleKit.open("${CHECKOUT_URL}/l/your-product-slug", { onSuccess: (d) => {}, onClose: () => {} });
+</script>`;
+
 const SESSION_SNIPPET = `// Open a fresh checkout for a signed-in user and send them to it.
 const res = await fetch("${API_URL}/v1/public/links/your-product-slug/sessions", {
   method: "POST",
@@ -171,6 +185,12 @@ export default function IntegratePage() {
       <Section no="02" title="Embed a button">
         <p>Any page, no script needed:</p>
         <Code>{BUTTON_SNIPPET}</Code>
+        <p>
+          To keep buyers on your page, add <span className="mono">embed.js</span>: links marked{" "}
+          <span className="mono">data-settlekit-checkout</span> open the checkout in an overlay. Add your site under
+          Settings &gt; Embedding to receive the success event.
+        </p>
+        <Code>{OVERLAY_SNIPPET}</Code>
         <p>To send a signed-in user to checkout and back to your app afterwards, open the session from your server:</p>
         <Code>{SESSION_SNIPPET}</Code>
       </Section>

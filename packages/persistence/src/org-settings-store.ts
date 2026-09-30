@@ -25,6 +25,11 @@ export interface OrgSettings {
   testAccount?: boolean;
   /** Checkout tax + seller tax identity on receipts. Off when absent. */
   tax?: TaxSettings;
+  /**
+   * Sites allowed to embed the checkout and receive its success message
+   * (exact origins, e.g. "https://shop.example.com").
+   */
+  embedOrigins?: string[];
 }
 
 /** Sensible defaults applied when an org has no settings yet. */

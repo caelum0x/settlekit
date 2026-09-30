@@ -128,3 +128,13 @@ describe("checkout tax", () => {
     expect(s.json.data.tax).toBeUndefined();
   });
 });
+
+describe("embed origins setting", () => {
+  it("stores exact https origins and rejects paths or plain http", async () => {
+    const ok = await call("POST", "/v1/settings", { embedOrigins: ["https://Shop.Example.com", "https://shop.example.com", "http://localhost:3000"] });
+    expect(ok.status).toBe(200);
+    expect(ok.json.data.embedOrigins).toEqual(["https://shop.example.com", "http://localhost:3000"]);
+    expect((await call("POST", "/v1/settings", { embedOrigins: ["https://shop.example.com/cart"] })).status).toBe(400);
+    expect((await call("POST", "/v1/settings", { embedOrigins: ["http://shop.example.com"] })).status).toBe(400);
+  });
+});
