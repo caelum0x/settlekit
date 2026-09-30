@@ -6,6 +6,7 @@ import { serve } from "@hono/node-server";
 import { createApp } from "./app.js";
 import { createContext } from "./context.js";
 import { assertChainIdsAtBoot } from "./config/boot-checks.js";
+import { startStatementScheduler } from "./platform/statement-scheduler.js";
 
 /** Create the server (without starting it) — handy for embedding / testing. */
 export async function createServer() {
@@ -25,6 +26,7 @@ export async function startServer(port = Number(process.env.PORT ?? 8787)) {
   const ctx = await createContext();
   await assertChainIdsAtBoot(ctx.evmVerifiers, log);
   const app = createApp(ctx);
+  const stopStatements = startStatementScheduler(ctx, log);
   const server = serve({ fetch: app.fetch, port }, (info) => {
     log("api listening", { port: info.port, url: `http://localhost:${info.port}` });
   });
@@ -38,6 +40,7 @@ export async function startServer(port = Number(process.env.PORT ?? 8787)) {
       process.exit(1);
     }
     shuttingDown = true;
+    stopStatements();
     log("api shutting down", { signal });
     const force = setTimeout(() => {
       log("api shutdown timed out; forcing exit", {});

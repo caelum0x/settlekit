@@ -1130,6 +1130,13 @@ curl -X POST http://localhost:8787/v1/coupons/LAUNCH20/redeem \
 
 ---
 
+## Platform fee statements
+
+`/v1/billing` — **Auth required.** SettleKit's per-payment fee is billed once a month. When `PLATFORM_BILLING_ORG_ID` is set, the API issues each merchant a statement for the previous month (confirmed payments x the fee schedule) as an invoice from the platform org, paid through the hosted checkout like any invoice. Totals below `PLATFORM_BILLING_MIN_USD` roll into the next month. A statement left unpaid past its due date plus `PLATFORM_BILLING_GRACE_DAYS` limits new products to the free plan until it is paid (`402 payment_required` with the pay link).
+
+- `GET /v1/billing/fees` returns the schedule, standing (`good`, `due`, `past_due`, `restricted`), fees accrued since the last statement and every statement with its pay link.
+- `POST /v1/billing/statements/run` with `{ "period": "YYYY-MM" }` (default: last month) issues statements for every merchant. Platform operator only (the platform org or the bootstrap key). The API also runs this every six hours unless `PLATFORM_BILLING_AUTORUN=0`.
+
 ## Invoices
 
 `/v1/invoices` — **Auth required.** Lifecycle: `draft → open → paid` (or `void`).

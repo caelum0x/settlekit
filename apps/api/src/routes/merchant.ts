@@ -40,6 +40,7 @@ import { readBalances } from "../merchant/balances.js";
 import { refundSucceededWebhook } from "@settlekit/persistence";
 import { emitWebhook } from "../webhooks/outbox.js";
 import { isInvoiceProduct } from "../merchant/invoice-payments.js";
+import { assertCanCreateProduct } from "../platform/fee-statements.js";
 
 const refundSchema = z.object({
   reason: z.enum(["duplicate", "fraudulent", "customer_request", "delivery_failed"]).default("customer_request"),
@@ -154,6 +155,7 @@ export function merchantRoutes(): Hono<AppEnv> {
   app.post("/products", async (c) => {
     const ctx = c.get("ctx");
     const body = await parseBody(c, quickProductSchema);
+    await assertCanCreateProduct(ctx, requireOrg(c));
     const product = await createQuickProduct(ctx, requireOrg(c), body);
     return created(c, await productView(ctx, product));
   });
@@ -166,6 +168,7 @@ export function merchantRoutes(): Hono<AppEnv> {
     const ctx = c.get("ctx");
     const product = await ownedProduct(c, c.req.param("id"));
     const body = await parseBody(c, productPatchSchema);
+    if (body.status === "active" && product.status !== "active") await assertCanCreateProduct(ctx, product.organizationId);
     return data(c, await productView(ctx, await updateProduct(ctx, product, body)));
   });
 

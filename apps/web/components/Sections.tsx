@@ -121,7 +121,8 @@ export function SimplePricing() {
             <h2 className="section-title">Free to start. {feeLabel()} when you get paid.</h2>
             <p className="section-desc">
               No monthly fee, no setup fee, no reserve. You only pay a small fee on successful payments; network fees
-              are paid by the buyer. The core is open source if you would rather run it yourself.
+              are paid by the buyer. Fees add up over the month and arrive as one USDC statement you pay from the
+              dashboard. The core is open source if you would rather run it yourself.
             </p>
           </div>
           <ul className="pricing-points">

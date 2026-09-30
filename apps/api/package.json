@@ -63,6 +63,7 @@
     "@settlekit/payouts": "workspace:*",
     "@settlekit/persistence": "workspace:*",
     "@settlekit/platform-billing": "workspace:*",
+    "@settlekit/pricing": "workspace:*",
     "@settlekit/product-catalog": "workspace:*",
     "@settlekit/rate-limits": "workspace:*",
     "@settlekit/refunds": "workspace:*",

@@ -14,6 +14,7 @@ import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { requireOrg, requireOwned } from "../http/tenant.js";
 import { isInvoiceProduct } from "../merchant/invoice-payments.js";
+import { assertCanCreateProduct } from "../platform/fee-statements.js";
 
 const PRODUCT_TYPES = [
   "saas_plan",
@@ -116,6 +117,7 @@ export function productRoutes(): Hono<AppEnv> {
     const ctx = c.get("ctx");
     const id = c.req.param("id");
     const product = await ownedProduct(c, id);
+    if (product.status !== "active") await assertCanCreateProduct(ctx, product.organizationId);
     const prices = await ctx.prices.list((p) => p.productId === id);
     const published = publishProduct(product, prices);
     return data(c, await ctx.products.save(published));

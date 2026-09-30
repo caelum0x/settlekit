@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { merchantApi } from "@/lib/merchant-api";
+import { merchantApi, type PlatformFees } from "@/lib/merchant-api";
 import { shortHash } from "@/lib/merchant-types";
 import { PageHeader, Card, DataTable, EmptyState, ErrorBanner } from "@/components/ui";
 import { NetworkBadge } from "@/components/NetworkBadge";
@@ -13,7 +13,7 @@ function amount(value: string | null): string {
 }
 
 export default async function PayoutsPage() {
-  const [balances, profile] = await Promise.all([merchantApi.balances(), merchantApi.profile()]);
+  const [balances, profile, fees] = await Promise.all([merchantApi.balances(), merchantApi.profile(), merchantApi.fees()]);
   const names = new Map((profile.data?.networks ?? []).map((n) => [n.network as string, n.name]));
   const rows = balances.data ?? [];
   return (
@@ -67,10 +67,58 @@ export default async function PayoutsPage() {
           ]}
         />
       </Card>
+      {fees.data?.configured ? <FeesCard fees={fees.data} /> : null}
       <p className="dim small">
         EVM balances are the stablecoin shown (USDC, USDG on Robinhood Chain, USDC.e on Tempo); HyperCore shows withdrawable
         USDC; Zcash shows transparent ZEC (mainnet only).
       </p>
     </>
+  );
+}
+
+const STANDING_NOTE: Record<PlatformFees["standing"], string | null> = {
+  good: null,
+  due: "Your fee statement is ready. Pay it before the due date.",
+  past_due: "Your fee statement is past due. Pay it to keep adding products.",
+  restricted: "Your fee statement is overdue, so new products are limited to the free plan. Pay it to lift the limit.",
+};
+
+function FeesCard({ fees }: { fees: PlatformFees }) {
+  const note = STANDING_NOTE[fees.standing];
+  const pct = (fees.schedule.bps / 100).toString();
+  return (
+    <Card title="SettleKit fees">
+      {note ? <div className="error-banner" role="status">{note}</div> : null}
+      <p className="dim small">
+        {pct}% per successful payment, billed once a month as one USDC statement. Since the last statement:{" "}
+        {fees.accrued.paymentCount} payments, {amount(fees.accrued.grossVolume)} USDC volume, {amount(fees.accrued.fees)} USDC
+        in fees.
+      </p>
+      <DataTable
+        rows={fees.statements}
+        getKey={(s) => s.id}
+        empty={<EmptyState title="No statements yet" message="Your first statement arrives after the month you start selling." />}
+        columns={[
+          { header: "Period", cell: (s) => s.period ?? "-" },
+          { header: "Payments", align: "right", cell: (s) => String(s.paymentCount) },
+          { header: "Fees", align: "right", cell: (s) => `${amount(s.total)} ${s.currency}` },
+          { header: "Due", cell: (s) => (s.dueAt ? s.dueAt.slice(0, 10) : "-") },
+          { header: "Status", cell: (s) => s.status },
+          {
+            header: "",
+            cell: (s) =>
+              s.status === "open" && s.payUrl ? (
+                <a className="btn btn-primary btn-small" href={s.payUrl} target="_blank" rel="noreferrer">
+                  Pay
+                </a>
+              ) : s.payUrl ? (
+                <a className="link" href={`${s.payUrl}/pdf`} target="_blank" rel="noreferrer">
+                  Receipt
+                </a>
+              ) : null,
+          },
+        ]}
+      />
+    </Card>
   );
 }

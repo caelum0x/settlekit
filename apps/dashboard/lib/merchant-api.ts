@@ -84,4 +84,27 @@ export const merchantApi = {
     patch<MerchantProduct>(`/v1/merchant/products/${encodeURIComponent(id)}`, input),
   customers: () => call<CustomerView[]>("/v1/merchant/customers"),
   balances: () => call<NetworkBalance[]>("/v1/merchant/balances"),
+  fees: () => call<PlatformFees>("/v1/billing/fees"),
 };
+
+/** What this merchant owes SettleKit (GET /v1/billing/fees). */
+export interface PlatformFees {
+  configured: boolean;
+  schedule: { bps: number; fixed: string };
+  standing: "good" | "due" | "past_due" | "restricted";
+  graceDays: number | null;
+  accrued: { since: string; paymentCount: number; grossVolume: string; fees: string };
+  statements: {
+    id: string;
+    number: string;
+    period: string | null;
+    status: string;
+    total: string;
+    currency: string;
+    paymentCount: number;
+    grossVolume: string;
+    dueAt: string | null;
+    paidAt: string | null;
+    payUrl: string | null;
+  }[];
+}
