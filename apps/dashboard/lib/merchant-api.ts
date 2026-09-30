@@ -93,6 +93,10 @@ export const merchantApi = {
   customers: () => call<CustomerView[]>("/v1/merchant/customers"),
   balances: () => call<NetworkBalance[]>("/v1/merchant/balances"),
   fees: () => call<PlatformFees>("/v1/billing/fees"),
+  offramp: (network: string, amount: string) =>
+    call<{ links: { provider: string; name: string; url: string }[]; configured: string[] }>(
+      `/v1/merchant/offramp?network=${encodeURIComponent(network)}&amount=${encodeURIComponent(amount)}`,
+    ),
 };
 
 /** What this merchant owes SettleKit (GET /v1/billing/fees). */

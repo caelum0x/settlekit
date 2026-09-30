@@ -127,3 +127,8 @@ export async function confirmRefundAction(
 export async function cancelRefundAction(refundId: string): Promise<ActionResult<unknown>> {
   return merchantApi.cancelRefund(refundId);
 }
+
+/** Partner sell links for cashing out `amount` USDC held on `network`. */
+export async function offrampAction(network: string, amount: string) {
+  return merchantApi.offramp(network, amount);
+}

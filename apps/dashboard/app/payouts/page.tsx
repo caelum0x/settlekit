@@ -3,6 +3,7 @@ import { merchantApi, type PlatformFees } from "@/lib/merchant-api";
 import { shortHash } from "@/lib/merchant-types";
 import { PageHeader, Card, DataTable, EmptyState, ErrorBanner } from "@/components/ui";
 import { NetworkBadge } from "@/components/NetworkBadge";
+import { CashOut } from "@/components/CashOut";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +21,7 @@ export default async function PayoutsPage() {
     <>
       <PageHeader
         title="Balances"
-        description="Buyers pay straight into your wallets, so there is nothing to withdraw: this is what each receiving address holds right now, read live from each chain."
+        description="Buyers pay straight into your wallets, so there is nothing to withdraw: this is what each receiving address holds right now, read live from each chain. Cash out opens a partner that pays out to your bank."
       />
       <ErrorBanner error={balances.error} />
       <Card>
@@ -64,6 +65,7 @@ export default async function PayoutsPage() {
               cell: (b) => (b.error ? <span className="field-error">Could not read: {b.error}</span> : <span className="dim">Live</span>),
             },
             { header: "Balance", align: "right", cell: (b) => `${amount(b.balance)} ${b.balance === null ? "" : b.asset}` },
+            { header: "", cell: (b) => (b.env === "mainnet" ? <CashOut network={b.network} balance={b.balance} /> : null) },
           ]}
         />
       </Card>

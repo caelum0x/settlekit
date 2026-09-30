@@ -17,7 +17,7 @@
  */
 import { Hono, type Context } from "hono";
 import { z } from "zod";
-import { conflict, notFound, toBaseUnits, validationError, type Payment, type Product } from "@settlekit/common";
+import { conflict, isPaymentNetwork, notFound, toBaseUnits, validationError, type Payment, type Product } from "@settlekit/common";
 import { isValidTxHash } from "@settlekit/chains";
 import { refundPayment } from "@settlekit/payments";
 import type { AppContext, AppEnv } from "../context.js";
@@ -40,6 +40,7 @@ import { readBalances } from "../merchant/balances.js";
 import { refundSucceededWebhook } from "@settlekit/persistence";
 import { emitWebhook } from "../webhooks/outbox.js";
 import { isInvoiceProduct } from "../merchant/invoice-payments.js";
+import { configuredOfframps, offrampLinks } from "../payouts/offramp.js";
 import { assertDestination, payerAddressFor, refundPlan, supportsWalletRefund } from "../merchant/refund-to-payer.js";
 import { assertTxHashUnused, requireTxHash, verifyOnChainOrThrow } from "./payment-verification.js";
 import type { Refund } from "@settlekit/refunds";
@@ -290,6 +291,25 @@ export function merchantRoutes(): Hono<AppEnv> {
   app.get("/balances", async (c) => {
     const profile = await loadProfile(c.get("ctx"), requireOrg(c));
     return data(c, await readBalances(profile.payToByNetwork));
+  });
+
+  // Cash out to a bank: partner sell links prefilled with the merchant's own
+  // wallet (no custody). Empty when no partner key is configured.
+  app.get("/offramp", async (c) => {
+    const profile = await loadProfile(c.get("ctx"), requireOrg(c));
+    const network = c.req.query("network") ?? "";
+    const amount = c.req.query("amount") ?? "";
+    if (!isPaymentNetwork(network)) throw validationError("network is required", { fields: ["network"] });
+    const wallet = profile.payToByNetwork[network];
+    if (!wallet) throw validationError(`you have no receiving wallet on ${network}`, { fields: ["network"] });
+    const returnUrl = process.env.DASHBOARD_PUBLIC_URL ? `${process.env.DASHBOARD_PUBLIC_URL.replace(/\/+$/, "")}/payouts` : undefined;
+    return data(c, {
+      network,
+      amount,
+      wallet,
+      configured: configuredOfframps(),
+      links: offrampLinks({ network, amount, wallet, ...(returnUrl ? { returnUrl } : {}) }),
+    });
   });
 
   return app;
