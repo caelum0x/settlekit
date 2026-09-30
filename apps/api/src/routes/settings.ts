@@ -12,6 +12,7 @@ import { z } from "zod";
 import { validationError } from "@settlekit/common";
 import { normalizeTaxSettings } from "@settlekit/persistence";
 import type { AppEnv } from "../context.js";
+import { storeSchema, validateStore } from "../merchant/storefront.js";
 import { data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { requireOrg } from "../http/tenant.js";
@@ -33,6 +34,8 @@ const patchSchema = z.object({
     )
     .max(20)
     .optional(),
+  /** Hosted storefront (/store/<slug>). */
+  store: storeSchema.optional(),
   /** Checkout tax + seller tax identity printed on receipts. */
   tax: z
     .object({
@@ -61,9 +64,10 @@ export function settingsRoutes(): Hono<AppEnv> {
   app.post("/", async (c) => {
     const body = await parseBody(c, patchSchema);
     // Drop any client-supplied organizationId; the tenant is the authenticated org.
-    const { organizationId, tax, embedOrigins, ...raw } = body;
+    const { organizationId, tax, embedOrigins, store, ...raw } = body;
     const rest = {
       ...raw,
+      ...(store !== undefined ? { store: await validateStore(c.get("ctx"), requireOrg(c), store) } : {}),
       ...(embedOrigins !== undefined ? { embedOrigins: [...new Set(embedOrigins.map((o) => o.toLowerCase()))] } : {}),
     };
     void organizationId;

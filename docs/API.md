@@ -1159,6 +1159,10 @@ Team roles (dashboard sessions): owner and admin (full access; only an owner gra
 - `PATCH /v1/team/members/:accountId` with `{ "role" }` and `DELETE /v1/team/members/:accountId` manage members; the last owner cannot be removed or demoted.
 - `POST /v1/auth/invitations/accept` (public) with `{ "token", "password"? }` joins the organization; new people set a password and get a session.
 
+## Hosted storefront
+
+`POST /v1/settings` with `store: { enabled, slug, title?, tagline?, logoUrl? (https), accentColor? (#rrggbb), seoDescription?, customDomain? }` publishes a branded page at `<checkout>/store/<slug>` listing the merchant's active products; each opens its payment link. Slugs and domains are unique across merchants. Public data: `GET /v1/public/stores/:slug` and `GET /v1/public/stores/by-domain/:domain`. For a custom domain, point it at the checkout host, have the host (Railyard or Caddy) route it, and set `CHECKOUT_PRIMARY_HOSTS` on the checkout app so requests for `/` on any other host show that domain's store. Checkout still buys one product per checkout session.
+
 ## Cash out to a bank
 
 `GET /v1/merchant/offramp?network=base&amount=250` returns off-ramp partner links (Transak, MoonPay, Ramp) that open the partner's sell flow with the amount, network and the merchant's own receiving wallet prefilled. SettleKit takes no custody; the merchant sends USDC from their wallet inside the partner flow. Partners appear only when their keys are configured (`TRANSAK_API_KEY`, `MOONPAY_PUBLISHABLE_KEY` + `MOONPAY_SECRET_KEY`, `RAMP_HOST_API_KEY`); MoonPay URLs are signed server-side.

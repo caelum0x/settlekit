@@ -32,6 +32,25 @@ export interface OrgSettings {
   embedOrigins?: string[];
   /** Team members and pending invitations (dashboard roles). */
   team?: TeamSettings;
+  /** Hosted storefront (/store/<slug> on the checkout). */
+  store?: StoreSettings;
+}
+
+/** A merchant's hosted storefront. */
+export interface StoreSettings {
+  enabled: boolean;
+  /** URL slug, unique across merchants. */
+  slug: string;
+  title?: string;
+  tagline?: string;
+  /** https logo image. */
+  logoUrl?: string;
+  /** #rrggbb accent colour. */
+  accentColor?: string;
+  /** Search / social description. */
+  seoDescription?: string;
+  /** Custom domain the merchant points at the checkout (routed by the host). */
+  customDomain?: string;
 }
 
 /** An account that belongs to the organization with a role. */
@@ -74,6 +93,16 @@ export function defaultOrgSettings(orgName = "SettleKit Merchant"): OrgSettings 
 export interface OrgSettingsStore {
   get(organizationId: string): Promise<OrgSettings>;
   update(organizationId: string, patch: Partial<OrgSettings>): Promise<OrgSettings>;
+  /** The organization whose storefront uses `slug` (or custom domain), if any. */
+  findByStore?(match: { slug?: string; domain?: string }): Promise<{ organizationId: string; settings: OrgSettings } | null>;
+}
+
+function storeMatches(settings: Partial<OrgSettings>, match: { slug?: string; domain?: string }): boolean {
+  const store = settings.store;
+  if (!store) return false;
+  if (match.slug !== undefined) return store.slug === match.slug;
+  if (match.domain !== undefined) return store.customDomain?.toLowerCase() === match.domain.toLowerCase();
+  return false;
 }
 
 /** Coerce an unknown jsonb value into a partial settings object. */
@@ -84,6 +113,19 @@ function asPartial(value: unknown): Partial<OrgSettings> {
 /** Postgres-backed store over `organizations.metadata.settings`. */
 export class PgOrgSettingsStore implements OrgSettingsStore {
   constructor(private readonly db: Database) {}
+
+  async findByStore(match: { slug?: string; domain?: string }): Promise<{ organizationId: string; settings: OrgSettings } | null> {
+    const rows = await this.db
+      .select({ id: organizations.id, name: organizations.name, metadata: organizations.metadata })
+      .from(organizations);
+    for (const row of rows) {
+      const partial = asPartial(row.metadata?.settings);
+      if (storeMatches(partial, match)) {
+        return { organizationId: row.id, settings: { ...defaultOrgSettings(row.name ?? undefined), ...partial } };
+      }
+    }
+    return null;
+  }
 
   async get(organizationId: string): Promise<OrgSettings> {
     const rows = await this.db
@@ -123,6 +165,13 @@ export class PgOrgSettingsStore implements OrgSettingsStore {
 /** In-memory store for the no-database path. */
 export class InMemoryOrgSettingsStore implements OrgSettingsStore {
   private readonly byOrg = new Map<string, OrgSettings>();
+
+  async findByStore(match: { slug?: string; domain?: string }): Promise<{ organizationId: string; settings: OrgSettings } | null> {
+    for (const [organizationId, settings] of this.byOrg) {
+      if (storeMatches(settings, match)) return { organizationId, settings };
+    }
+    return null;
+  }
 
   async get(organizationId: string): Promise<OrgSettings> {
     return this.byOrg.get(organizationId) ?? defaultOrgSettings();

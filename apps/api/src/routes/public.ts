@@ -26,9 +26,12 @@ import {
 } from "../merchant/invoice-payments.js";
 import { renderInvoicePdf } from "@settlekit/invoices";
 import { receiptPdf } from "../merchant/receipts.js";
+import { loadStorefront } from "../merchant/storefront.js";
 
 const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{16,128}$/, "invalid invoice link");
 const sessionIdSchema = z.string().regex(/^[A-Za-z0-9_-]{8,100}$/, "invalid checkout session");
+const storeSlugSchema = z.string().regex(/^[a-z0-9-]{3,40}$/, "invalid store");
+const domainSchema = z.string().regex(/^[a-z0-9.-]{3,253}$/, "invalid domain");
 const slugSchema = z.string().regex(/^[a-z0-9-]{4,64}$/, "invalid payment link");
 
 const sessionSchema = z.object({
@@ -94,6 +97,19 @@ export function publicRoutes(): Hono<AppEnv> {
       "content-disposition": `inline; filename="${filename}"`,
       "cache-control": "private, no-store",
     });
+  });
+
+  // Hosted storefronts: by slug, or by the custom domain the host routes.
+  app.get("/stores/:slug", async (c) => {
+    const slug = validate(storeSlugSchema, c.req.param("slug"));
+    c.header("cache-control", "public, max-age=30");
+    return data(c, await loadStorefront(c.get("ctx"), { slug }));
+  });
+
+  app.get("/stores/by-domain/:domain", async (c) => {
+    const domain = validate(domainSchema, c.req.param("domain").toLowerCase());
+    c.header("cache-control", "public, max-age=30");
+    return data(c, await loadStorefront(c.get("ctx"), { domain }));
   });
 
   app.get("/proof", async (c) => {

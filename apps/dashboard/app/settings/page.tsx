@@ -9,6 +9,25 @@ import { NetworkAddressForm } from "@/components/NetworkAddressForm";
 import { getCurrentAccount } from "@/lib/session";
 import { SimpleCreateForm } from "@/components/forms/SimpleCreateForm";
 import { describeTax, parseTaxForm } from "@/lib/tax-form";
+import { CHECKOUT_URL } from "@/lib/config";
+
+async function saveStore(values: Record<string, string>): Promise<string | null> {
+  "use server";
+  const opt = (k: string) => (values[k] ?? "").trim();
+  const { error } = await api.settings.update({
+    store: {
+      enabled: values.enabled !== "no",
+      slug: opt("slug").toLowerCase(),
+      ...(opt("title") ? { title: opt("title") } : {}),
+      ...(opt("tagline") ? { tagline: opt("tagline") } : {}),
+      ...(opt("logoUrl") ? { logoUrl: opt("logoUrl") } : {}),
+      ...(opt("accentColor") ? { accentColor: opt("accentColor") } : {}),
+      ...(opt("seoDescription") ? { seoDescription: opt("seoDescription") } : {}),
+      ...(opt("customDomain") ? { customDomain: opt("customDomain").toLowerCase() } : {}),
+    },
+  });
+  return error;
+}
 
 async function saveEmbedOrigins(values: Record<string, string>): Promise<string | null> {
   "use server";
@@ -78,6 +97,42 @@ export default async function SettingsPage() {
               name: "reverseCharge",
               label: "EU reverse charge for businesses",
               options: [{ value: "no", label: "No" }, { value: "yes", label: "Yes" }],
+            },
+          ]}
+        />
+      </Card>
+
+      <Card title="Storefront">
+        <p className="page-desc" style={{ marginBottom: 12 }}>
+          {settings.store?.enabled ? (
+            <>
+              Your store is live at{" "}
+              <a className="link" href={`${CHECKOUT_URL}/store/${settings.store.slug}`} target="_blank" rel="noreferrer">
+                {`${CHECKOUT_URL}/store/${settings.store.slug}`}
+              </a>
+              {settings.store.customDomain ? ` and ${settings.store.customDomain}` : ""}.
+            </>
+          ) : (
+            "A branded page listing all your products, for buyers who do not have a site of yours to start from."
+          )}
+        </p>
+        <SimpleCreateForm
+          submitLabel="Save storefront"
+          successMessage="Storefront saved."
+          action={saveStore}
+          fields={[
+            { name: "enabled", label: "Show the store", options: [{ value: "yes", label: "Yes" }, { value: "no", label: "No" }] },
+            { name: "slug", label: "Store address", required: true, placeholder: "pixel-tools", hint: "3-40 lowercase letters, digits or dashes" },
+            { name: "title", label: "Title", placeholder: "Pixel Tools" },
+            { name: "tagline", label: "Tagline", placeholder: "Icons and UI kits" },
+            { name: "logoUrl", label: "Logo URL (https)", type: "url", placeholder: "https://..." },
+            { name: "accentColor", label: "Accent colour", placeholder: "#1e40a2" },
+            { name: "seoDescription", label: "Search description", type: "textarea" },
+            {
+              name: "customDomain",
+              label: "Custom domain (optional)",
+              placeholder: "shop.yourdomain.com",
+              hint: "Point a CNAME at the checkout host; the host must route the domain.",
             },
           ]}
         />
