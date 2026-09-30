@@ -29,6 +29,14 @@ export interface Refund {
    * merchant (merchants refund from their own wallet; not re-verified).
    */
   txHash?: string;
+  /** Wallet the refund is sent to (refund-to-payer flow). */
+  destination?: string;
+  /** Network the refund is sent on (the payment's network). */
+  network?: string;
+  /** Solana Pay reference the refund transaction must include. */
+  reference?: string;
+  /** manual = recorded tx; wallet = prepared, signed and verified onchain. */
+  source?: "manual" | "wallet";
   createdAt: IsoTimestamp;
   updatedAt: IsoTimestamp;
 }

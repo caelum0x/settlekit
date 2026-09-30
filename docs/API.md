@@ -1159,6 +1159,16 @@ Team roles (dashboard sessions): owner and admin (full access; only an owner gra
 - `PATCH /v1/team/members/:accountId` with `{ "role" }` and `DELETE /v1/team/members/:accountId` manage members; the last owner cannot be removed or demoted.
 - `POST /v1/auth/invitations/accept` (public) with `{ "token", "password"? }` joins the organization; new people set a password and get a session.
 
+## Refund to payer
+
+Refunds are sent from the merchant's own wallet; SettleKit never holds or signs funds.
+
+- `POST /v1/merchant/payments/:id/refund/prepare` with `{ "reason", "amountUsd"?, "to"? }` creates a pending refund and returns the exact transfer to sign: on EVM networks the ERC-20 `transfer` calldata, token, chain id and an EIP-681 link; on Solana a Solana Pay transfer request with a unique reference. The destination defaults to the wallet that paid (declared payer or customer wallet); otherwise pass `to`. The amount defaults to what is still refundable.
+- `POST /v1/merchant/refunds/:id/confirm` with `{ "txHash", "revokeAccess"? }` verifies the transfer onchain (destination, amount, not before the refund, Solana reference) with the payment verifiers. Only then is the refund marked succeeded, access revoked, the payment marked refunded once fully refunded, and `refund.succeeded` sent with `source: "wallet"`. A transaction can settle one refund only.
+- `POST /v1/merchant/refunds/:id/cancel` drops a pending refund.
+
+HyperCore and Zcash refunds stay record-only (`POST /v1/merchant/payments/:id/refund` with the transaction hash). The vendored `apps/refund-protocol` escrow is not wired (known arbiter issue upstream).
+
 ## Accounting exports
 
 `/v1/exports` — **Auth required.** Tenant-scoped CSV downloads. Optional `?from=YYYY-MM-DD&to=YYYY-MM-DD` (to is exclusive). Every text cell is guarded against spreadsheet formula injection.

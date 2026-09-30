@@ -17,10 +17,10 @@
  */
 import { Hono, type Context } from "hono";
 import { z } from "zod";
-import { conflict, money, validationError, type Product } from "@settlekit/common";
+import { conflict, notFound, toBaseUnits, validationError, type Payment, type Product } from "@settlekit/common";
 import { isValidTxHash } from "@settlekit/chains";
 import { refundPayment } from "@settlekit/payments";
-import type { AppEnv } from "../context.js";
+import type { AppContext, AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
 import { unwrapResult } from "../http/internal.js";
@@ -40,6 +40,9 @@ import { readBalances } from "../merchant/balances.js";
 import { refundSucceededWebhook } from "@settlekit/persistence";
 import { emitWebhook } from "../webhooks/outbox.js";
 import { isInvoiceProduct } from "../merchant/invoice-payments.js";
+import { assertDestination, payerAddressFor, refundPlan, supportsWalletRefund } from "../merchant/refund-to-payer.js";
+import { assertTxHashUnused, requireTxHash, verifyOnChainOrThrow } from "./payment-verification.js";
+import type { Refund } from "@settlekit/refunds";
 import { assertCanCreateProduct } from "../platform/fee-statements.js";
 
 const refundSchema = z.object({
@@ -50,6 +53,56 @@ const refundSchema = z.object({
   txHash: z.string().trim().min(1).optional(),
   revokeAccess: z.boolean().default(true),
 });
+
+const prepareRefundSchema = z.object({
+  reason: z.enum(["duplicate", "fraudulent", "customer_request", "delivery_failed"]).default("customer_request"),
+  /** Partial refund amount; defaults to what is still refundable. */
+  amountUsd: z.string().regex(/^\d+(\.\d{1,6})?$/).optional(),
+  /** Buyer wallet; defaults to the wallet that paid when known. */
+  to: z.string().trim().min(1).optional(),
+});
+
+const confirmRefundSchema = z.object({
+  txHash: z.string().trim().min(1),
+  revokeAccess: z.boolean().default(true),
+});
+
+/**
+ * Mark a refund succeeded: full refunds flip the payment to refunded, access
+ * granted by the payment is revoked (unless told not to) and the seller's
+ * refund.succeeded webhook is queued.
+ */
+async function settleRefund(
+  ctx: AppContext,
+  payment: Payment,
+  pending: Refund,
+  options: { txHash?: string; revokeAccess: boolean; source: "manual" | "wallet" },
+): Promise<Refund> {
+  const settled = unwrapResult(await ctx.refunds.markSucceeded(pending.id));
+  const refund = options.txHash ? await ctx.refundStore.save({ ...settled, txHash: options.txHash }) : settled;
+  const amount = refund.amount.amount;
+  const priorOthers = (await ctx.refunds.listByPayment(payment.id)).filter((r) => r.id !== refund.id && r.status === "succeeded");
+  const refundedTotal = priorOthers.reduce((sum, r) => sum + toBaseUnits(r.amount.amount), toBaseUnits(amount));
+  if (refundedTotal >= toBaseUnits(payment.amount.amount)) await ctx.payments.save(refundPayment(payment));
+  if (options.revokeAccess) {
+    const granted = (await ctx.entitlementRepo.listByCustomer(payment.customerId)).filter(
+      (e) => e.grantedBy.type === "payment" && e.grantedBy.id === payment.id && e.status !== "revoked",
+    );
+    for (const e of granted) await ctx.entitlements.revoke(e.id, `refunded (${refund.reason})`);
+  }
+  await emitWebhook(
+    ctx.webhookOutbox,
+    refundSucceededWebhook({
+      refundId: refund.id,
+      payment,
+      amount,
+      reason: refund.reason,
+      txHash: options.txHash ?? null,
+      source: options.source,
+    }),
+  );
+  return refund;
+}
 
 async function ownedProduct(c: Context<AppEnv>, id: string): Promise<Product> {
   return requireOwned(c, await c.get("ctx").products.findById(id), "product", id);
@@ -126,22 +179,80 @@ export function merchantRoutes(): Hono<AppEnv> {
     const pending = unwrapResult(
       await ctx.refunds.create({ payment, customerId: payment.customerId, amount, reason: body.reason }),
     );
-    const settled = unwrapResult(await ctx.refunds.markSucceeded(pending.id));
-    const refund = body.txHash ? await ctx.refundStore.save({ ...settled, txHash: body.txHash }) : settled;
-    const full = money(amount).amount === money(payment.amount.amount).amount;
-    if (full) await ctx.payments.save(refundPayment(payment));
-    if (body.revokeAccess) {
-      const granted = (await ctx.entitlementRepo.listByCustomer(payment.customerId)).filter(
-        (e) => e.grantedBy.type === "payment" && e.grantedBy.id === payment.id && e.status !== "revoked",
-      );
-      for (const e of granted) await ctx.entitlements.revoke(e.id, `refunded (${body.reason})`);
-    }
-    await emitWebhook(
-      ctx.webhookOutbox,
-      refundSucceededWebhook({ refundId: refund.id, payment, amount, reason: body.reason, txHash: body.txHash ?? null, source: "manual" }),
-    );
+    const refund = await settleRefund(ctx, payment, pending, {
+      ...(body.txHash ? { txHash: body.txHash } : {}),
+      revokeAccess: body.revokeAccess,
+      source: "manual",
+    });
     const updated = await ctx.payments.findById(payment.id);
     return data(c, { refund, payment: await buildPaymentDetail(ctx, updated ?? payment) });
+  });
+
+  // Refund to payer, step 1: prepare the exact transfer back to the buyer's
+  // wallet for the merchant to sign (SettleKit never holds or signs funds).
+  app.post("/payments/:id/refund/prepare", async (c) => {
+    const ctx = c.get("ctx");
+    const payment = await requireOwnedPayment(c, c.req.param("id"));
+    const body = await parseBody(c, prepareRefundSchema);
+    if (payment.status !== "confirmed") throw conflict(`only confirmed payments can be refunded (payment is ${payment.status})`);
+    if (!supportsWalletRefund(payment.network)) {
+      throw validationError(`prepared refunds are not available on ${payment.network}; send it from your wallet and record the transaction`);
+    }
+    const to = body.to ?? (await payerAddressFor(ctx, payment));
+    if (!to) throw validationError("SettleKit does not know the buyer's wallet for this payment; enter the address to refund", { fields: ["to"] });
+    assertDestination(payment.network, to);
+    const amount = body.amountUsd ?? (await ctx.refunds.remainingRefundable(payment)).amount;
+    const pending = unwrapResult(
+      await ctx.refunds.create({ payment, customerId: payment.customerId, amount, reason: body.reason }),
+    );
+    const plan = refundPlan(payment.network, to, pending.amount.amount, pending.id);
+    const refund = await ctx.refundStore.save({
+      ...pending,
+      destination: to,
+      network: payment.network,
+      source: "wallet",
+      ...(plan.solana ? { reference: plan.solana.reference } : {}),
+    });
+    return created(c, { refund, plan });
+  });
+
+  // Refund to payer, step 2: verify the signed transfer onchain, then settle.
+  app.post("/refunds/:id/confirm", async (c) => {
+    const ctx = c.get("ctx");
+    const body = await parseBody(c, confirmRefundSchema);
+    const refund = await ctx.refundStore.findById(c.req.param("id"));
+    const payment = refund ? await ctx.payments.findById(refund.paymentId) : null;
+    requireOwned(c, payment, "refund", c.req.param("id"));
+    if (!refund || !payment) throw notFound("refund not found");
+    if (refund.status === "succeeded") return data(c, { refund, payment: await buildPaymentDetail(ctx, payment) });
+    if (refund.status !== "pending" || !refund.destination) throw conflict(`this refund is ${refund.status} and cannot be confirmed`);
+    const txHash = requireTxHash(payment.network, body.txHash);
+    await assertTxHashUnused(ctx, txHash);
+    const reused = (await ctx.refundStore.listAll()).find((r) => r.id !== refund.id && r.txHash === txHash);
+    if (reused) throw conflict("this transaction already settled another refund", { refundId: reused.id });
+    await verifyOnChainOrThrow(ctx, {
+      network: payment.network,
+      txHash,
+      amount: refund.amount.amount,
+      asset: refund.amount.currency,
+      payTo: refund.destination,
+      resource: `refund:${refund.id}`,
+      notBefore: refund.createdAt,
+      ...(refund.reference ? { reference: refund.reference } : {}),
+    });
+    const settled = await settleRefund(ctx, payment, refund, { txHash, revokeAccess: body.revokeAccess, source: "wallet" });
+    const updated = await ctx.payments.findById(payment.id);
+    return data(c, { refund: settled, payment: await buildPaymentDetail(ctx, updated ?? payment) });
+  });
+
+  app.post("/refunds/:id/cancel", async (c) => {
+    const ctx = c.get("ctx");
+    const refund = await ctx.refundStore.findById(c.req.param("id"));
+    const payment = refund ? await ctx.payments.findById(refund.paymentId) : null;
+    requireOwned(c, payment, "refund", c.req.param("id"));
+    if (!refund) throw notFound("refund not found");
+    if (refund.status !== "pending") throw conflict(`this refund is ${refund.status}`);
+    return data(c, unwrapResult(await ctx.refunds.markFailed(refund.id, "canceled by the merchant")));
   });
 
   app.get("/products", async (c) => {

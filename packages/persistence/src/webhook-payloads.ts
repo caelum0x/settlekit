@@ -100,8 +100,12 @@ export interface RefundWebhookInput {
   amount: string;
   reason: string;
   txHash: string | null;
-  /** operator = sent by the SettleKit operator wallet / escrow; manual = recorded by the seller. */
-  source: "operator" | "escrow" | "manual";
+  /**
+   * operator = sent by the SettleKit operator wallet / escrow; manual =
+   * recorded by the seller; wallet = sent from the seller's wallet and
+   * verified onchain by SettleKit.
+   */
+  source: "operator" | "escrow" | "manual" | "wallet";
 }
 
 export function refundSucceededWebhook(input: RefundWebhookInput): WebhookEmitInput {

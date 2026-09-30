@@ -41,6 +41,7 @@ export default async function PaymentDetailPage({ params }: { params: { id: stri
           p.status === "confirmed" ? (
             <RefundForm
               paymentId={p.id}
+              network={p.network}
               amountUsd={p.amountUsd}
               asset={p.asset}
               networkName={p.networkName}

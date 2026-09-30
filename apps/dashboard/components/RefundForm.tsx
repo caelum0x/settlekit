@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { refundPaymentAction, type RefundInput } from "@/lib/merchant-actions";
 import { sendRefundAction } from "@/lib/billing-actions";
+import { WalletRefund } from "@/components/WalletRefund";
 
 /** Whether the SettleKit operator wallet can send this refund (GET /v1/onchain-billing/refunds/route). */
 export interface RefundAutomation {
@@ -17,6 +18,8 @@ export interface RefundAutomation {
 
 interface RefundFormProps {
   paymentId: string;
+  /** Payment network id (base, solana, ...). */
+  network?: string;
   amountUsd: string;
   asset: string;
   networkName: string;
@@ -24,7 +27,10 @@ interface RefundFormProps {
   automation: RefundAutomation | null;
 }
 
-type Mode = "send" | "manual";
+type Mode = "send" | "wallet" | "manual";
+
+/** Networks where SettleKit prepares the refund transfer for your wallet. */
+const WALLET_REFUND_NETWORKS = new Set(["solana", "base", "ethereum", "arbitrum", "robinhood", "hyperevm", "tempo"]);
 
 /**
  * Refund a confirmed payment. When the operator wallet is configured for the
@@ -33,11 +39,12 @@ type Mode = "send" | "manual";
  * the seller sends it from their own wallet and records the hash here
  * ("I refunded manually"). Access granted by the payment is revoked by default.
  */
-export function RefundForm({ paymentId, amountUsd, asset, networkName, buyerWallet, automation }: RefundFormProps) {
+export function RefundForm({ paymentId, network, amountUsd, asset, networkName, buyerWallet, automation }: RefundFormProps) {
   const router = useRouter();
   const canSend = automation?.automated === true;
+  const canWallet = network !== undefined && WALLET_REFUND_NETWORKS.has(network);
   const [open, setOpen] = useState(false);
-  const [mode, setMode] = useState<Mode>(canSend ? "send" : "manual");
+  const [mode, setMode] = useState<Mode>(canSend ? "send" : canWallet ? "wallet" : "manual");
   const [reason, setReason] = useState<RefundInput["reason"]>("customer_request");
   const [amount, setAmount] = useState(amountUsd);
   const [txHash, setTxHash] = useState("");
@@ -114,6 +121,10 @@ export function RefundForm({ paymentId, amountUsd, asset, networkName, buyerWall
           <span>Send refund on-chain</span>
         </label>
         <label className="checkbox-row">
+          <input type="radio" name="refund-mode" checked={mode === "wallet"} disabled={!canWallet} onChange={() => setMode("wallet")} />
+          <span>Send from my wallet (verified onchain)</span>
+        </label>
+        <label className="checkbox-row">
           <input type="radio" name="refund-mode" checked={mode === "manual"} onChange={() => setMode("manual")} />
           <span>I refunded manually</span>
         </label>
@@ -150,6 +161,24 @@ export function RefundForm({ paymentId, amountUsd, asset, networkName, buyerWall
           </select>
         </div>
       </div>
+      {mode === "wallet" ? (
+        <>
+          {!buyerWallet ? (
+            <div className="field">
+              <label htmlFor="r-to-w">Buyer wallet</label>
+              <input id="r-to-w" className="input mono" value={to} onChange={(e) => setTo(e.target.value)} placeholder="Address to refund" />
+            </div>
+          ) : null}
+          <WalletRefund
+            paymentId={paymentId}
+            amount={amount}
+            reason={reason}
+            revokeAccess={revokeAccess}
+            to={buyerWallet ? "" : to}
+            onDone={() => setOpen(false)}
+          />
+        </>
+      ) : null}
       {mode === "send" && (automation?.needsRecipient || !automation?.to) ? (
         <div className="field">
           <label htmlFor="r-to">Buyer wallet</label>
@@ -167,6 +196,7 @@ export function RefundForm({ paymentId, amountUsd, asset, networkName, buyerWall
         <span>Revoke the access this payment granted</span>
       </label>
       {error ? <div className="form-message err">{error}</div> : null}
+      {mode === "wallet" ? null : (
       <div className="builder-actions">
         <button type="button" className="btn btn-ghost" onClick={() => setOpen(false)}>
           Cancel
@@ -175,6 +205,7 @@ export function RefundForm({ paymentId, amountUsd, asset, networkName, buyerWall
           {pending ? (mode === "send" ? "Sending..." : "Recording...") : mode === "send" ? `Send ${amount || amountUsd} ${asset}` : "Record refund"}
         </button>
       </div>
+      )}
     </form>
   );
 }

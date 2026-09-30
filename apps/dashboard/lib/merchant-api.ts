@@ -77,6 +77,14 @@ export const merchantApi = {
   payment: (id: string) => call<PaymentDetail>(`/v1/merchant/payments/${encodeURIComponent(id)}`),
   refund: (id: string, input: unknown) =>
     post<{ payment: PaymentDetail }>(`/v1/merchant/payments/${encodeURIComponent(id)}/refund`, input),
+  prepareRefund: (id: string, input: unknown) =>
+    post<{ refund: { id: string; amount: { amount: string } }; plan: RefundPlan }>(
+      `/v1/merchant/payments/${encodeURIComponent(id)}/refund/prepare`,
+      input,
+    ),
+  confirmRefund: (refundId: string, input: unknown) =>
+    post<{ payment: PaymentDetail }>(`/v1/merchant/refunds/${encodeURIComponent(refundId)}/confirm`, input),
+  cancelRefund: (refundId: string) => post<unknown>(`/v1/merchant/refunds/${encodeURIComponent(refundId)}/cancel`, {}),
   products: () => call<MerchantProduct[]>("/v1/merchant/products"),
   product: (id: string) => call<MerchantProduct>(`/v1/merchant/products/${encodeURIComponent(id)}`),
   createProduct: (input: unknown) => post<MerchantProduct>("/v1/merchant/products", input),
@@ -107,4 +115,14 @@ export interface PlatformFees {
     paidAt: string | null;
     payUrl: string | null;
   }[];
+}
+
+/** The transfer the merchant signs to refund a buyer (POST .../refund/prepare). */
+export interface RefundPlan {
+  network: string;
+  to: string;
+  amount: string;
+  asset: string;
+  evm?: { chainId: number; token: string; data: string; eip681: string };
+  solana?: { url: string; reference: string; mint: string };
 }

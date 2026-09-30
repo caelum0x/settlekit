@@ -4,7 +4,7 @@
 // product forms, refund) call these; the session cookie is attached on the
 // server and the API scopes every write to the merchant's organization.
 import { revalidatePath } from "next/cache";
-import { merchantApi } from "./merchant-api";
+import { type RefundPlan, merchantApi } from "./merchant-api";
 import type {
   ActionResult,
   DeliveryInput,
@@ -104,4 +104,26 @@ export async function refundPaymentAction(id: string, input: RefundInput): Promi
   });
   if (!result.error) revalidatePath(`/payments/${id}`);
   return result;
+}
+
+/** Refund to payer, step 1: the transfer to sign. */
+export async function prepareRefundAction(
+  id: string,
+  input: { reason: RefundInput["reason"]; amountUsd?: string; to?: string },
+): Promise<ActionResult<{ refund: { id: string; amount: { amount: string } }; plan: RefundPlan }>> {
+  return merchantApi.prepareRefund(id, input);
+}
+
+/** Refund to payer, step 2: verify the signed transfer onchain and settle. */
+export async function confirmRefundAction(
+  refundId: string,
+  input: { txHash: string; revokeAccess: boolean },
+): Promise<ActionResult<{ payment: PaymentDetail }>> {
+  const result = await merchantApi.confirmRefund(refundId, input);
+  if (!result.error) revalidatePath("/payments");
+  return result;
+}
+
+export async function cancelRefundAction(refundId: string): Promise<ActionResult<unknown>> {
+  return merchantApi.cancelRefund(refundId);
 }
