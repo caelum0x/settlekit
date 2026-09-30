@@ -1,6 +1,20 @@
 {
   "name": "@settlekit/common",
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "Shared types, money math and errors for the SettleKit SDKs.",
+  "license": "MIT",
+  "keywords": [
+    "settlekit",
+    "usdc",
+    "stablecoin",
+    "payments"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/caelum0x/settlekit.git",
+    "directory": "packages/common"
+  },
+  "homepage": "https://settlekit.dev",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,7 +24,11 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -b",
     "test": "vitest run"
@@ -19,5 +37,9 @@
     "@types/node": "^20.14.0",
     "typescript": "^5.5.4",
     "vitest": "^2.0.5"
-  }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false
 }

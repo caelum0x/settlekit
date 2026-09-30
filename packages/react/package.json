@@ -1,6 +1,20 @@
 {
   "name": "@settlekit/react",
-  "version": "0.0.0",
+  "version": "0.1.0",
+  "description": "React components and hooks for SettleKit checkout and access checks.",
+  "license": "MIT",
+  "keywords": [
+    "settlekit",
+    "react",
+    "usdc",
+    "checkout"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/caelum0x/settlekit.git",
+    "directory": "packages/react"
+  },
+  "homepage": "https://settlekit.dev",
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -10,7 +24,11 @@
       "default": "./dist/index.js"
     }
   },
-  "files": ["dist"],
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "build": "tsc -b"
   },
@@ -26,5 +44,9 @@
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
     "typescript": "^5.5.4"
-  }
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "sideEffects": false
 }
