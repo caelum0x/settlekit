@@ -1,0 +1,9 @@
+SettleKit for WooCommerce
+
+The gateway structure (redirect checkout that reuses an open payment,
+signed webhook -> order lookup by payment metadata -> order status update,
+thank-you page status check) is ported from btcpayserver/woocommerce-greenfield-plugin
+(MIT, Copyright (c) 2021 BTCPay Server), commit 371ebfc744d0f0e9e6da581a1b00c11d59a6c026,
+files src/Gateway/AbstractGateway.php and btcpay-greenfield-for-woocommerce.php.
+The BTCPay Greenfield API client was replaced with the SettleKit payment
+request API (POST /v1/invoices/requests) and SettleKit webhook signatures.
