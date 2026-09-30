@@ -83,3 +83,34 @@ describe("session coupons", () => {
     expect(again.ok).toBe(false);
   });
 });
+
+describe("session tax", () => {
+  it("adds tax on the net price, re-rates by country and survives a promo without compounding", async () => {
+    const { withSessionTax } = await import("../src/session-tax.js");
+    const settings = { enabled: true, label: "VAT", sellerCountry: "DE", defaultRateBps: 0, rates: { DE: 1900, FR: 2000 }, reverseCharge: true };
+    const base = { id: "cs_t", organizationId: "org_1", amount: money("100"), lineItems: [] } as unknown as CheckoutSession;
+
+    const de = withSessionTax(base, settings);
+    expect(de.amount.amount).toBe("119");
+    expect(de.tax).toMatchObject({ net: { amount: "100" }, amount: { amount: "19" }, rateBps: 1900, jurisdiction: "DE", label: "VAT" });
+
+    const fr = withSessionTax(de, settings, { country: "FR" });
+    expect(fr.amount.amount).toBe("120");
+    const b2b = withSessionTax(fr, settings, { country: "FR", vatId: "FR12345678901" });
+    expect(b2b.amount.amount).toBe("100");
+    expect(b2b.tax?.reverseCharge).toBe(true);
+
+    // Promo on a taxed session: tax recomputed on the discounted net.
+    const s = await store(coupon({}));
+    const q = await quoteSessionCoupon({ store: s, code: "LAUNCH20", organizationId: "org_1", lines: [{ amount: money("100") }] });
+    if (!q.ok) throw new Error(q.reason);
+    const discounted = withSessionDiscount(fr, q);
+    expect(discounted.tax?.net.amount).toBe("80");
+    expect(discounted.amount.amount).toBe("96");
+
+    // Tax off: the session goes back to the net price.
+    const off = withSessionTax(discounted, { ...settings, enabled: false });
+    expect(off.amount.amount).toBe("80");
+    expect(off.tax).toBeUndefined();
+  });
+});

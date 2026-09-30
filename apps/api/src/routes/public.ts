@@ -25,8 +25,10 @@ import {
   publicInvoiceView,
 } from "../merchant/invoice-payments.js";
 import { renderInvoicePdf } from "@settlekit/invoices";
+import { receiptPdf } from "../merchant/receipts.js";
 
 const tokenSchema = z.string().regex(/^[A-Za-z0-9_-]{16,128}$/, "invalid invoice link");
+const sessionIdSchema = z.string().regex(/^[A-Za-z0-9_-]{8,100}$/, "invalid checkout session");
 const slugSchema = z.string().regex(/^[a-z0-9-]{4,64}$/, "invalid payment link");
 
 const sessionSchema = z.object({
@@ -79,6 +81,17 @@ export function publicRoutes(): Hono<AppEnv> {
     return c.body(new Uint8Array(pdf), 200, {
       "content-type": "application/pdf",
       "content-disposition": `inline; filename="${invoice.number}.pdf"`,
+      "cache-control": "private, no-store",
+    });
+  });
+
+  // Receipt for a settled checkout; the checkout session id is the capability.
+  app.get("/receipts/:sessionId/pdf", async (c) => {
+    const sessionId = validate(sessionIdSchema, c.req.param("sessionId"));
+    const { pdf, filename } = await receiptPdf(c.get("ctx"), sessionId);
+    return c.body(new Uint8Array(pdf), 200, {
+      "content-type": "application/pdf",
+      "content-disposition": `inline; filename="${filename}"`,
       "cache-control": "private, no-store",
     });
   });

@@ -26,6 +26,7 @@ import { requireOrg, requireOwned } from "../http/tenant.js";
 import { payToFor } from "./payment-verification.js";
 import { lockZcashQuoteFor, saveZcashSession } from "./zcash-quote.js";
 import { applyPromo } from "../merchant/session-promo.js";
+import { withSessionTax } from "@settlekit/persistence";
 
 const NETWORKS = PAYMENT_NETWORKS as unknown as readonly [PaymentNetwork, ...PaymentNetwork[]];
 
@@ -57,6 +58,10 @@ const createSchema = z
     ttlDays: z.number().int().positive().optional(),
     /** Optional promo code; the session amount becomes the discounted total. */
     couponCode: z.string().trim().min(1).max(64).optional(),
+    /** Buyer billing country (ISO alpha-2) for the seller's tax rate. */
+    billingCountry: z.string().trim().length(2).optional(),
+    /** Buyer VAT ID (EU B2B reverse charge when the seller enables it). */
+    vatId: z.string().trim().min(4).max(20).optional(),
   })
   .superRefine((body, ctx) => {
     // Every payable network needs a valid destination for ITS chain: funds
@@ -160,8 +165,12 @@ export function checkoutRoutes(): Hono<AppEnv> {
       body.couponCode !== undefined
         ? await applyPromo(ctx, draft, body.couponCode, new Map(priced.map((p) => [p.price.id, p.price])))
         : draft;
+    const taxed = withSessionTax(discounted, (await ctx.orgSettings.get(org)).tax, {
+      ...(body.billingCountry !== undefined ? { country: body.billingCountry } : {}),
+      ...(body.vatId !== undefined ? { vatId: body.vatId } : {}),
+    });
     const session = await withNetworkBindings(ctx, {
-      ...discounted,
+      ...taxed,
       ...(body.acceptedNetworks !== undefined ? { acceptedNetworks: body.acceptedNetworks } : {}),
       ...(body.payToByNetwork !== undefined ? { payToByNetwork: body.payToByNetwork } : {}),
       ...(body.requireMemo === true ? { requireMemo: true } : {}),

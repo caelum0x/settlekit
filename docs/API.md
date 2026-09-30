@@ -589,6 +589,14 @@ curl http://localhost:8787/v1/checkout-sessions/cs_2b7e... -H "Authorization: Be
 
 Add `"couponCode": "LAUNCH20"` to apply one of your coupons. The session `amount` becomes the discounted total (what the buyer pays and what onchain verification expects) and `discount` records the code, list subtotal and amount off. The redemption is counted once, when the payment confirms. Codes that give a free trial, cover the whole price, or belong to another seller are refused with a 400. Payment links accept the same through `/l/<slug>?promo=CODE`, and buyers can enter a code on the hosted checkout until a payment is recorded.
 
+#### Tax
+
+When the seller turns tax on (`POST /v1/settings` with `tax: { enabled, label, sellerCountry, taxId, legalName, rates: { "DE": 1900 }, defaultRateBps, reverseCharge }`, rates in basis points), sessions add tax on top of the net price (after any promo) and `tax` records the rate, jurisdiction, net and tax amounts. `billingCountry` (ISO alpha-2) and `vatId` pick the buyer's rate; without them the seller's own country rate applies. EU business buyers in another member state with a VAT ID of the right shape get 0% (reverse charge) when the seller enables it. VAT IDs are checked for shape only. Buyers can change country and VAT ID on the hosted checkout until a payment is recorded.
+
+#### Receipts
+
+`GET /v1/public/receipts/:sessionId/pdf` (no API key; the session id is the capability, as on the hosted checkout) returns a PDF receipt for a settled checkout with line items, discount, tax rate and jurisdiction (or reverse charge), the seller's legal name and tax ID, the buyer's country and VAT ID, and the settlement transaction. The hosted checkout serves it at `/c/<sessionId>/receipt`, the success page and receipt email link to it, and the customer portal lists it per purchase.
+
 ### POST /v1/checkout-sessions/:id/collect-fields
 
 Merge buyer-supplied delivery fields into an open session.

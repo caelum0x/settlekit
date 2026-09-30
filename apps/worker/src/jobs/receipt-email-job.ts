@@ -51,8 +51,10 @@ export const receiptEmailJob: Job = {
       const lineItems = receiptLineItems(payment);
 
       try {
-        const html = renderReceiptHtml(payment, lineItems, merchant);
-        const text = renderReceiptText(payment, lineItems, merchant);
+        const base = ctx.config.checkoutPublicUrl;
+        const options = base ? { receiptUrl: `${base}/c/${encodeURIComponent(payment.checkoutSessionId)}/receipt` } : {};
+        const html = renderReceiptHtml(payment, lineItems, merchant, options);
+        const text = renderReceiptText(payment, lineItems, merchant, options);
         const result = await ctx.email.send({
           to: customer.email,
           subject: `Your receipt from ${merchant.displayName}`,

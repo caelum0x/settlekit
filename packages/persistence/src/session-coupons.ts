@@ -21,6 +21,7 @@ import {
   type CheckoutSession,
   type Money,
 } from "@settlekit/common";
+import { retaxSession } from "./session-tax.js";
 import { applyCoupon, createRedemption, normalizeCouponCode, type CouponStore } from "@settlekit/coupons";
 
 export type { CouponStore } from "@settlekit/coupons";
@@ -96,9 +97,13 @@ export async function quoteSessionCoupon(input: QuoteSessionCouponInput): Promis
   };
 }
 
-/** A session carrying the quoted discount as its payable amount. */
+/**
+ * A session carrying the quoted discount: the discounted total is the new net
+ * price, and any tax already on the session is recomputed on it.
+ */
 export function withSessionDiscount(session: CheckoutSession, quote: Extract<CouponQuote, { ok: true }>): CheckoutSession {
-  return { ...session, amount: money(quote.total.amount, session.amount.currency), discount: quote.discount };
+  const net = money(quote.total.amount, session.amount.currency);
+  return retaxSession({ ...session, discount: quote.discount }, net);
 }
 
 /**

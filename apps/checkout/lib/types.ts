@@ -75,6 +75,19 @@ export interface CheckoutSessionView {
   discount: { code: string; subtotal: Money; amountOff: Money } | null;
   /** Whether the buyer can still enter a promo code on this checkout. */
   promoAllowed: boolean;
+  /** Whether the buyer can still change billing country / VAT ID. */
+  taxEditable: boolean;
+  /** Tax included in `amount` (seller charges tax), else null. */
+  tax: {
+    label: string;
+    rateBps: number;
+    amount: Money;
+    net: Money;
+    jurisdiction: string;
+    reverseCharge: boolean;
+    country: string | null;
+    vatId: string | null;
+  } | null;
 }
 
 /** A delivered entitlement / access surfaced on the success page. */
@@ -114,6 +127,10 @@ export interface ReceiptView {
   amount: Money;
   confirmedAt: string;
   lines: OrderLine[];
+  /** Promo applied at checkout, if any. */
+  discount: { code: string; amountOff: Money } | null;
+  /** Tax included in the amount, if any. */
+  tax: { label: string; rateBps: number; amount: Money; reverseCharge: boolean } | null;
   buyer: Record<string, string>;
   access: DeliveredAccess[];
   /** The seller's https return URL (payment links opened with successUrl). */

@@ -53,7 +53,12 @@ export default async function SuccessPage({ params }: PageProps) {
 
       <div className="card">
         <h2>Receipt</h2>
-        <OrderSummary lines={receipt.lines} total={total} />
+        <OrderSummary lines={receipt.lines} total={total} discount={receipt.discount} tax={receipt.tax} />
+        <p style={{ marginTop: 8 }}>
+          <a className="link" href={`/c/${encodeURIComponent(sessionId)}/receipt`} target="_blank" rel="noreferrer">
+            Download receipt (PDF)
+          </a>
+        </p>
         <div className="divider" />
         <div className="payto-row">
           <span className="label">Paid</span>

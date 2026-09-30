@@ -388,6 +388,20 @@ export interface OrgSettings {
   payoutCurrency: string;
   webhookSecret: string;
   defaultRail: "arc" | "circle" | "x402";
+  tax?: TaxSettings;
+}
+
+/** Checkout tax + seller tax identity (receipts). */
+export interface TaxSettings {
+  enabled: boolean;
+  label: string;
+  sellerCountry?: string;
+  taxId?: string;
+  legalName?: string;
+  addressLines?: string[];
+  defaultRateBps: number;
+  rates: Record<string, number>;
+  reverseCharge: boolean;
 }
 
 // --- Refunds / dunning / disputes (decimal-string money) ------------------

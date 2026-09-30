@@ -7,15 +7,30 @@ import { EditProfile } from "@/components/EditProfile";
 import { SessionList } from "@/components/SessionList";
 import { NetworkAddressForm } from "@/components/NetworkAddressForm";
 import { getCurrentAccount } from "@/lib/session";
+import { SimpleCreateForm } from "@/components/forms/SimpleCreateForm";
+import { describeTax, parseTaxForm } from "@/lib/tax-form";
+
+async function saveTax(values: Record<string, string>): Promise<string | null> {
+  "use server";
+  let tax;
+  try {
+    tax = parseTaxForm(values);
+  } catch (error) {
+    return error instanceof Error ? error.message : "Invalid tax settings";
+  }
+  const { error } = await api.settings.update({ tax });
+  return error;
+}
 
 export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
-  const [profile, hooks, keys, account] = await Promise.all([
+  const [profile, hooks, keys, account, settings] = await Promise.all([
     merchantApi.profile(),
     api.webhooks.list(),
     api.apiKeys.list(),
     getCurrentAccount(),
+    api.settings.get(),
   ]);
   return (
     <>
@@ -30,6 +45,32 @@ export default async function SettingsPage() {
         {profile.data ? (
           <NetworkAddressForm networks={profile.data.networks} profile={profile.data.profile} askBusiness submitLabel="Save" />
         ) : null}
+      </Card>
+
+      <Card title="Tax and receipts">
+        <p className="page-desc" style={{ marginBottom: 12 }}>
+          {describeTax(settings.tax)} Buyers set their billing country and VAT ID at checkout and download a PDF receipt
+          with your tax ID.
+        </p>
+        <SimpleCreateForm
+          submitLabel="Save tax settings"
+          successMessage="Tax settings saved. New checkouts use them."
+          action={saveTax}
+          fields={[
+            { name: "enabled", label: "Charge tax at checkout", options: [{ value: "no", label: "No" }, { value: "yes", label: "Yes" }] },
+            { name: "label", label: "Tax name", placeholder: "VAT" },
+            { name: "sellerCountry", label: "Your country", placeholder: "DE" },
+            { name: "taxId", label: "Your tax ID", placeholder: "DE123456789" },
+            { name: "legalName", label: "Legal name on receipts", placeholder: "Acme Software GmbH" },
+            { name: "rates", label: "Rates by buyer country", placeholder: "DE=19, FR=20", hint: "COUNTRY=percent, comma separated" },
+            { name: "defaultRate", label: "Rate for other countries (%)", placeholder: "0" },
+            {
+              name: "reverseCharge",
+              label: "EU reverse charge for businesses",
+              options: [{ value: "no", label: "No" }, { value: "yes", label: "Yes" }],
+            },
+          ]}
+        />
       </Card>
 
       <Card title="Webhooks">

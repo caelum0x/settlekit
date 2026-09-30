@@ -191,6 +191,8 @@ export interface WorkerConfig {
   webhookSigningSecret: string;
   /** Send a renewal reminder when currentPeriodEnd is within this many days. */
   renewalReminderDays: number;
+  /** Hosted checkout public URL (receipt PDF links in receipt emails); optional. */
+  checkoutPublicUrl?: string;
   /**
    * Postgres connection. When set, the worker persists to (and reads) the shared
    * database; when unset it runs against a process-local in-memory store.
@@ -389,6 +391,9 @@ export function loadConfig(env: Env = process.env): WorkerConfig {
     graceDays: intInRange(env, "SUBSCRIPTION_GRACE_DAYS", 3, 1, 365),
     webhookSigningSecret: requireString(env, "WEBHOOK_SIGNING_SECRET"),
     renewalReminderDays: intInRange(env, "SUBSCRIPTION_RENEWAL_REMINDER_DAYS", 7, 1, 365),
+    ...((env.CHECKOUT_PUBLIC_URL ?? env.NEXT_PUBLIC_CHECKOUT_URL)?.trim()
+      ? { checkoutPublicUrl: (env.CHECKOUT_PUBLIC_URL ?? env.NEXT_PUBLIC_CHECKOUT_URL)!.trim().replace(/\/+$/, "") }
+      : {}),
     ...(env.DATABASE_URL && env.DATABASE_URL.length > 0 ? { database: { url: env.DATABASE_URL } } : {}),
   };
 }

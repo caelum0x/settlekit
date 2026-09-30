@@ -15,6 +15,7 @@ import { saveZcashSession } from "../routes/zcash-quote.js";
 import { payToFor } from "../routes/payment-verification.js";
 import { loadProfile } from "./profile.js";
 import { applyPromo } from "./session-promo.js";
+import { withSessionTax } from "@settlekit/persistence";
 import { networkCatalog } from "./network-catalog.js";
 import { activePrice, findBySlug, merchantIdFor } from "./products.js";
 
@@ -147,7 +148,9 @@ export async function openLinkSession(
     ...(options.cancelUrl ? { cancelUrl: options.cancelUrl } : {}),
   });
   const discounted = options.promo ? await applyPromo(ctx, draft, options.promo, new Map([[price.id, price]])) : draft;
-  const session = await bindSession(ctx, { ...discounted, acceptedNetworks: link.accepted, payToByNetwork });
+  // The seller's default rate applies until the buyer sets their country.
+  const taxed = withSessionTax(discounted, (await ctx.orgSettings.get(link.product.organizationId)).tax);
+  const session = await bindSession(ctx, { ...taxed, acceptedNetworks: link.accepted, payToByNetwork });
   return session.settlementQuote !== undefined
     ? saveZcashSession(ctx, { ...session, settlementQuote: session.settlementQuote }, payToFor(session, "zcash"))
     : ctx.checkouts.save(session);

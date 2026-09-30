@@ -24,6 +24,7 @@
     "@settlekit/citation-toll": "workspace:*",
     "@settlekit/payee-registry": "workspace:*",
     "@settlekit/streaming": "workspace:*",
+    "@settlekit/tax": "workspace:*",
     "@settlekit/wallet-fleet": "workspace:*",
     "@settlekit/agent-services": "workspace:*",
     "@settlekit/api-keys": "workspace:*",

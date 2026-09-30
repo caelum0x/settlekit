@@ -26,6 +26,7 @@
     { "path": "../escrow" },
     { "path": "../file-delivery" },
     { "path": "../invoices" },
+    { "path": "../tax" },
     { "path": "../license-keys" },
     { "path": "../marketplace-core" },
     { "path": "../payments" },

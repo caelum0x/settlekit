@@ -19,6 +19,7 @@ export { createEmailClient } from "./email-client.js";
 
 export type {
   ReceiptLineItem,
+  ReceiptRenderOptions,
   AccessInstruction,
   AccessGrantedArgs,
 } from "./receipts.js";

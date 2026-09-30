@@ -99,6 +99,19 @@ export function buildSessionView(
     discount: session.discount
       ? { code: session.discount.couponCode, subtotal: session.discount.subtotal, amountOff: session.discount.amountOff }
       : null,
+    tax: session.tax
+      ? {
+          label: session.tax.label,
+          rateBps: session.tax.rateBps,
+          amount: session.tax.amount,
+          net: session.tax.net,
+          jurisdiction: session.tax.jurisdiction,
+          reverseCharge: session.tax.reverseCharge,
+          country: session.tax.country ?? null,
+          vatId: session.tax.vatId ?? null,
+        }
+      : null,
+    taxEditable: session.tax !== undefined && session.invoiceId === undefined && session.status === "open" && !expired,
     promoAllowed: session.discount === undefined && session.invoiceId === undefined && session.status === "open" && !expired,
   };
 }
@@ -145,6 +158,17 @@ export function buildReceiptView(
     amount: payment.amount,
     confirmedAt: payment.confirmedAt ?? payment.createdAt,
     lines: buildLines(resolved),
+    discount: resolved.session.discount
+      ? { code: resolved.session.discount.couponCode, amountOff: resolved.session.discount.amountOff }
+      : null,
+    tax: resolved.session.tax
+      ? {
+          label: resolved.session.tax.label,
+          rateBps: resolved.session.tax.rateBps,
+          amount: resolved.session.tax.amount,
+          reverseCharge: resolved.session.tax.reverseCharge,
+        }
+      : null,
     buyer: resolved.session.collectedFields,
     access,
     returnUrl: sellerReturnUrl(resolved.session.successUrl),

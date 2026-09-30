@@ -8,10 +8,12 @@ interface OrderSummaryProps {
   total: Money;
   /** Applied promo code (total is already discounted). */
   discount?: { code: string; amountOff: Money } | null;
+  /** Tax included in the total. */
+  tax?: { label: string; rateBps: number; amount: Money; reverseCharge: boolean } | null;
 }
 
 /** Renders priced line items + the total. Pure presentational server component. */
-export function OrderSummary({ lines, total, discount }: OrderSummaryProps) {
+export function OrderSummary({ lines, total, discount, tax }: OrderSummaryProps) {
   return (
     <div>
       {lines.map((line) => (
@@ -34,6 +36,14 @@ export function OrderSummary({ lines, total, discount }: OrderSummaryProps) {
             Promo <span className="mono">{discount.code}</span>
           </span>
           <span>-{formatMoney(discount.amountOff)}</span>
+        </div>
+      ) : null}
+      {tax ? (
+        <div className="line-discount">
+          <span>
+            {tax.reverseCharge ? `${tax.label} (reverse charge)` : `${tax.label} ${(tax.rateBps / 100).toString()}%`}
+          </span>
+          <span>{formatMoney(tax.amount)}</span>
         </div>
       ) : null}
       <div className="total">

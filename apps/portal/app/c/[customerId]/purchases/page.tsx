@@ -9,6 +9,7 @@ import {
   formatDateTime,
   formatMoney,
   humanize,
+  receiptUrl,
   shortHash,
 } from "@/lib/format";
 
@@ -49,6 +50,18 @@ export default async function PurchasesPage({
           <span className="mono">{shortHash(p.txHash)}</span>
         );
       },
+    },
+    {
+      key: "receipt",
+      header: "Receipt",
+      render: (p) =>
+        p.status === "confirmed" || p.status === "refunded" ? (
+          <a href={receiptUrl(p.checkoutSessionId)} target="_blank" rel="noopener noreferrer">
+            PDF
+          </a>
+        ) : (
+          <span className="muted">-</span>
+        ),
     },
     {
       key: "status",

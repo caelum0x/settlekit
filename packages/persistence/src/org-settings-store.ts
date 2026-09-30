@@ -5,6 +5,7 @@
  * Stored under `organizations.metadata.settings` in Postgres, with an in-memory
  * implementation for the no-database path. Both satisfy {@link OrgSettingsStore}.
  */
+import type { TaxSettings } from "@settlekit/tax";
 import { eq, type Database, organizations } from "@settlekit/database";
 
 /** Configurable per-organization dashboard settings. */
@@ -22,6 +23,8 @@ export interface OrgSettings {
   onboardedAt?: string;
   /** Demo / test account: never shown on the public proof page. */
   testAccount?: boolean;
+  /** Checkout tax + seller tax identity on receipts. Off when absent. */
+  tax?: TaxSettings;
 }
 
 /** Sensible defaults applied when an org has no settings yet. */

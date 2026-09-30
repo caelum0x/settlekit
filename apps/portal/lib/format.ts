@@ -117,3 +117,11 @@ export function shortHash(value: string | null | undefined): string {
   if (value.length <= 14) return value;
   return `${value.slice(0, 8)}…${value.slice(-6)}`;
 }
+
+/** Hosted checkout base URL (receipts live at /c/<sessionId>/receipt). */
+export const CHECKOUT_URL = (process.env.NEXT_PUBLIC_CHECKOUT_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+
+/** Tax-grade receipt PDF for a settled checkout session. */
+export function receiptUrl(checkoutSessionId: string): string {
+  return `${CHECKOUT_URL}/c/${encodeURIComponent(checkoutSessionId)}/receipt`;
+}

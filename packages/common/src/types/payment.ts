@@ -120,6 +120,19 @@ export interface CheckoutDiscount {
   redeemedAt?: string;
 }
 
+/** Tax applied to a checkout session. */
+export interface CheckoutTax {
+  /** Price after discount, before tax. */
+  net: Money;
+  amount: Money;
+  rateBps: number;
+  jurisdiction: string;
+  label: string;
+  reverseCharge: boolean;
+  country?: string;
+  vatId?: string;
+}
+
 export interface CheckoutSession {
   id: string;
   organizationId: string;
@@ -169,6 +182,11 @@ export interface CheckoutSession {
    * total (what the verifier expects on-chain); `subtotal` is the list total.
    */
   discount?: CheckoutDiscount;
+  /**
+   * Tax charged on top of the net price (after any discount). `amount` is
+   * net + tax; the buyer's billing country / VAT ID pick the rate.
+   */
+  tax?: CheckoutTax;
   successUrl?: string;
   cancelUrl?: string;
   /** ISO timestamp after which the session can no longer be paid. */

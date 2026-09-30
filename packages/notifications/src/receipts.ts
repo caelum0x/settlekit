@@ -37,10 +37,17 @@ function multiplyLine(unitPrice: Money, quantity: number): Money {
 }
 
 /** Render an HTML receipt for a confirmed payment. */
+/** Optional extras for a receipt. */
+export interface ReceiptRenderOptions {
+  /** Link to the tax-grade receipt PDF. */
+  receiptUrl?: string;
+}
+
 export function renderReceiptHtml(
   payment: Payment,
   lineItems: ReadonlyArray<ReceiptLineItem>,
   merchant: Merchant,
+  options: ReceiptRenderOptions = {},
 ): string {
   const total = payment.amount;
   const itemRows = lineItems
@@ -72,6 +79,9 @@ export function renderReceiptHtml(
     htmlRow("Status", payment.status),
     htmlRow("Date", paidAt),
     "</table>",
+    options.receiptUrl
+      ? `<p style="margin-top:20px"><a href="${escapeHtml(options.receiptUrl)}">Download receipt (PDF)</a></p>`
+      : "",
   ].join("\n");
 
   const footer = merchant.supportEmail
@@ -86,6 +96,7 @@ export function renderReceiptText(
   payment: Payment,
   lineItems: ReadonlyArray<ReceiptLineItem>,
   merchant: Merchant,
+  options: ReceiptRenderOptions = {},
 ): string {
   const total = payment.amount;
   const paidAt = payment.confirmedAt ?? payment.createdAt;
@@ -108,6 +119,7 @@ export function renderReceiptText(
     ]
       .filter((l) => l.length > 0)
       .join("\n"),
+    ...(options.receiptUrl ? [`Receipt (PDF): ${options.receiptUrl}`] : []),
     merchant.supportEmail ? `Questions? Contact ${merchant.supportEmail}.` : "Thank you for your purchase.",
   ];
 

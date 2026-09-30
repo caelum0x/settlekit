@@ -33,7 +33,9 @@ import {
   PgDiscordRoleGrantStore,
   PgCustomerStore,
   PgCouponStore,
+  PgOrgSettingsStore,
   type CouponStore,
+  type TaxSettings,
   type WebhookOutbox,
 } from "@settlekit/persistence";
 import type { CheckoutSession, Customer, DeliveryAction, DiscordRoleGrant, Price, Product } from "@settlekit/common";
@@ -60,6 +62,8 @@ export interface CheckoutBackend {
   readonly webhooks?: WebhookOutbox;
   /** Seller promo codes (Postgres mode only; no promo field otherwise). */
   readonly coupons?: CouponStore;
+  /** Seller tax settings (Postgres mode only; untaxed otherwise). */
+  taxSettings?(organizationId: string): Promise<TaxSettings | undefined>;
   /** Whether this backend is Postgres-backed (real catalog) or seeded. */
   readonly persistent: boolean;
   findProduct(id: string): Promise<Product | undefined>;
@@ -86,6 +90,7 @@ function createPostgresBackend(databaseUrl: string): CheckoutBackend {
   const db = createDb(databaseUrl);
   const products = new PgProductStore(db);
   const prices = new PgPriceStore(db);
+  const orgSettings = new PgOrgSettingsStore(db);
 
   return {
     checkouts: new PgCheckoutRepository(db),
@@ -97,6 +102,9 @@ function createPostgresBackend(databaseUrl: string): CheckoutBackend {
     discordGrants: new PgDiscordRoleGrantStore(db),
     customers: new PgCustomerStore(db),
     coupons: new PgCouponStore(db),
+    async taxSettings(organizationId) {
+      return (await orgSettings.get(organizationId)).tax;
+    },
     persistent: true,
     async findProduct(id) {
       return (await products.findById(id)) ?? undefined;

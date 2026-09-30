@@ -3639,6 +3639,9 @@ importers:
       '@settlekit/streaming':
         specifier: workspace:*
         version: link:../streaming
+      '@settlekit/tax':
+        specifier: workspace:*
+        version: link:../tax
       '@settlekit/usage':
         specifier: workspace:*
         version: link:../usage

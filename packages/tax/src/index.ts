@@ -23,3 +23,4 @@ export function calculateTax(subtotal: Money, rate: TaxRate): TaxCalculation {
 export function taxExemptCalculation(subtotal: Money, jurisdiction = "exempt"): TaxCalculation {
   return { subtotal, tax: money("0", subtotal.currency), total: subtotal, jurisdiction };
 }
+export * from "./checkout-tax.js";
