@@ -47,9 +47,18 @@ export function error(c: Context, err: unknown): Response {
       err.httpStatus as ContentfulStatusCode,
     );
   }
-  const message = err instanceof Error ? err.message : "Unexpected error";
+  const detail = err instanceof Error ? err.message : "Unexpected error";
+  if (process.env.NODE_ENV !== "production") {
+    return c.json<ErrorEnvelope>({ error: { code: "internal_error", message: detail } }, 500);
+  }
+  // Production: never echo internals (SQL, parameters, stack) to the caller.
+  // The detail goes to the server log, keyed by the request id.
+  const requestId = c.res.headers.get("x-request-id") ?? c.req.header("x-request-id") ?? null;
+  process.stderr.write(
+    `${JSON.stringify({ ts: new Date().toISOString(), app: "api", level: "error", msg: "unhandled error", method: c.req.method, path: c.req.path, requestId, error: detail })}\n`,
+  );
   return c.json<ErrorEnvelope>(
-    { error: { code: "internal_error", message } },
+    { error: { code: "internal_error", message: "Something went wrong on our side. Please try again." } },
     500,
   );
 }
