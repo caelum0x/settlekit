@@ -13,6 +13,7 @@ import { API_URL } from "./config";
 
 import type {
   SentInvoice,
+  WebhookDelivery,
   AgentService,
   AnalyticsSummary,
   ApiKey,
@@ -88,6 +89,8 @@ interface ApiWebhookEndpoint {
   enabledEvents?: string[];
   active?: boolean;
   signingSecret?: string;
+  disabledReason?: string;
+  consecutiveFailures?: number;
 }
 
 export interface ApiList<T> {
@@ -218,12 +221,23 @@ export const api = {
           status: e.active ? "enabled" : "disabled",
           lastDeliveryAt: null,
           signingSecret: e.signingSecret ?? "",
+          disabledReason: e.disabledReason ?? null,
+          consecutiveFailures: e.consecutiveFailures ?? 0,
         })),
         raw.error,
       );
     },
     create: (url: string, events: string[]) =>
       post<ApiWebhookEndpoint>("/v1/webhooks/endpoints", { url, enabledEvents: events }),
+    deliveries: (filter: { status?: string } = {}) =>
+      getList<WebhookDelivery>(`/v1/webhooks/deliveries${filter.status ? `?status=${encodeURIComponent(filter.status)}` : ""}`),
+    resend: (eventId: string, endpointId?: string) =>
+      post<WebhookDelivery[]>(`/v1/webhooks/events/${encodeURIComponent(eventId)}/resend`, endpointId ? { endpointId } : {}),
+    test: (endpointId: string) => post<WebhookDelivery>(`/v1/webhooks/endpoints/${encodeURIComponent(endpointId)}/test`, {}),
+    rotate: (endpointId: string, graceHours: number) =>
+      post<ApiWebhookEndpoint>(`/v1/webhooks/endpoints/${encodeURIComponent(endpointId)}/rotate-secret`, { graceHours }),
+    setActive: (endpointId: string, active: boolean) =>
+      post<ApiWebhookEndpoint>(`/v1/webhooks/endpoints/${encodeURIComponent(endpointId)}/${active ? "enable" : "disable"}`, {}),
   },
   // ---- Refunds ----
   refunds: {

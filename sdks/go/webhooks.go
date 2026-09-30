@@ -85,7 +85,9 @@ func VerifySignature(secret string, body []byte, header string) bool {
 // it of now (pass 0 to skip the replay check). A missing/malformed header, a
 // stale timestamp, or any mismatch returns false.
 func VerifySignatureWithTolerance(secret string, body []byte, header string, tolerance time.Duration) bool {
-	var t, v1 string
+	var t string
+	// One v1 per active secret: after a rotation both are sent for a grace period.
+	var signatures []string
 	for _, segment := range strings.Split(header, ",") {
 		key, value, found := strings.Cut(strings.TrimSpace(segment), "=")
 		if !found {
@@ -95,10 +97,12 @@ func VerifySignatureWithTolerance(secret string, body []byte, header string, tol
 		case "t":
 			t = value
 		case "v1":
-			v1 = value
+			if value != "" {
+				signatures = append(signatures, value)
+			}
 		}
 	}
-	if t == "" || v1 == "" {
+	if t == "" || len(signatures) == 0 {
 		return false
 	}
 
@@ -116,11 +120,14 @@ func VerifySignatureWithTolerance(secret string, body []byte, header string, tol
 		}
 	}
 
-	provided, err := hex.DecodeString(v1)
-	if err != nil {
-		return false
-	}
 	mac := hmac.New(sha256.New, []byte(secret))
 	mac.Write([]byte(fmt.Sprintf("%s.%s", t, body)))
-	return hmac.Equal(provided, mac.Sum(nil))
+	expected := mac.Sum(nil)
+	for _, v1 := range signatures {
+		provided, err := hex.DecodeString(v1)
+		if err == nil && hmac.Equal(provided, expected) {
+			return true
+		}
+	}
+	return false
 }

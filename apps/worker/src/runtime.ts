@@ -290,6 +290,7 @@ export function buildJobContext(deps: RuntimeDeps): { ctx: JobContext; stores: W
     ...(deps.onchainBilling ? { onchainBilling: deps.onchainBilling } : {}),
     ...(db ? { webhooks: new PgWebhookOutbox(db) } : {}),
     ...(invoices !== undefined ? { invoices } : {}),
+    ...(deps.webhookSender ? { webhookTransport: { sender: deps.webhookSender } } : {}),
     now,
   };
 

@@ -9,7 +9,7 @@ import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { signPayload } from "../src/index.js";
+import { signPayload, signPayloadWithSecrets } from "../src/index.js";
 
 const PLUGIN = join(__dirname, "..", "..", "..", "plugins", "woocommerce", "settlekit-for-woocommerce");
 const hasPhp = spawnSync("php", ["-v"]).status === 0;
@@ -32,5 +32,8 @@ describe.skipIf(!hasPhp)("SettleKit for WooCommerce (PHP)", () => {
     expect(run("whsec_cross_check", header, now)).toBe("valid");
     expect(run("whsec_other", header, now)).toBe("invalid");
     expect(run("whsec_cross_check", header, now + 301)).toBe("invalid");
+    const rotated = signPayloadWithSecrets(["whsec_new", "whsec_cross_check"], body, now);
+    expect(run("whsec_cross_check", rotated, now)).toBe("valid");
+    expect(run("whsec_new", rotated, now)).toBe("valid");
   });
 });

@@ -2,6 +2,7 @@ export {
   SIGNATURE_HEADER,
   EVENT_HEADER,
   signPayload,
+  signPayloadWithSecrets,
   verifySignature,
   parseSignatureHeader,
 } from "./signing.js";
@@ -25,6 +26,8 @@ export {
   buildWebhookRequest,
   deliverWebhook,
   deliverWithRetry,
+  signingSecretsFor,
+  DELIVERY_TIMEOUT_MS,
 } from "./delivery.js";
 
 export type { BuildWebhookEventOptions } from "./events.js";

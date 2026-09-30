@@ -1,5 +1,5 @@
 import { serializeEvent } from "./events.js";
-import { EVENT_HEADER, SIGNATURE_HEADER, signPayload } from "./signing.js";
+import { EVENT_HEADER, SIGNATURE_HEADER, signPayloadWithSecrets } from "./signing.js";
 import type {
   ClockFn,
   DeliverWebhookParams,
@@ -18,6 +18,22 @@ import type {
  * persist this array to drive scheduled redelivery across process restarts.
  */
 export const DEFAULT_BACKOFF_SCHEDULE: readonly number[] = [0, 1, 5, 25, 125] as const;
+
+/** Per-attempt HTTP timeout for outbound deliveries. */
+export const DELIVERY_TIMEOUT_MS = 10_000;
+
+/**
+ * The secrets a delivery is signed with at `nowMs`: the current one, plus the
+ * pre-rotation secret while its grace window is open.
+ */
+export function signingSecretsFor(
+  endpoint: Pick<DeliverWebhookParams["endpoint"], "signingSecret" | "previousSigningSecret" | "previousSecretExpiresAt">,
+  nowMs: number,
+): string[] {
+  const previous = endpoint.previousSigningSecret;
+  const until = endpoint.previousSecretExpiresAt ? Date.parse(endpoint.previousSecretExpiresAt) : Number.NaN;
+  return previous && Number.isFinite(until) && until > nowMs ? [endpoint.signingSecret, previous] : [endpoint.signingSecret];
+}
 
 /** Real sleep backed by `setTimeout`. */
 const realSleep: SleepFn = (seconds) =>
@@ -38,6 +54,8 @@ export const fetchSender: HttpSender = {
         method: "POST",
         headers: request.headers,
         body: request.body,
+        // A hanging endpoint must not stall the delivery queue.
+        signal: AbortSignal.timeout(DELIVERY_TIMEOUT_MS),
       });
       return { status: response.status, ok: response.ok };
     } catch (cause) {
@@ -60,8 +78,9 @@ export function buildWebhookRequest(
   const { endpoint, event } = params;
   const clock = params.clock ?? realClock;
   const body = serializeEvent(event);
-  const timestamp = Math.floor(clock() / 1000);
-  const signature = signPayload(endpoint.signingSecret, body, timestamp);
+  const nowMs = clock();
+  const timestamp = Math.floor(nowMs / 1000);
+  const signature = signPayloadWithSecrets(signingSecretsFor(endpoint, nowMs), body, timestamp);
 
   return {
     url: endpoint.url,

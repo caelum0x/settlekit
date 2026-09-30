@@ -12,6 +12,7 @@
  *     and ledgers, so the worker operates on real shared state.
  */
 
+import type { WebhookDeliveryJob } from "@settlekit/persistence";
 import type {
   CheckoutSession,
   Customer,
@@ -44,14 +45,12 @@ export interface QueuedDeliveryRun {
   customerEmail?: string;
 }
 
-/** A webhook delivery awaiting (re)delivery. */
-export interface WebhookJob {
-  id: string;
-  endpoint: WebhookEndpoint;
-  event: WebhookEvent;
-  status: "pending" | "delivered" | "failed";
-  attempts: number;
-}
+/**
+ * A webhook delivery awaiting (re)delivery, with its attempt log (see
+ * @settlekit/persistence webhook-log). Older rows without the log fields are
+ * still valid.
+ */
+export type WebhookJob = WebhookDeliveryJob;
 
 /** A billing cadence the worker renews against. */
 export type BillingInterval = "monthly" | "yearly";
@@ -123,6 +122,10 @@ export interface WorkerStore {
   upsertWebhookJob(job: WebhookJob): Promise<WebhookJob>;
   /** Webhook jobs that still need a (re)delivery attempt. */
   pendingWebhookJobs(): Promise<WebhookJob[]>;
+  /** The live endpoint (current secret, active flag); undefined when deleted. */
+  getWebhookEndpoint(id: string): Promise<WebhookEndpoint | undefined>;
+  /** Persist endpoint delivery health (failure streak, auto-disable). */
+  saveWebhookEndpoint(endpoint: WebhookEndpoint): Promise<WebhookEndpoint>;
 
   // --- contacts ---------------------------------------------------------
   getCustomer(id: string): Promise<Customer | undefined>;
@@ -181,6 +184,7 @@ export class InMemoryWorkerStore implements WorkerStore {
   private readonly githubGrantsTable = new Table<GitHubRepoAccessGrant>();
   private readonly discordGrantsTable = new Table<DiscordRoleGrant>();
   private readonly webhookJobsTable = new Table<WebhookJob>();
+  private readonly webhookEndpointsTable = new Table<WebhookEndpoint>();
   private readonly customersTable = new Table<Customer>();
   private readonly merchantsTable = new Table<Merchant>();
   private readonly productsTable = new Table<Product>();
@@ -300,6 +304,12 @@ export class InMemoryWorkerStore implements WorkerStore {
   }
   async pendingWebhookJobs(): Promise<WebhookJob[]> {
     return this.webhookJobsTable.filter((j) => j.status === "pending" || j.status === "failed");
+  }
+  async getWebhookEndpoint(id: string): Promise<WebhookEndpoint | undefined> {
+    return this.webhookEndpointsTable.get(id);
+  }
+  async saveWebhookEndpoint(endpoint: WebhookEndpoint): Promise<WebhookEndpoint> {
+    return this.webhookEndpointsTable.upsert(endpoint);
   }
 
   // --- contacts ---

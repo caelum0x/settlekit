@@ -137,7 +137,7 @@ pub fn verify_signature_with_tolerance(
     header: &str,
     tolerance_seconds: i64,
 ) -> bool {
-    let (timestamp, v1) = match parse_header(header) {
+    let (timestamp, signatures) = match parse_header(header) {
         Some(parts) => parts,
         None => return false,
     };
@@ -156,18 +156,21 @@ pub fn verify_signature_with_tolerance(
         }
     }
 
-    let provided = match hex::decode(v1) {
-        Ok(bytes) => bytes,
-        Err(_) => return false,
-    };
-
-    // Constant-time verification via the HMAC crate's `verify_slice`.
-    let mut mac =
-        HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC accepts keys of any length");
-    mac.update(timestamp.as_bytes());
-    mac.update(b".");
-    mac.update(body);
-    mac.verify_slice(&provided).is_ok()
+    // One v1 per active secret: after a rotation both are sent for a grace
+    // period, so any matching v1 verifies. Constant time per candidate via
+    // the HMAC crate's `verify_slice`.
+    signatures.iter().any(|v1| {
+        let provided = match hex::decode(v1) {
+            Ok(bytes) => bytes,
+            Err(_) => return false,
+        };
+        let mut mac =
+            HmacSha256::new_from_slice(secret.as_bytes()).expect("HMAC accepts keys of any length");
+        mac.update(timestamp.as_bytes());
+        mac.update(b".");
+        mac.update(body);
+        mac.verify_slice(&provided).is_ok()
+    })
 }
 
 /// Compute the lowercase-hex HMAC-SHA256 of `"<timestamp>.<body>"`.
@@ -180,20 +183,20 @@ fn sign(secret: &str, timestamp: i64, body: &[u8]) -> String {
     hex::encode(mac.finalize().into_bytes())
 }
 
-/// Parse `t=<ts>,v1=<hex>` into its `(t, v1)` parts, ignoring unknown segments.
-fn parse_header(header: &str) -> Option<(&str, &str)> {
+/// Parse `t=<ts>,v1=<hex>[,v1=<hex>]` into `(t, [v1...])`, ignoring unknown segments.
+fn parse_header(header: &str) -> Option<(&str, Vec<&str>)> {
     let mut t = None;
-    let mut v1 = None;
+    let mut signatures = Vec::new();
     for segment in header.split(',') {
         let segment = segment.trim();
         match segment.split_once('=') {
             Some(("t", value)) => t = Some(value),
-            Some(("v1", value)) => v1 = Some(value),
+            Some(("v1", value)) if !value.is_empty() => signatures.push(value),
             _ => {}
         }
     }
-    match (t, v1) {
-        (Some(t), Some(v1)) if !t.is_empty() && !v1.is_empty() => Some((t, v1)),
+    match t {
+        Some(t) if !t.is_empty() && !signatures.is_empty() => Some((t, signatures)),
         _ => None,
     }
 }
@@ -204,6 +207,14 @@ mod tests {
 
     const SECRET: &str = "whsec_test";
     const BODY: &[u8] = br#"{"id":"evt_1"}"#;
+
+    #[test]
+    fn accepts_any_v1_during_rotation() {
+        let header = format!("t=1,v1={},v1={}", sign("whsec_new", 1, BODY), sign(SECRET, 1, BODY));
+        assert!(verify_signature_with_tolerance(SECRET, BODY, &header, 0));
+        assert!(verify_signature_with_tolerance("whsec_new", BODY, &header, 0));
+        assert!(!verify_signature_with_tolerance("whsec_other", BODY, &header, 0));
+    }
 
     #[test]
     fn round_trips() {

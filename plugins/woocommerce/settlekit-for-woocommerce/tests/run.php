@@ -26,6 +26,9 @@ check( 'wrong secret', ! SettleKit_Webhook::verify( 'other', $body, sign( $secre
 check( 'tampered body', ! SettleKit_Webhook::verify( $secret, $body . ' ', sign( $secret, $body, $now ), 300, $now ) );
 check( 'stale signature', ! SettleKit_Webhook::verify( $secret, $body, sign( $secret, $body, $now - 301 ), 300, $now ) );
 check( 'malformed header', ! SettleKit_Webhook::verify( $secret, $body, 'v1=abc', 300, $now ) );
+$rotated = 't=' . $now . ',v1=' . hash_hmac( 'sha256', $now . '.' . $body, 'new' ) . ',v1=' . hash_hmac( 'sha256', $now . '.' . $body, $secret );
+check( 'rotation: old secret', SettleKit_Webhook::verify( $secret, $body, $rotated, 300, $now ) );
+check( 'rotation: new secret', SettleKit_Webhook::verify( 'new', $body, $rotated, 300, $now ) );
 check( 'empty secret refuses', ! SettleKit_Webhook::verify( '', $body, sign( '', $body, $now ), 300, $now ) );
 
 // --- amounts and decisions ------------------------------------------------

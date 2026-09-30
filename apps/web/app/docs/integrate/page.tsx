@@ -48,15 +48,22 @@ const app = express();
 const SECRET = process.env.SETTLEKIT_WEBHOOK_SECRET; // Dashboard > Webhooks > Reveal
 const TOLERANCE_SECONDS = 300;
 
-/** SettleKit-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<raw body>"> */
+/**
+ * SettleKit-Signature: t=<unix seconds>,v1=<hex HMAC-SHA256 of "<t>.<raw body>">
+ * After a secret rotation the header carries one v1 per active secret for a
+ * grace period, so accept the delivery when ANY v1 matches.
+ */
 function verify(rawBody, header) {
-  const parts = Object.fromEntries(header.split(",").map((kv) => kv.trim().split("=")));
-  const t = Number(parts.t);
-  if (!Number.isInteger(t) || !parts.v1) return false;
+  const parts = header.split(",").map((kv) => kv.trim().split("="));
+  const t = Number(parts.find(([k]) => k === "t")?.[1]);
+  const signatures = parts.filter(([k]) => k === "v1").map(([, v]) => v);
+  if (!Number.isInteger(t) || signatures.length === 0) return false;
   if (Math.abs(Date.now() / 1000 - t) > TOLERANCE_SECONDS) return false;
   const expected = createHmac("sha256", SECRET).update(\`\${t}.\${rawBody}\`).digest();
-  const given = Buffer.from(parts.v1, "hex");
-  return given.length === expected.length && timingSafeEqual(given, expected);
+  return signatures.some((v1) => {
+    const given = Buffer.from(v1, "hex");
+    return given.length === expected.length && timingSafeEqual(given, expected);
+  });
 }
 
 // Use the RAW body: re-serialized JSON will not match the signature.

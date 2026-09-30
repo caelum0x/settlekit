@@ -7,6 +7,7 @@
  */
 
 import type { DeliveryRunner } from "@settlekit/delivery";
+import type { HttpSender } from "@settlekit/webhooks";
 import type { ArcClient } from "@settlekit/arc";
 import type { SolanaRpc } from "@settlekit/solana";
 import type { EvmChainKey, EvmVerifier } from "@settlekit/chains";
@@ -86,6 +87,8 @@ export interface JobContext {
   onchainBilling?: OnchainBillingRuntime;
   /** Seller webhook outbox (Postgres mode); absent -> no seller webhooks are queued. */
   webhooks?: WebhookOutbox;
+  /** Webhook HTTP transport override (tests); defaults to fetch + real sleeps. */
+  webhookTransport?: { sender?: HttpSender; sleep?: (seconds: number) => Promise<void> };
   /** Invoice store (invoice-settle job); absent -> that job no-ops. */
   invoices?: InvoiceStoreLike;
   /** Injectable clock for deterministic tests. */

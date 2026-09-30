@@ -34,7 +34,9 @@ import {
   workerDunningAttempts,
 } from "@settlekit/database";
 import { generateSecret } from "@settlekit/common";
+import { PgWebhookEndpointStore } from "@settlekit/persistence";
 import type {
+  WebhookEndpoint,
   CheckoutSession,
   Customer,
   DiscordRoleGrant,
@@ -87,7 +89,11 @@ export async function ensureWorkerDefaults(db: Database): Promise<void> {
 }
 
 export class PgWorkerStore implements WorkerStore {
-  constructor(private readonly db: Database) {}
+  private readonly endpoints: PgWebhookEndpointStore;
+
+  constructor(private readonly db: Database) {
+    this.endpoints = new PgWebhookEndpointStore(db);
+  }
 
   // --- payments ---------------------------------------------------------
 
@@ -345,6 +351,14 @@ export class PgWorkerStore implements WorkerStore {
       .from(workerWebhookJobs)
       .where(inArray(workerWebhookJobs.status, ["pending", "failed"]));
     return unpackDocs<WebhookJob>(rows);
+  }
+
+  async getWebhookEndpoint(id: string): Promise<WebhookEndpoint | undefined> {
+    return (await this.endpoints.findById(id)) ?? undefined;
+  }
+
+  async saveWebhookEndpoint(endpoint: WebhookEndpoint): Promise<WebhookEndpoint> {
+    return this.endpoints.save(endpoint);
   }
 
   // --- contacts ---------------------------------------------------------

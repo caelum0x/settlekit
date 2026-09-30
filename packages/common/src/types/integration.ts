@@ -59,7 +59,8 @@ export type WebhookEventType =
   | "entitlement.revoked"
   | "delivery.succeeded"
   | "delivery.failed"
-  | "invoice.paid";
+  | "invoice.paid"
+  | "webhook.test";
 
 export interface WebhookEndpoint {
   id: string;
@@ -70,6 +71,17 @@ export interface WebhookEndpoint {
   enabledEvents: WebhookEventType[];
   active: boolean;
   createdAt: string;
+  /**
+   * The secret before the last rotation, still sent (as a second v1) until
+   * `previousSecretExpiresAt` so receivers can switch without downtime.
+   */
+  previousSigningSecret?: string;
+  previousSecretExpiresAt?: string;
+  /** Failed delivery attempts in a row (reset by any success). */
+  consecutiveFailures?: number;
+  /** Set when deliveries were stopped automatically or by the merchant. */
+  disabledAt?: string;
+  disabledReason?: string;
 }
 
 export interface WebhookEvent {

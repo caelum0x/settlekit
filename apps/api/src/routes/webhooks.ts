@@ -9,10 +9,18 @@
 import { Hono } from "hono";
 import { z } from "zod";
 import { generateId, generateSecret, notFound, type WebhookEndpoint } from "@settlekit/common";
+import {
+  deliveryView,
+  enableEndpoint,
+  rotateEndpointSecret,
+  subscribedEndpoints,
+} from "@settlekit/persistence";
+import type { Context } from "hono";
+import { queueManualDelivery } from "../webhooks/outbox.js";
 import { buildWebhookEvent, signPayload, serializeEvent } from "@settlekit/webhooks";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
-import { parseBody } from "../http/validate.js";
+import { parseBody, validate } from "../http/validate.js";
 import { requireOrg, requireOwned } from "../http/tenant.js";
 
 const EVENT_TYPES = [
@@ -29,6 +37,7 @@ const EVENT_TYPES = [
   "delivery.succeeded",
   "delivery.failed",
   "invoice.paid",
+  "webhook.test",
 ] as const;
 
 const createEndpointSchema = z.object({
@@ -44,6 +53,29 @@ const emitSchema = z.object({
   type: z.enum(EVENT_TYPES),
   data: z.record(z.unknown()).default({}),
 });
+
+const resendSchema = z.object({
+  /** Only this endpoint; default: every active endpoint subscribed to the event. */
+  endpointId: z.string().min(1).optional(),
+});
+
+const rotateSchema = z.object({
+  /** How long the previous secret keeps signing deliveries (0-168 hours). */
+  graceHours: z.number().int().min(0).max(168).default(24),
+});
+
+/** Load an endpoint of the caller's org (404 otherwise). */
+async function ownedEndpoint(c: Context<AppEnv>, id: string): Promise<WebhookEndpoint> {
+  return requireOwned(c, await c.get("ctx").webhookEndpoints.findById(id), "webhook endpoint", id);
+}
+
+/** Endpoint without secrets, for listings that do not need them. */
+function publicEndpoint(endpoint: WebhookEndpoint) {
+  const { signingSecret: _s, previousSigningSecret: _p, ...rest } = endpoint;
+  void _s;
+  void _p;
+  return rest;
+}
 
 export function webhookRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
@@ -118,6 +150,90 @@ export function webhookRoutes(): Hono<AppEnv> {
   app.get("/events/:id", async (c) => {
     const id = c.req.param("id");
     return data(c, requireOwned(c, await c.get("ctx").webhookEvents.findById(id), "webhook event", id));
+  });
+
+  // Delivery log: one row per (event, endpoint) with every attempt.
+  app.get("/deliveries", async (c) => {
+    const ctx = c.get("ctx");
+    const eventId = c.req.query("eventId");
+    const endpointId = c.req.query("endpointId");
+    const status = c.req.query("status");
+    const limit = Math.min(Math.max(Number(c.req.query("limit") ?? 100) || 100, 1), 500);
+    const jobs = (await ctx.webhookJobs.listByOrganization(requireOrg(c), 1_000))
+      .filter((j) => (eventId ? j.event.id === eventId : true))
+      .filter((j) => (endpointId ? j.endpoint.id === endpointId : true))
+      .filter((j) => (status ? j.status === status : true))
+      .slice(0, limit);
+    return data(c, jobs.map(deliveryView));
+  });
+
+  app.get("/deliveries/:id", async (c) => {
+    const id = c.req.param("id");
+    const job = await c.get("ctx").webhookJobs.findById(id);
+    if (!job || job.event.organizationId !== requireOrg(c)) throw notFound("webhook delivery not found", { id });
+    return data(c, deliveryView(job));
+  });
+
+  // Resend an event (fresh delivery with a new signature and attempt log).
+  app.post("/events/:id/resend", async (c) => {
+    const ctx = c.get("ctx");
+    const id = c.req.param("id");
+    const event = requireOwned(c, await ctx.webhookEvents.findById(id), "webhook event", id);
+    const raw = await c.req.json().catch(() => ({}));
+    const body = validate(resendSchema, raw);
+    const endpoints = body.endpointId
+      ? [await ownedEndpoint(c, body.endpointId)]
+      : subscribedEndpoints(await ctx.webhookEndpoints.list(), event.organizationId, event.type);
+    const jobs = [];
+    for (const endpoint of endpoints) {
+      jobs.push(await queueManualDelivery(ctx.db, ctx.webhookJobs, event, endpoint, "resend"));
+    }
+    return created(c, jobs.map(deliveryView));
+  });
+
+  // Send a signed webhook.test event to one endpoint (ignores enabledEvents).
+  app.post("/endpoints/:id/test", async (c) => {
+    const ctx = c.get("ctx");
+    const endpoint = await ownedEndpoint(c, c.req.param("id"));
+    const event = await ctx.webhookEvents.save(
+      buildWebhookEvent("webhook.test", { endpointId: endpoint.id, message: "Test event from SettleKit" }, {
+        organizationId: endpoint.organizationId,
+      }),
+    );
+    const job = await queueManualDelivery(ctx.db, ctx.webhookJobs, event, endpoint, "test");
+    return created(c, deliveryView(job));
+  });
+
+  // Rotate the signing secret; the old one keeps signing during the grace window.
+  app.post("/endpoints/:id/rotate-secret", async (c) => {
+    const ctx = c.get("ctx");
+    const endpoint = await ownedEndpoint(c, c.req.param("id"));
+    const raw = await c.req.json().catch(() => ({}));
+    const body = validate(rotateSchema, raw);
+    const rotated = await ctx.webhookEndpoints.save(rotateEndpointSecret(endpoint, new Date(), body.graceHours * 3_600_000));
+    return data(c, {
+      ...publicEndpoint(rotated),
+      signingSecret: rotated.signingSecret,
+      previousSecretExpiresAt: rotated.previousSecretExpiresAt ?? null,
+    });
+  });
+
+  app.post("/endpoints/:id/disable", async (c) => {
+    const ctx = c.get("ctx");
+    const endpoint = await ownedEndpoint(c, c.req.param("id"));
+    const saved = await ctx.webhookEndpoints.save({
+      ...endpoint,
+      active: false,
+      disabledAt: new Date().toISOString(),
+      disabledReason: "disabled by the merchant",
+    });
+    return data(c, publicEndpoint(saved));
+  });
+
+  app.post("/endpoints/:id/enable", async (c) => {
+    const ctx = c.get("ctx");
+    const endpoint = await ownedEndpoint(c, c.req.param("id"));
+    return data(c, publicEndpoint(await ctx.webhookEndpoints.save(enableEndpoint(endpoint))));
   });
 
   return app;

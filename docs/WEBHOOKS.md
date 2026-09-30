@@ -48,6 +48,11 @@ Every delivery carries a Stripe-style signature header:
 SettleKit-Signature: t=<unix-seconds>,v1=<hex hmac-sha256("<t>.<raw body>", signingSecret)>
 ```
 
+During a secret rotation the header carries one `v1` per active secret
+(`t=..,v1=<new>,v1=<old>`) until the grace window ends; accept the delivery when
+**any** `v1` matches. The SDK verifiers (TypeScript, Python, Go, Rust) and the
+WooCommerce plugin already do.
+
 **Always verify against the RAW request body** (the exact bytes you received) —
 never re-serialize the parsed JSON, since key order and whitespace must match.
 SettleKit's SDKs ship a constant-time verifier with replay protection (a default
@@ -112,7 +117,11 @@ func handler(w http.ResponseWriter, r *http.Request) {
 ## Retries & at-least-once delivery
 
 SettleKit (and the optional `services/webhook-relay`) retry failed deliveries
-with exponential backoff. Treat handlers as **idempotent** — key on `event.id`
+with exponential backoff (a short in-tick retry, then 1m, 2m, 4m ... capped at
+6h, up to 24 attempts per delivery). Each delivery is signed with a 10 second
+timeout per attempt. After 100 failed attempts in a row
+(`WEBHOOK_DISABLE_AFTER_FAILURES`) the endpoint is disabled and its reason is
+shown in the dashboard; re-enable it once your server is fixed. Treat handlers as **idempotent** — key on `event.id`
 and ignore an event you've already processed. Return a `2xx` quickly (do heavy
 work asynchronously); non-2xx responses are retried until the schedule is
 exhausted.
@@ -121,7 +130,20 @@ exhausted.
 
 - Respond fast (`2xx`) and process out-of-band; SettleKit times out slow handlers.
 - Verify **before** parsing untrusted JSON.
-- Rotate the signing secret by registering a new endpoint and retiring the old.
+- Rotate the signing secret with `POST /v1/webhooks/endpoints/:id/rotate-secret`
+  (`{ "graceHours": 24 }`, 0-168). The previous secret keeps signing deliveries
+  until the grace window ends, so deploy the new secret without downtime.
+- Send a signed `webhook.test` event to one endpoint:
+  `POST /v1/webhooks/endpoints/:id/test`.
+- Event log: `GET /v1/webhooks/deliveries` (filters `eventId`, `endpointId`,
+  `status`) lists every delivery with its attempts, response codes, errors and
+  next retry; `GET /v1/webhooks/deliveries/:id` returns one with its history.
+  Resend any event with `POST /v1/webhooks/events/:id/resend` (optionally
+  `{ "endpointId": "..." }`).
+- Stop or resume deliveries: `POST /v1/webhooks/endpoints/:id/disable` and
+  `/enable`.
+- The dashboard Webhooks page has all of these (Send test, Rotate secret,
+  Disable/Enable, Event log with Resend).
 - In dev, emit a test event: `POST /v1/webhooks/events {organizationId,type,data}`
   returns the signed deliveries so you can replay them locally.
 

@@ -77,7 +77,14 @@ export class PgWebhookOutbox implements WebhookOutbox {
     const rows = await this.db.select({ metadata: webhookEndpoints.metadata }).from(webhookEndpoints);
     const targets = subscribedEndpoints(unpackDocs<WebhookEndpoint>(rows), input.organizationId, input.type);
     for (const endpoint of targets) {
-      const job = { id: webhookJobId(event.id, endpoint.id), endpoint, event, status: "pending" as const, attempts: 0 };
+      const job = {
+        id: webhookJobId(event.id, endpoint.id),
+        endpoint,
+        event,
+        status: "pending" as const,
+        attempts: 0,
+        createdAt: event.createdAt,
+      };
       await this.db
         .insert(workerWebhookJobs)
         .values({ id: job.id, status: job.status, metadata: packDoc(job) })

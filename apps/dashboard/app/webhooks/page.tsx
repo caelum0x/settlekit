@@ -10,6 +10,31 @@ import {
   SubNav,
 } from "@/components/ui";
 import { SimpleCreateForm } from "@/components/forms/SimpleCreateForm";
+import { revalidatePath } from "next/cache";
+
+async function sendTest(endpointId: string): Promise<void> {
+  "use server";
+  await api.webhooks.test(endpointId);
+  revalidatePath("/webhooks");
+}
+
+async function rotateSecret(endpointId: string): Promise<void> {
+  "use server";
+  await api.webhooks.rotate(endpointId, 24);
+  revalidatePath("/webhooks");
+}
+
+async function setActive(endpointId: string, active: boolean): Promise<void> {
+  "use server";
+  await api.webhooks.setActive(endpointId, active);
+  revalidatePath("/webhooks");
+}
+
+async function resend(eventId: string, endpointId: string): Promise<void> {
+  "use server";
+  await api.webhooks.resend(eventId, endpointId);
+  revalidatePath("/webhooks");
+}
 
 export const dynamic = "force-dynamic";
 
@@ -41,11 +66,10 @@ async function createWebhook(values: Record<string, string>): Promise<string | n
 }
 
 export default async function WebhooksPage() {
-  // The API exposes no per-endpoint delivery feed, so recent delivery activity
-  // is sourced from the org-wide delivery-runs stream (status + attempts).
-  const [hooks, runs] = await Promise.all([
+  const [hooks, runs, deliveries] = await Promise.all([
     api.webhooks.list(),
     api.delivery.runs(),
+    api.webhooks.deliveries(),
   ]);
 
   return (
@@ -57,7 +81,8 @@ export default async function WebhooksPage() {
       <SubNav
         items={[
           { label: "Endpoints", href: "#endpoints" },
-          { label: "Recent deliveries", href: "#deliveries" },
+          { label: "Event log", href: "#event-log" },
+          { label: "Access deliveries", href: "#deliveries" },
         ]}
       />
 
@@ -87,7 +112,15 @@ export default async function WebhooksPage() {
                   </div>
                 ),
               },
-              { header: "Status", cell: (h) => <StatusBadge status={h.status} /> },
+              {
+                header: "Status",
+                cell: (h) => (
+                  <span>
+                    <StatusBadge status={h.status} />
+                    {h.disabledReason ? <span className="dim small"> {h.disabledReason}</span> : null}
+                  </span>
+                ),
+              },
               {
                 header: "Signing secret",
                 cell: (h) => (
@@ -97,6 +130,75 @@ export default async function WebhooksPage() {
                   </details>
                 ),
               },
+              {
+                header: "",
+                cell: (h) => (
+                  <div style={{ display: "flex", gap: 6 }}>
+                    <form action={sendTest.bind(null, h.id)}>
+                      <button type="submit" className="btn btn-small">
+                        Send test
+                      </button>
+                    </form>
+                    <form action={rotateSecret.bind(null, h.id)}>
+                      <button type="submit" className="btn btn-small" title="The old secret keeps working for 24 hours">
+                        Rotate secret
+                      </button>
+                    </form>
+                    <form action={setActive.bind(null, h.id, h.status !== "enabled")}>
+                      <button type="submit" className="btn btn-small">
+                        {h.status === "enabled" ? "Disable" : "Enable"}
+                      </button>
+                    </form>
+                  </div>
+                ),
+              },
+            ]}
+          />
+        </Card>
+      </div>
+
+      <div id="event-log">
+        <ErrorBanner error={deliveries.error} />
+        <Card title="Event log">
+          <p className="page-desc" style={{ marginTop: 0 }}>
+            Every event sent to your endpoints with its response code. Failed deliveries retry with backoff; resend any
+            event after you fix your server.
+          </p>
+          <DataTable
+            rows={deliveries.data}
+            getKey={(d) => d.id}
+            empty={<EmptyState title="No events yet" message="Send a test event to check your endpoint." />}
+            columns={[
+              { header: "Event", cell: (d) => <span className="mono">{d.eventType}</span> },
+              { header: "Endpoint", cell: (d) => <span className="mono">{d.url}</span> },
+              { header: "Status", cell: (d) => <StatusBadge status={d.status} /> },
+              {
+                header: "Response",
+                cell: (d) =>
+                  d.lastStatus === null ? (
+                    <span className="dim">-</span>
+                  ) : (
+                    <span className="mono" title={d.lastError ?? ""}>
+                      {d.lastStatus === 0 ? "no response" : d.lastStatus}
+                    </span>
+                  ),
+              },
+              { header: "Attempts", align: "right", cell: (d) => <span className="mono">{formatNumber(d.attempts)}</span> },
+              {
+                header: "Next retry",
+                cell: (d) => (d.status === "delivered" ? "-" : d.nextAttemptAt ? formatDateTime(d.nextAttemptAt) : "stopped"),
+              },
+              { header: "Last attempt", cell: (d) => (d.lastAttemptAt ? formatDateTime(d.lastAttemptAt) : "-") },
+              {
+                header: "",
+                cell: (d) => (
+                  <form action={resend.bind(null, d.eventId, d.endpointId)}>
+                    <button type="submit" className="btn btn-small">
+                      Resend
+                    </button>
+                  </form>
+                ),
+              },
             ]}
           />
         </Card>
@@ -104,9 +206,9 @@ export default async function WebhooksPage() {
 
       <div id="deliveries">
         <ErrorBanner error={runs.error} />
-        <Card title="Recent deliveries">
+        <Card title="Access deliveries">
           <p className="page-desc" style={{ marginTop: 0 }}>
-            Organization-wide delivery activity with status and retry attempts.
+            Access delivery runs (GitHub, Discord, license keys) with status and retry attempts.
           </p>
           <DataTable
             rows={runs.data}

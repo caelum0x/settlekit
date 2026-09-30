@@ -170,9 +170,9 @@ import type { DeliveryGrantSink } from "./wiring/delivery-clients.js";
 import { loadAgentPayments, type AgentPaymentsRuntime } from "./agent-payments/config.js";
 import type { OnchainBillingRuntime } from "@settlekit/onchain-billing";
 import { buildApiOnchainBilling } from "./onchain-billing/runtime.js";
-import { createWebhookOutbox } from "./webhooks/outbox.js";
+import { createWebhookJobStore, createWebhookOutbox } from "./webhooks/outbox.js";
 import { createFrankfurterSource, type FxRateSource } from "./fx/rates.js";
-import type { WebhookOutbox } from "@settlekit/persistence";
+import type { WebhookJobStore, WebhookOutbox } from "@settlekit/persistence";
 
 /** The fully-wired set of services + stores shared across requests. */
 export interface AppContext {
@@ -199,6 +199,8 @@ export interface AppContext {
   readonly webhookEvents: EntityStore<WebhookEvent>;
   /** Signed seller webhooks (payment / subscription / refund events). */
   readonly webhookOutbox: WebhookOutbox;
+  /** Per-endpoint delivery log (attempts, retries, resends). */
+  readonly webhookJobs: WebhookJobStore;
 
   // Access / key services.
   readonly apiKeys: ApiKeyService;
@@ -420,6 +422,7 @@ export async function createContext(): Promise<AppContext> {
 
   const webhookEndpointStore = pick<EntityStore<WebhookEndpoint>>(db, (d) => new PgWebhookEndpointStore(d), () => new InMemoryEntityStore<WebhookEndpoint>());
   const webhookEventStore = pick<EntityStore<WebhookEvent>>(db, (d) => new PgWebhookEventStore(d), () => new InMemoryEntityStore<WebhookEvent>());
+  const webhookJobs = createWebhookJobStore(db);
 
   const base: Omit<AppContext, "onchainBilling"> = {
     db,
@@ -439,7 +442,8 @@ export async function createContext(): Promise<AppContext> {
     deliveryClients: integrations.deliveryClients,
     webhookEndpoints: webhookEndpointStore,
     webhookEvents: webhookEventStore,
-    webhookOutbox: createWebhookOutbox(db, webhookEndpointStore, webhookEventStore),
+    webhookJobs,
+    webhookOutbox: createWebhookOutbox(db, webhookEndpointStore, webhookEventStore, webhookJobs),
 
     apiKeys: new ApiKeyService(apiKeyStore),
     licenses: new LicenseService(licenseStore, { tokenSecret: config.licenseTokenSecret }),

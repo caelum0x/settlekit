@@ -132,6 +132,27 @@ export interface WebhookEndpoint {
   lastDeliveryAt: string | null;
   /** HMAC secret the endpoint verifies `SettleKit-Signature` with. */
   signingSecret: string;
+  /** Why deliveries are stopped (auto-disabled after repeated failures). */
+  disabledReason?: string | null;
+  consecutiveFailures?: number;
+}
+
+/** One event delivery to one endpoint, with its attempt log. */
+export interface WebhookDelivery {
+  id: string;
+  eventId: string;
+  eventType: string;
+  endpointId: string;
+  url: string;
+  status: "pending" | "delivered" | "failed";
+  attempts: number;
+  lastStatus: number | null;
+  lastError: string | null;
+  lastAttemptAt: string | null;
+  nextAttemptAt: string | null;
+  deliveredAt: string | null;
+  manual: "resend" | "test" | null;
+  history: { at: string; status: number; ok: boolean; error?: string }[];
 }
 
 /**

@@ -7,8 +7,10 @@ import type { WebhookEndpoint, WebhookEvent } from "@settlekit/common";
 export interface ParsedSignature {
   /** Unix timestamp (seconds) the signature was produced for. */
   timestamp: number;
-  /** Hex-encoded HMAC-SHA256 of `"<timestamp>.<payloadJson>"`. */
+  /** Hex-encoded HMAC-SHA256 of `"<timestamp>.<payloadJson>"` (first v1). */
   signature: string;
+  /** Every v1 value in the header (several during a secret rotation). */
+  signatures?: string[];
 }
 
 /** Result of a single HTTP delivery attempt. */

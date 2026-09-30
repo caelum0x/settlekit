@@ -35,12 +35,23 @@ export function signPayload(secret: string, payloadJson: string, timestamp: numb
 }
 
 /**
- * Parse a `t=<ts>,v1=<hex>` header into its components. Returns `null` when the
- * header is malformed or missing either field.
+ * Sign with several secrets at once: `t=<ts>,v1=<hmac secret 1>,v1=<hmac secret 2>`.
+ * Used during a secret rotation grace window (new secret first, previous after).
+ */
+export function signPayloadWithSecrets(secrets: readonly string[], payloadJson: string, timestamp: number): string {
+  const unique = [...new Set(secrets.filter((s) => s.length > 0))];
+  if (unique.length === 0) throw new Error("at least one signing secret is required");
+  return [`t=${timestamp}`, ...unique.map((secret) => `v1=${computeHmac(secret, payloadJson, timestamp)}`)].join(",");
+}
+
+/**
+ * Parse a `t=<ts>,v1=<hex>[,v1=<hex>...]` header. `signature` is the first
+ * v1; `signatures` lists all of them when there is more than one. Returns `null` when the header is malformed
+ * or missing either field.
  */
 export function parseSignatureHeader(header: string): ParsedSignature | null {
   let timestamp: number | null = null;
-  let signature: string | null = null;
+  const signatures: string[] = [];
 
   for (const part of header.split(",")) {
     const eq = part.indexOf("=");
@@ -51,12 +62,13 @@ export function parseSignatureHeader(header: string): ParsedSignature | null {
       const parsed = Number.parseInt(value, 10);
       if (Number.isInteger(parsed) && /^\d+$/.test(value)) timestamp = parsed;
     } else if (key === "v1") {
-      if (/^[0-9a-f]+$/i.test(value) && value.length > 0) signature = value;
+      if (/^[0-9a-f]+$/i.test(value) && value.length > 0) signatures.push(value);
     }
   }
 
-  if (timestamp === null || signature === null) return null;
-  return { timestamp, signature };
+  if (timestamp === null || signatures.length === 0) return null;
+  const first = signatures[0]!;
+  return signatures.length > 1 ? { timestamp, signature: first, signatures } : { timestamp, signature: first };
 }
 
 /** Constant-time hex string comparison. Length mismatch short-circuits to false. */
@@ -93,5 +105,6 @@ export function verifySignature(
   }
 
   const expected = computeHmac(secret, payloadJson, parsed.timestamp);
-  return safeHexEqual(expected, parsed.signature);
+  // Any v1 may match: during a rotation the header carries both secrets.
+  return (parsed.signatures ?? [parsed.signature]).some((candidate) => safeHexEqual(expected, candidate));
 }

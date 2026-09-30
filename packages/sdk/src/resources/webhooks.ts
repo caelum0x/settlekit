@@ -37,14 +37,18 @@ export function verifyWebhookSignature(
   signatureHeader: string,
   options: VerifyWebhookOptions = {},
 ): boolean {
-  const parts = new Map<string, string>();
+  let t: string | undefined;
+  // One v1 per active secret: after a rotation both are sent for a grace period.
+  const signatures: string[] = [];
   for (const segment of signatureHeader.split(",")) {
     const idx = segment.indexOf("=");
-    if (idx > 0) parts.set(segment.slice(0, idx).trim(), segment.slice(idx + 1).trim());
+    if (idx <= 0) continue;
+    const key = segment.slice(0, idx).trim();
+    const value = segment.slice(idx + 1).trim();
+    if (key === "t") t = value;
+    else if (key === "v1" && value.length > 0) signatures.push(value);
   }
-  const t = parts.get("t");
-  const v1 = parts.get("v1");
-  if (!t || !v1) return false;
+  if (!t || signatures.length === 0) return false;
 
   const tolerance = options.toleranceSeconds ?? 300;
   if (tolerance > 0) {
@@ -56,8 +60,10 @@ export function verifyWebhookSignature(
 
   const expected = createHmac("sha256", secret).update(`${t}.${rawBody}`).digest("hex");
   const a = Buffer.from(expected, "utf8");
-  const b = Buffer.from(v1, "utf8");
-  return a.length === b.length && timingSafeEqual(a, b);
+  return signatures.some((v1) => {
+    const b = Buffer.from(v1, "utf8");
+    return a.length === b.length && timingSafeEqual(a, b);
+  });
 }
 
 /** Input for {@link WebhooksResource.createEndpoint}. */

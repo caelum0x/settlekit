@@ -43,15 +43,20 @@ def verify_webhook_signature(
     Returns ``True`` only when the signature is valid and — unless
     ``tolerance_seconds`` is 0 — within the replay window.
     """
-    parts: dict[str, str] = {}
+    t: Optional[str] = None
+    # One v1 per active secret: after a rotation both are sent for a grace period.
+    signatures: list[str] = []
     for segment in signature_header.split(","):
         key, sep, value = segment.partition("=")
-        if sep:
-            parts[key.strip()] = value.strip()
+        if not sep:
+            continue
+        key, value = key.strip(), value.strip()
+        if key == "t":
+            t = value
+        elif key == "v1" and value:
+            signatures.append(value)
 
-    t = parts.get("t")
-    v1 = parts.get("v1")
-    if not t or not v1:
+    if not t or not signatures:
         return False
 
     if tolerance_seconds > 0:
@@ -66,7 +71,7 @@ def verify_webhook_signature(
     expected = hmac.new(
         secret.encode("utf-8"), f"{t}.{raw_body}".encode("utf-8"), hashlib.sha256
     ).hexdigest()
-    return hmac.compare_digest(expected, v1)
+    return any(hmac.compare_digest(expected, v1) for v1 in signatures)
 
 
 def _client(client: Optional[SettleKit]) -> tuple[SettleKit, bool]:

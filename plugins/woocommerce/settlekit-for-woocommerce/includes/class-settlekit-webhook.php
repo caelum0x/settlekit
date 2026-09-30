@@ -12,10 +12,13 @@ final class SettleKit_Webhook {
 	const SIGNATURE_HEADER = 'SettleKit-Signature';
 	const DEFAULT_TOLERANCE = 300;
 
-	/** Parse "t=..,v1=.." into [timestamp, signature] or null. */
+	/**
+	 * Parse "t=..,v1=..[,v1=..]" into [timestamp, [signatures]] or null. During
+	 * a secret rotation SettleKit sends one v1 per active secret.
+	 */
 	public static function parse_signature( string $header ): ?array {
-		$timestamp = null;
-		$signature = null;
+		$timestamp  = null;
+		$signatures = [];
 		foreach ( explode( ',', $header ) as $part ) {
 			$pair = explode( '=', trim( $part ), 2 );
 			if ( count( $pair ) !== 2 ) {
@@ -24,13 +27,13 @@ final class SettleKit_Webhook {
 			if ( $pair[0] === 't' && preg_match( '/^\d+$/', $pair[1] ) ) {
 				$timestamp = (int) $pair[1];
 			} elseif ( $pair[0] === 'v1' && preg_match( '/^[0-9a-f]+$/i', $pair[1] ) ) {
-				$signature = strtolower( $pair[1] );
+				$signatures[] = strtolower( $pair[1] );
 			}
 		}
-		if ( $timestamp === null || $signature === null ) {
+		if ( $timestamp === null || count( $signatures ) === 0 ) {
 			return null;
 		}
-		return [ $timestamp, $signature ];
+		return [ $timestamp, $signatures ];
 	}
 
 	/** Constant-time signature check with a freshness window (seconds). */
@@ -42,13 +45,18 @@ final class SettleKit_Webhook {
 		if ( $parsed === null ) {
 			return false;
 		}
-		[ $timestamp, $signature ] = $parsed;
+		[ $timestamp, $signatures ] = $parsed;
 		$now = $now ?? time();
 		if ( $tolerance > 0 && abs( $now - $timestamp ) > $tolerance ) {
 			return false;
 		}
 		$expected = hash_hmac( 'sha256', $timestamp . '.' . $raw_body, $secret );
-		return hash_equals( $expected, $signature );
+		foreach ( $signatures as $signature ) {
+			if ( hash_equals( $expected, $signature ) ) {
+				return true;
+			}
+		}
+		return false;
 	}
 
 	/** Decode an event body; null when it is not a SettleKit event. */
