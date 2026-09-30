@@ -13,6 +13,8 @@ import { API_URL } from "./config";
 
 import type {
   SentInvoice,
+  TeamInvitation,
+  TeamMember,
   WebhookDelivery,
   AgentService,
   AnalyticsSummary,
@@ -83,6 +85,30 @@ export type CreateCouponDiscount =
   | { type: "free-trial-days"; days: number };
 
 /** Webhook endpoint as the API stores it. */
+interface ApiKeyRecord {
+  id: string;
+  customerId: string;
+  keyPrefix: string;
+  scopes: string[];
+  status: "active" | "revoked";
+  lastUsedAt?: string;
+  createdAt: string;
+  kind?: "platform" | "customer";
+}
+
+function toApiKey(k: ApiKeyRecord): ApiKey {
+  return {
+    id: k.id,
+    name: k.kind === "platform" ? k.customerId : `Buyer key (${k.customerId})`,
+    prefix: k.keyPrefix,
+    scopes: k.scopes,
+    lastUsedAt: k.lastUsedAt ?? null,
+    createdAt: k.createdAt,
+    kind: k.kind ?? "customer",
+    status: k.status,
+  };
+}
+
 interface ApiWebhookEndpoint {
   id: string;
   url: string;
@@ -205,9 +231,24 @@ export const api = {
   // ---- License keys / API keys / files ----
   licenseKeys: { list: () => getList<LicenseKey>("/v1/license-keys") },
   apiKeys: {
-    list: () => getList<ApiKey>("/v1/api-keys"),
-    create: (name: string, scopes: string[]) =>
-      post<ApiKey>("/v1/api-keys", { name, scopes }),
+    list: async (): Promise<ApiList<ApiKey>> => {
+      const raw = await getList<ApiKeyRecord>("/v1/api-keys");
+      return listResult(raw.data.map(toApiKey), raw.error);
+    },
+    /** Management key with restricted scopes; the plaintext is returned once. */
+    createPlatform: (label: string, scopes: string[]) =>
+      post<{ apiKey: ApiKeyRecord; plaintext: string }>("/v1/api-keys/platform", { label, scopes }),
+    revoke: (id: string) => post<ApiKeyRecord>(`/v1/api-keys/${encodeURIComponent(id)}/revoke`, {}),
+  },
+  team: {
+    get: () => getItem<{ members: TeamMember[]; invitations: TeamInvitation[]; roles: string[] }>("/v1/team"),
+    invite: (email: string, role: string) =>
+      post<{ inviteUrl: string; emailed: boolean }>("/v1/team/invitations", { email, role }),
+    revokeInvitation: (id: string) => post<TeamInvitation>(`/v1/team/invitations/${encodeURIComponent(id)}/revoke`, {}),
+    setRole: (accountId: string, role: string) =>
+      request<TeamMember>(`/v1/team/members/${encodeURIComponent(accountId)}`, { method: "PATCH", body: JSON.stringify({ role }) }),
+    remove: (accountId: string) =>
+      request<{ removed: string }>(`/v1/team/members/${encodeURIComponent(accountId)}`, { method: "DELETE" }),
   },
   files: { list: () => getList<FileAsset>("/v1/files") },
   webhooks: {

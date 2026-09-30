@@ -25,9 +25,9 @@ const fakeCtx = {
   apiKeys: {
     verify: async (key: string) =>
       key === AGENT_KEY
-        ? { valid: true, apiKey: { id: "key_agent", organizationId: DEFAULT_ORG_ID } }
+        ? { valid: true, apiKey: { id: "key_agent", organizationId: DEFAULT_ORG_ID, scopes: ["platform:admin"], status: "active", productId: "__platform__" } }
         : key === OTHER_ORG_KEY
-          ? { valid: true, apiKey: { id: "key_other", organizationId: "org_other" } }
+          ? { valid: true, apiKey: { id: "key_other", organizationId: "org_other", scopes: ["platform:admin"], status: "active", productId: "__platform__" } }
           : { valid: false },
     recordUsage: async () => undefined,
   },

@@ -14,6 +14,11 @@ export interface Account {
   email: string;
   /** Set for merchant accounts that belong to an organization. */
   organizationId?: string;
+  /**
+   * Team role inside `organizationId` (owner, admin, developer, support,
+   * viewer). Absent on accounts that created their organization: owner.
+   */
+  role?: string;
   displayName?: string;
   /**
    * Checksummed EOA address for web3 (Sign-In-With-Ethereum) accounts. Set when

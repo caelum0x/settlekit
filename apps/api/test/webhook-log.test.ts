@@ -37,7 +37,7 @@ beforeEach(async () => {
   ctx = await createContext();
   app = createApp(ctx);
   otherKey = (
-    await ctx.apiKeys.issue({ organizationId: "org_other", customerId: "c", productId: "p", entitlementId: "e", scopes: ["*"], env: "live" })
+    await ctx.apiKeys.issue({ organizationId: "org_other", customerId: "c", productId: "__platform__", entitlementId: "e", scopes: ["*"], env: "live" })
   ).plaintext;
 });
 

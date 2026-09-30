@@ -517,6 +517,38 @@ export class AuthService {
     return ok({ account: updated });
   }
 
+  /** Find an account by email (team invitations). */
+  findAccountByEmail(email: string): Promise<Account | undefined> {
+    return this.store.findAccountByEmail(normalizeEmail(email));
+  }
+
+  /** Find an account by id (team management). */
+  findAccountById(id: string): Promise<Account | undefined> {
+    return this.store.findAccountById(id);
+  }
+
+  /**
+   * Put an account in an organization with a team role, or remove it from
+   * its organization (`organizationId` undefined). Returns the saved account.
+   */
+  async assignOrganization(
+    accountId: string,
+    organizationId: string | undefined,
+    role?: string,
+  ): Promise<Result<Account, SettleKitError>> {
+    const account = await this.store.findAccountById(accountId);
+    if (!account) return err(validation("Account not found"));
+    const { organizationId: _o, role: _r, ...rest } = account;
+    void _o;
+    void _r;
+    const next: Account =
+      organizationId === undefined
+        ? rest
+        : { ...rest, type: "merchant", organizationId, ...(role !== undefined ? { role } : {}) };
+    await this.store.saveAccount(next);
+    return ok(next);
+  }
+
   /**
    * Update mutable profile fields on the authenticated account. Currently
    * `displayName`. Returns the updated account.

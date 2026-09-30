@@ -38,7 +38,7 @@ beforeEach(async () => {
   ctx = { ...base, verifiers: { ...base.verifiers, base: verifier } };
   app = createApp(ctx);
   otherKey = (
-    await ctx.apiKeys.issue({ organizationId: "org_other", customerId: "c", productId: "p", entitlementId: "e", scopes: ["*"], env: "live" })
+    await ctx.apiKeys.issue({ organizationId: "org_other", customerId: "c", productId: "__platform__", entitlementId: "e", scopes: ["*"], env: "live" })
   ).plaintext;
 
   const product = await call("POST", "/v1/products", { merchantId: "mch_1", name: "=cmd|' /C calc'!A0", type: "license_key", deliveryMode: "license_key" });

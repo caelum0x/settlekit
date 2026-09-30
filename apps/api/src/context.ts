@@ -587,5 +587,9 @@ export interface AppEnv {
     apiKeyId?: string;
     /** Organization the authenticated API key belongs to (tenant scope). */
     organizationId?: string;
+    /** Team role of a dashboard session (absent for API keys). */
+    teamRole?: string;
+    /** Scopes the caller holds (API key scopes, or the session role's). */
+    grantedScopes?: readonly string[];
   };
 }

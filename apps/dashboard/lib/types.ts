@@ -113,6 +113,25 @@ export interface ApiKey {
   scopes: string[];
   lastUsedAt: string | null;
   createdAt: string;
+  /** platform = management API key; customer = access key delivered to a buyer. */
+  kind: "platform" | "customer";
+  status: "active" | "revoked";
+}
+
+/** A team member (dashboard access with a role). */
+export interface TeamMember {
+  accountId: string;
+  email: string;
+  role: string;
+  joinedAt: string;
+}
+
+export interface TeamInvitation {
+  id: string;
+  email: string;
+  role: string;
+  status: string;
+  expiresAt: string;
 }
 
 export interface FileAsset {

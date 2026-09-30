@@ -29,6 +29,7 @@
 import { timingSafeEqual } from "node:crypto";
 import type { MiddlewareHandler } from "hono";
 import { SettleKitError } from "@settlekit/common";
+import { isPlatformKey, isTeamRole, requiredScope, scopesAllow, scopesForRole } from "@settlekit/api-keys";
 import { DEFAULT_ORG_ID } from "@settlekit/persistence";
 import type { AppEnv } from "../context.js";
 
@@ -46,6 +47,17 @@ function safeEqual(a: string, b: string): boolean {
 
 function unauthorized(message: string): SettleKitError {
   return new SettleKitError({ code: "unauthorized", message });
+}
+
+/** 403 unless `granted` covers the scope this request needs. */
+function assertScope(granted: readonly string[], method: string, path: string, who: string): void {
+  const scope = requiredScope(method, path);
+  if (scopesAllow(granted, scope)) return;
+  throw new SettleKitError({
+    code: "forbidden",
+    message: `${who} does not have the ${scope} permission`,
+    details: { requiredScope: scope },
+  });
 }
 
 /** Require a valid Bearer API key on every request this middleware guards. */
@@ -83,6 +95,7 @@ export function authMiddleware(): MiddlewareHandler<AppEnv> {
     if (bootstrapKey && plaintext === bootstrapKey) {
       c.set("apiKeyId", "bootstrap");
       c.set("organizationId", DEFAULT_ORG_ID);
+      c.set("grantedScopes", ["*"]);
       await next();
       return;
     }
@@ -90,6 +103,16 @@ export function authMiddleware(): MiddlewareHandler<AppEnv> {
     const ctx = c.get("ctx");
     const result = await ctx.apiKeys.verify(plaintext);
     if (result.valid && result.apiKey) {
+      // Keys delivered to BUYERS (product access keys) are not management
+      // credentials: they must never act as the merchant.
+      if (!isPlatformKey(result.apiKey)) {
+        throw new SettleKitError({
+          code: "forbidden",
+          message: "This is a customer access key; it cannot call the SettleKit management API",
+        });
+      }
+      assertScope(result.apiKey.scopes, c.req.method, c.req.path, "This API key");
+      c.set("grantedScopes", result.apiKey.scopes);
       // Best-effort usage stamp; never block the request on a usage write failure.
       try {
         await ctx.apiKeys.recordUsage(plaintext);
@@ -112,6 +135,11 @@ export function authMiddleware(): MiddlewareHandler<AppEnv> {
       if (!account.organizationId) {
         throw unauthorized("Session account has no organization");
       }
+      // Team roles: accounts that created the org have no role (owner).
+      const role = account.role && isTeamRole(account.role) ? account.role : "owner";
+      assertScope(scopesForRole(role), c.req.method, c.req.path, `Your role (${role})`);
+      c.set("teamRole", role);
+      c.set("grantedScopes", scopesForRole(role));
       c.set("apiKeyId", `session:${account.id}`);
       c.set("organizationId", account.organizationId);
       await next();

@@ -14,7 +14,7 @@ import { NextResponse, type NextRequest } from "next/server";
 const SESSION_COOKIE = "sk_session";
 
 /** Paths reachable without a session (auth screens + their assets). */
-const PUBLIC_PREFIXES = ["/login", "/signup"];
+const PUBLIC_PREFIXES = ["/login", "/signup", "/invite"];
 
 export function middleware(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;
@@ -33,7 +33,8 @@ export function middleware(req: NextRequest): NextResponse {
   }
 
   // Already authenticated but on an auth screen → send to the dashboard home.
-  if (isPublic && hasSession) {
+  // (An invitation link still opens: a signed-in person may accept it.)
+  if (isPublic && hasSession && !pathname.startsWith("/invite")) {
     const url = req.nextUrl.clone();
     url.pathname = "/";
     url.search = "";

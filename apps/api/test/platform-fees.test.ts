@@ -80,7 +80,7 @@ beforeEach(async () => {
     await ctx.apiKeys.issue({
       organizationId: PLATFORM_ORG,
       customerId: "cus_platform",
-      productId: "prod_platform",
+      productId: "__platform__",
       entitlementId: "ent_platform",
       scopes: ["*"],
       env: "live",
@@ -90,7 +90,7 @@ beforeEach(async () => {
     await ctx.apiKeys.issue({
       organizationId: "org_other",
       customerId: "cus_other",
-      productId: "prod_other",
+      productId: "__platform__",
       entitlementId: "ent_other",
       scopes: ["*"],
       env: "live",

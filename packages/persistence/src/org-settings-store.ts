@@ -30,6 +30,33 @@ export interface OrgSettings {
    * (exact origins, e.g. "https://shop.example.com").
    */
   embedOrigins?: string[];
+  /** Team members and pending invitations (dashboard roles). */
+  team?: TeamSettings;
+}
+
+/** An account that belongs to the organization with a role. */
+export interface TeamMember {
+  accountId: string;
+  email: string;
+  role: string;
+  joinedAt: string;
+}
+
+/** A pending (or closed) invitation; only the token hash is stored. */
+export interface TeamInvitation {
+  id: string;
+  email: string;
+  role: string;
+  tokenHash: string;
+  status: "pending" | "accepted" | "expired" | "revoked";
+  expiresAt: string;
+  invitedBy: string;
+  createdAt: string;
+}
+
+export interface TeamSettings {
+  members: TeamMember[];
+  invitations: TeamInvitation[];
 }
 
 /** Sensible defaults applied when an org has no settings yet. */

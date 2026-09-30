@@ -82,4 +82,18 @@ export class ApiKeyService {
     await this.store.save(updated);
     return updated;
   }
+
+  /**
+   * Revoke a key by its id within an organization (the dashboard never holds
+   * plaintexts). Throws not_found for unknown ids or another org's key.
+   */
+  async revokeById(id: string, organizationId: string): Promise<ApiKey> {
+    const existing = (await this.store.listAll()).find((k) => k.id === id && k.organizationId === organizationId);
+    if (!existing) {
+      throw notFound("API key not found");
+    }
+    const updated = revoke(existing);
+    await this.store.save(updated);
+    return updated;
+  }
 }

@@ -303,3 +303,20 @@ export function getSession(token: string): Promise<AuthResult<{ account: Account
 export function logout(token: string): Promise<AuthResult<{ ok: true }>> {
   return authPost<{ ok: true }>("/v1/auth/logout", {}, token);
 }
+
+/** Result of accepting a team invitation. */
+export interface AcceptInvitationResult {
+  account: Account;
+  role: string;
+  sessionToken?: string;
+  requiresLogin?: boolean;
+}
+
+/** Accept a team invitation (new people set a password here). */
+export function acceptInvitation(input: {
+  token: string;
+  password?: string;
+  displayName?: string;
+}): Promise<AuthResult<AcceptInvitationResult>> {
+  return authPost<AcceptInvitationResult>("/v1/auth/invitations/accept", input);
+}

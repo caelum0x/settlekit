@@ -47,6 +47,7 @@ import { couponRoutes } from "./routes/coupons.js";
 import { invoiceRoutes } from "./routes/invoices.js";
 import { billingRoutes } from "./routes/billing.js";
 import { exportRoutes } from "./routes/exports.js";
+import { teamRoutes } from "./routes/team.js";
 import { refundRoutes } from "./routes/refunds.js";
 import { dunningRoutes } from "./routes/dunning.js";
 import { disputeRoutes } from "./routes/disputes.js";
@@ -201,6 +202,8 @@ export function createApp(ctx: AppContext): Hono<AppEnv> {
 
   // ---- Organization settings ---------------------------------------------
   v1.route("/settings", settingsRoutes());
+  // Team members, roles and invitations.
+  v1.route("/team", teamRoutes());
 
   // ---- Escrow (plan §26) -------------------------------------------------
   v1.route("/escrow", escrowRoutes());

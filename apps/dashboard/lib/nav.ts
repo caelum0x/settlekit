@@ -40,6 +40,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Bundles", href: "/bundles" },
       { label: "License keys", href: "/license-keys" },
       { label: "API keys", href: "/api-keys" },
+      { label: "Team", href: "/team" },
       { label: "Files", href: "/files" },
       { label: "Delivery runs", href: "/delivery/runs" },
       { label: "GitHub access", href: "/github" },

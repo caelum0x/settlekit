@@ -51,6 +51,7 @@
     "@settlekit/gateway": "workspace:*",
     "@settlekit/github": "workspace:*",
     "@settlekit/hyperliquid": "workspace:*",
+    "@settlekit/invitations": "workspace:*",
     "@settlekit/invoices": "workspace:*",
     "@settlekit/license-keys": "workspace:*",
     "@settlekit/marketplace-core": "workspace:*",

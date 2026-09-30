@@ -11,6 +11,7 @@
     { "path": "../../packages/common" },
     { "path": "../../packages/pricing" },
     { "path": "../../packages/exports" },
+    { "path": "../../packages/invitations" },
     { "path": "../../packages/solana" },
     { "path": "../../packages/zcash" },
     { "path": "../../packages/chains" },

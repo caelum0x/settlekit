@@ -1146,6 +1146,19 @@ curl -X POST http://localhost:8787/v1/coupons/LAUNCH20/redeem \
 
 ---
 
+## Access control: API key scopes and team roles
+
+Management API keys are platform keys (issued at sign-up or with `POST /v1/api-keys/platform`). Access keys delivered to buyers by a product (`api_key_create`) can never call the management API, whatever scopes the product gives them (403).
+
+Restricted keys: `POST /v1/api-keys/platform` with `{ "label": "Reporting job", "scopes": ["payments:read", "reports:read"] }` returns the secret once. Scopes are `<resource>:read` or `<resource>:write` (write includes read) over `products`, `checkout`, `payments`, `customers`, `invoices`, `webhooks`, `reports`, `settings`, `api_keys`, `team`, `agents`, `treasury` and `access` (the verify endpoints); `platform:admin` is full access. A caller can only grant scopes it holds. A missing scope answers 403 with `details.requiredScope`. `GET /v1/api-keys` lists the organization's keys (`kind`: platform or customer) and `POST /v1/api-keys/:id/revoke` revokes one.
+
+Team roles (dashboard sessions): owner and admin (full access; only an owner grants owner), developer (products, checkout, webhooks, API keys, invoices, agents; reads the rest), support (customers and payments; reads the rest except settings and keys), viewer (read only).
+
+- `GET /v1/team` lists members and open invitations.
+- `POST /v1/team/invitations` with `{ "email", "role" }` emails a 7-day link to `<DASHBOARD_PUBLIC_URL>/invite/<token>`; `POST /v1/team/invitations/:id/revoke` cancels it.
+- `PATCH /v1/team/members/:accountId` with `{ "role" }` and `DELETE /v1/team/members/:accountId` manage members; the last owner cannot be removed or demoted.
+- `POST /v1/auth/invitations/accept` (public) with `{ "token", "password"? }` joins the organization; new people set a password and get a session.
+
 ## Accounting exports
 
 `/v1/exports` — **Auth required.** Tenant-scoped CSV downloads. Optional `?from=YYYY-MM-DD&to=YYYY-MM-DD` (to is exclusive). Every text cell is guarded against spreadsheet formula injection.

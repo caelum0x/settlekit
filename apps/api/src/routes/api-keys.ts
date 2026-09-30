@@ -8,6 +8,8 @@
  */
 import { Hono } from "hono";
 import { z } from "zod";
+import { SettleKitError, validationError, type ApiKey } from "@settlekit/common";
+import { MANAGEMENT_SCOPES, PLATFORM_ADMIN_SCOPE, PLATFORM_KEY_PRODUCT, WILDCARD_SCOPE, isPlatformKey, scopesAllow } from "@settlekit/api-keys";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
 import { parseBody } from "../http/validate.js";
@@ -32,17 +34,70 @@ const revokeSchema = z.object({
   key: z.string().min(1),
 });
 
+
+const platformSchema = z.object({
+  /** Management scopes (e.g. payments:read, webhooks:write) or platform:admin. */
+  scopes: z
+    .array(z.enum([PLATFORM_ADMIN_SCOPE, ...MANAGEMENT_SCOPES] as [string, ...string[]]))
+    .min(1),
+  /** Who or what the key is for (shown in the dashboard). */
+  label: z.string().trim().min(1).max(60).default("API key"),
+  env: z.enum(["live", "test"]).default("live"),
+});
+
+function keyView(key: ApiKey) {
+  return { ...key, kind: isPlatformKey(key) ? ("platform" as const) : ("customer" as const) };
+}
+
 export function apiKeyRoutes(): Hono<AppEnv> {
   const app = new Hono<AppEnv>();
 
-  // List all API key records (merchant-wide; never exposes plaintext).
+  // List the organization's key records (never exposes plaintext).
   app.get("/", async (c) => {
-    return data(c, await c.get("ctx").apiKeys.list());
+    const org = requireOrg(c);
+    const keys = (await c.get("ctx").apiKeys.list()).filter((k) => k.organizationId === org);
+    return data(c, keys.map(keyView));
+  });
+
+  // Issue a platform key with restricted management scopes. A caller can only
+  // grant scopes it holds itself (no privilege escalation).
+  app.post("/platform", async (c) => {
+    const body = await parseBody(c, platformSchema);
+    const granted = c.get("grantedScopes") ?? [];
+    const exceeding = body.scopes.filter((s) => !scopesAllow(granted, s));
+    if (exceeding.length > 0) {
+      throw new SettleKitError({
+        code: "forbidden",
+        message: `You cannot grant scopes you do not hold: ${exceeding.join(", ")}`,
+        details: { scopes: exceeding },
+      });
+    }
+    const result = await c.get("ctx").apiKeys.issue({
+      organizationId: requireOrg(c),
+      customerId: body.label,
+      productId: PLATFORM_KEY_PRODUCT,
+      entitlementId: PLATFORM_KEY_PRODUCT,
+      scopes: body.scopes,
+      env: body.env,
+    });
+    return created(c, { apiKey: keyView(result.apiKey), plaintext: result.plaintext });
+  });
+
+  // Revoke a key of this organization by id.
+  app.post("/:id/revoke", async (c) => {
+    return data(c, keyView(await c.get("ctx").apiKeys.revokeById(c.req.param("id"), requireOrg(c))));
   });
 
   // Issue a new API key. Returns the one-time plaintext.
   app.post("/", async (c) => {
     const body = await parseBody(c, issueSchema);
+    // Customer access keys never carry management scopes (use /platform).
+    const management = body.scopes.filter((s) => s === WILDCARD_SCOPE || s === PLATFORM_ADMIN_SCOPE || (MANAGEMENT_SCOPES as readonly string[]).includes(s));
+    if (management.length > 0) {
+      throw validationError(`customer keys cannot carry management scopes (${management.join(", ")}); use POST /v1/api-keys/platform`, {
+        fields: ["scopes"],
+      });
+    }
     const result = await c.get("ctx").apiKeys.issue({
       organizationId: requireOrg(c),
       customerId: body.customerId,

@@ -214,7 +214,7 @@ beforeAll(async () => {
   const issued = await ctx.apiKeys.issue({
     organizationId: "org_intruder",
     customerId: "cus_intruder",
-    productId: "prod_intruder",
+    productId: "__platform__",
     entitlementId: "ent_intruder",
     scopes: ["*"],
     env: "live",

@@ -25,8 +25,11 @@ import { setCookie, deleteCookie } from "hono/cookie";
 import { z } from "zod";
 import { SettleKitError, generateId } from "@settlekit/common";
 import { signCookie } from "@settlekit/auth";
+import { PLATFORM_KEY_PRODUCT } from "@settlekit/api-keys";
 import type { Account, Session } from "@settlekit/auth";
 import type { AppEnv } from "../context.js";
+import { isInvitationOpen } from "@settlekit/invitations";
+import { hashInviteToken, loadTeam, saveTeam } from "./team.js";
 import { created, data } from "../http/respond.js";
 import { parseBody, unwrapResult } from "../http/validate.js";
 
@@ -38,7 +41,7 @@ const SESSION_COOKIE = "sk_session";
  * are org-scoped admin credentials (not tied to a sold product), so they reuse
  * the api-key store with this sentinel + the `platform:admin` scope.
  */
-const PLATFORM_SENTINEL = "__platform__";
+const PLATFORM_SENTINEL = PLATFORM_KEY_PRODUCT;
 
 const BEARER_RE = /^Bearer\s+(.+)$/i;
 
@@ -76,6 +79,13 @@ const walletLoginSchema = z.object({
 const walletLinkSchema = z.object({
   message: z.string().min(1),
   signature: z.string().regex(/^0x[0-9a-fA-F]{130}$/, "signature must be a 65-byte 0x-hex ECDSA signature"),
+});
+
+const acceptInviteSchema = z.object({
+  token: z.string().regex(/^[A-Za-z0-9_-]{1,64}\.[A-Za-z0-9_-]{16,64}$/, "invalid invitation link"),
+  /** Required when no account exists yet for the invited email. */
+  password: z.string().min(8).optional(),
+  displayName: z.string().trim().min(1).max(120).optional(),
 });
 
 const updateAccountSchema = z.object({
@@ -277,6 +287,62 @@ export function authRoutes(): Hono<AppEnv> {
   });
 
   // POST /logout -> revoke the session token (idempotent) and clear the cookie.
+  // POST /invitations/accept -> join the inviting organization with the
+  // invited role. The emailed token proves control of the address. A new
+  // person sets a password here; an existing account without an org joins
+  // and signs in as usual.
+  app.post("/invitations/accept", async (c) => {
+    const ctx = c.get("ctx");
+    const body = await parseBody(c, acceptInviteSchema);
+    const organizationId = body.token.slice(0, body.token.indexOf("."));
+    const team = await loadTeam(ctx, organizationId);
+    const hash = hashInviteToken(body.token);
+    const invitation = team.invitations.find((inv) => inv.tokenHash === hash);
+    if (!invitation || !isInvitationOpen(invitation)) {
+      throw new SettleKitError({ code: "not_found", message: "This invitation is invalid or has expired" });
+    }
+
+    let account = await ctx.auth.findAccountByEmail(invitation.email);
+    let sessionToken: string | undefined;
+    if (account) {
+      if (account.organizationId && account.organizationId !== organizationId) {
+        throw new SettleKitError({ code: "conflict", message: "This email already belongs to another SettleKit organization" });
+      }
+      account = unwrapResult(await ctx.auth.assignOrganization(account.id, organizationId, invitation.role));
+    } else {
+      if (!body.password) {
+        throw new SettleKitError({ code: "validation_error", message: "Choose a password (8+ characters) to create your account" });
+      }
+      const registered = unwrapResult(
+        await ctx.auth.registerWithPassword({
+          type: "merchant",
+          email: invitation.email,
+          password: body.password,
+          organizationId,
+          ...(body.displayName ? { displayName: body.displayName } : {}),
+        }),
+      );
+      account = unwrapResult(await ctx.auth.assignOrganization(registered.id, organizationId, invitation.role));
+      const login = unwrapResult(await ctx.auth.loginWithPassword({ email: invitation.email, password: body.password }));
+      setSessionCookie(c, login.session);
+      sessionToken = login.session.token;
+    }
+
+    const now = new Date().toISOString();
+    await saveTeam(ctx, organizationId, {
+      members: [
+        ...team.members.filter((m) => m.accountId !== account!.id),
+        { accountId: account.id, email: account.email, role: invitation.role, joinedAt: now },
+      ],
+      invitations: team.invitations.map((inv) => (inv.id === invitation.id ? { ...inv, status: "accepted" as const } : inv)),
+    });
+    return data(c, {
+      account,
+      role: invitation.role,
+      ...(sessionToken ? { sessionToken } : { requiresLogin: true }),
+    });
+  });
+
   app.post("/logout", async (c) => {
     const token = requireBearer(c.req.header("authorization"));
     unwrapResult(await c.get("ctx").auth.logout(token));
