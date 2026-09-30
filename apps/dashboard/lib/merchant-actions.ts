@@ -50,6 +50,8 @@ export interface ProductFormInput {
   name: string;
   description: string;
   priceUsd: string;
+  /** Currency of priceUsd (USD by default); set on create only. */
+  currency?: string;
   interval: "one_time" | "monthly" | "yearly";
   delivery: DeliveryInput;
   acceptedNetworks: Network[] | null;
@@ -61,6 +63,7 @@ export async function createProductAction(input: ProductFormInput): Promise<Acti
     name: input.name,
     description: input.description,
     priceUsd: input.priceUsd,
+    ...(input.currency && input.currency !== "USD" ? { currency: input.currency } : {}),
     interval: input.interval,
     delivery: input.delivery,
     ...(input.acceptedNetworks ? { acceptedNetworks: input.acceptedNetworks } : {}),

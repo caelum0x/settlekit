@@ -64,6 +64,13 @@ export interface Price {
   unitAmount?: string;
   /** For credit packs: number of credits granted when this price is purchased. */
   creditsGranted?: number;
+  /**
+   * Fiat pricing: the price is `displayAmount` in `displayCurrency` and
+   * settles in USDC at the live rate locked on each checkout session.
+   * `amount` then holds the USDC value at creation (reference only).
+   */
+  displayCurrency?: string;
+  displayAmount?: string;
   active: boolean;
   createdAt: string;
 }

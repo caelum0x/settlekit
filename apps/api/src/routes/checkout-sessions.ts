@@ -26,6 +26,7 @@ import { requireOrg, requireOwned } from "../http/tenant.js";
 import { payToFor } from "./payment-verification.js";
 import { lockZcashQuoteFor, saveZcashSession } from "./zcash-quote.js";
 import { applyPromo } from "../merchant/session-promo.js";
+import { lockFx, withFx } from "../fx/session-fx.js";
 import { withSessionTax } from "@settlekit/persistence";
 
 const NETWORKS = PAYMENT_NETWORKS as unknown as readonly [PaymentNetwork, ...PaymentNetwork[]];
@@ -149,11 +150,13 @@ export function checkoutRoutes(): Hono<AppEnv> {
       }),
     );
 
+    // Fiat-priced lines settle in USDC at a live rate locked on the session.
+    const fx = await lockFx(ctx.fxRates, priced, "");
     const draft = createCheckoutSession({
       organizationId: org,
       merchantId: body.merchantId,
       ...(body.customerId !== undefined ? { customerId: body.customerId } : {}),
-      items: priced,
+      items: fx.items,
       payToAddress: body.payToAddress,
       network: body.network as PaymentNetwork,
       ...(body.successUrl !== undefined ? { successUrl: body.successUrl } : {}),
@@ -163,8 +166,8 @@ export function checkoutRoutes(): Hono<AppEnv> {
     });
     const discounted =
       body.couponCode !== undefined
-        ? await applyPromo(ctx, draft, body.couponCode, new Map(priced.map((p) => [p.price.id, p.price])))
-        : draft;
+        ? await applyPromo(ctx, withFx(draft, fx.quote), body.couponCode, new Map(fx.items.map((p) => [p.price.id, p.price])))
+        : withFx(draft, fx.quote);
     const taxed = withSessionTax(discounted, (await ctx.orgSettings.get(org)).tax, {
       ...(body.billingCountry !== undefined ? { country: body.billingCountry } : {}),
       ...(body.vatId !== undefined ? { vatId: body.vatId } : {}),

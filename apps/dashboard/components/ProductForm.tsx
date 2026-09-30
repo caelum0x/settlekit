@@ -34,11 +34,14 @@ function initialKind(product?: MerchantProduct): DeliveryKind {
  * which of your networks this product accepts. Creating publishes the
  * product and gives it a reusable payment link.
  */
+const PRICE_CURRENCIES = ["USD", "EUR", "GBP", "CHF", "CAD", "AUD", "JPY", "SEK", "NOK", "DKK", "PLN", "INR", "BRL", "MXN", "SGD"];
+
 export function ProductForm({ networks, product, submitLabel, onSaved }: ProductFormProps) {
   const d = product?.delivery ?? {};
   const [name, setName] = useState(product?.name ?? "");
   const [description, setDescription] = useState(product?.description ?? "");
-  const [priceUsd, setPriceUsd] = useState(product?.priceUsd ?? "");
+  const [priceUsd, setPriceUsd] = useState(product?.displayAmount ?? product?.priceUsd ?? "");
+  const [currency, setCurrency] = useState(product?.displayCurrency ?? "USD");
   const [interval, setInterval] = useState<ProductFormInput["interval"]>(product?.interval ?? "one_time");
   const [kind, setKind] = useState<DeliveryKind>(initialKind(product));
   const [repo, setRepo] = useState(str(d.repoId));
@@ -90,6 +93,7 @@ export function ProductForm({ networks, product, submitLabel, onSaved }: Product
       name: name.trim(),
       description: description.trim(),
       priceUsd: priceUsd.trim().replace(/^\$/, ""),
+      ...(product ? {} : { currency }),
       interval,
       delivery: delivery(),
       acceptedNetworks: allNetworks ? null : networks.map((n) => n.network).filter((n) => picked.has(n)),
@@ -116,7 +120,7 @@ export function ProductForm({ networks, product, submitLabel, onSaved }: Product
           <input id="p-name" className="input" value={name} onChange={(e) => setName(e.target.value)} placeholder="Pro templates" required />
         </div>
         <div className="field">
-          <label htmlFor="p-price">Price (USD)</label>
+          <label htmlFor="p-price">Price ({currency})</label>
           <input
             id="p-price"
             className={`input${fieldError("priceUsd") ? " input-error" : ""}`}
@@ -127,9 +131,33 @@ export function ProductForm({ networks, product, submitLabel, onSaved }: Product
             required
           />
           <span className={fieldError("priceUsd") ? "field-error" : "field-hint"}>
-            {fieldError("priceUsd") ?? "Buyers pay the same amount in the stablecoin of the network they choose."}
+            {fieldError("priceUsd") ??
+              (currency === "USD"
+                ? "Buyers pay the same amount in the stablecoin of the network they choose."
+                : `Buyers pay in USDC at the live ${currency} rate, fixed when they open checkout.`)}
           </span>
         </div>
+        {!product ? (
+          <div className="field">
+            <label htmlFor="p-currency">Currency</label>
+            <select
+              id="p-currency"
+              className="input"
+              value={currency}
+              onChange={(e) => {
+                setCurrency(e.target.value);
+                if (e.target.value !== "USD") setInterval("one_time");
+              }}
+            >
+              {PRICE_CURRENCIES.map((c) => (
+                <option key={c} value={c}>
+                  {c}
+                </option>
+              ))}
+            </select>
+            <span className="field-hint">Subscriptions are priced in USD for now.</span>
+          </div>
+        ) : null}
       </div>
 
       <div className="field">

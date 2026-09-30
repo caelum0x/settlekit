@@ -15,6 +15,8 @@ export interface PaymentLinkSummary {
   description: string;
   merchantName: string;
   priceUsd: string;
+  displayCurrency?: string;
+  displayAmount?: string;
   interval: string;
   networks: { network: string; name: string; asset: string; env: string }[];
 }

@@ -171,6 +171,7 @@ import { loadAgentPayments, type AgentPaymentsRuntime } from "./agent-payments/c
 import type { OnchainBillingRuntime } from "@settlekit/onchain-billing";
 import { buildApiOnchainBilling } from "./onchain-billing/runtime.js";
 import { createWebhookOutbox } from "./webhooks/outbox.js";
+import { createFrankfurterSource, type FxRateSource } from "./fx/rates.js";
 import type { WebhookOutbox } from "@settlekit/persistence";
 
 /** The fully-wired set of services + stores shared across requests. */
@@ -304,6 +305,8 @@ export interface AppContext {
   readonly agentPayments: AgentPaymentsRuntime | null;
   /** Onchain subscriptions, Base escrow and per-network refunds; null when unconfigured. */
   readonly onchainBilling: OnchainBillingRuntime | null;
+  /** Live FX rates for fiat-priced products (frankfurter, ECB rates). */
+  readonly fxRates: FxRateSource;
 }
 
 /** Pick the Postgres implementation when `db` is set, else the in-memory one. */
@@ -565,6 +568,10 @@ export async function createContext(): Promise<AppContext> {
     payoutStore,
     platformFeeSchedule,
     agentPayments: loadAgentPayments(process.env, db ? { nonceStore: new PgX402NonceStore(db) } : {}),
+    fxRates: createFrankfurterSource({
+      ...(process.env.FX_RATES_URL ? { baseUrl: process.env.FX_RATES_URL } : {}),
+      ...(process.env.FX_RATES_TTL_SECONDS ? { ttlMs: Number(process.env.FX_RATES_TTL_SECONDS) * 1000 } : {}),
+    }),
   };
   return { ...base, onchainBilling: await buildApiOnchainBilling(base) };
 }

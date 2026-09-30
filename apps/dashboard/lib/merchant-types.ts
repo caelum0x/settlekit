@@ -64,6 +64,9 @@ export interface MerchantProduct {
   description: string;
   status: "draft" | "active" | "archived";
   priceUsd: string | null;
+  /** Set when the product is priced in another fiat currency. */
+  displayCurrency?: string | null;
+  displayAmount?: string | null;
   priceId: string | null;
   interval: "one_time" | "monthly" | "yearly" | null;
   deliveryKind: DeliveryKind | "other";

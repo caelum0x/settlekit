@@ -8,7 +8,7 @@
  * Invoice sessions reuse the paid invoice itself. The checkout session id is
  * the capability (the same one the hosted checkout's success page uses).
  */
-import { addMoney, money, multiplyMoney, notFound, type CheckoutSession, type Payment } from "@settlekit/common";
+import { addMoney, effectiveUnitAmount, money, multiplyMoney, notFound, type CheckoutSession, type Payment } from "@settlekit/common";
 import { renderInvoicePdf, type Invoice, type InvoicePdfOptions } from "@settlekit/invoices";
 import type { AppContext } from "../context.js";
 import { invoiceMerchant, reconcileInvoiceWithPayments } from "./invoice-payments.js";
@@ -37,7 +37,7 @@ async function receiptDocument(ctx: AppContext, session: CheckoutSession, paymen
       return {
         description: product?.name ?? "Purchase",
         quantity: line.quantity,
-        unitAmount: money(price?.amount ?? "0", price?.currency ?? payment.amount.currency),
+        unitAmount: money(price ? effectiveUnitAmount(price, session.fxQuote) : "0", price?.currency ?? payment.amount.currency),
       };
     }),
   );

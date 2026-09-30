@@ -7,7 +7,7 @@
  */
 import { Hono, type Context } from "hono";
 import { z } from "zod";
-import { generateId, type Price, type Product } from "@settlekit/common";
+import { FIAT_CURRENCIES, fiatToUsdc, generateId, type Price, type Product } from "@settlekit/common";
 import { createProductDraft, publishProduct } from "@settlekit/product-catalog";
 import type { AppEnv } from "../context.js";
 import { created, data } from "../http/respond.js";
@@ -61,14 +61,34 @@ const createProductSchema = z.object({
   metadata: z.record(z.unknown()).default({}),
 });
 
-const createPriceSchema = z.object({
-  amount: z.string().regex(/^\d+(\.\d+)?$/, "amount must be a decimal string"),
-  currency: z.literal("USDC").default("USDC"),
-  interval: z.enum(["one_time", "monthly", "yearly"]).default("one_time"),
-  usageBased: z.boolean().default(false),
-  unitAmount: z.string().regex(/^\d+(\.\d+)?$/).optional(),
-  creditsGranted: z.number().int().positive().optional(),
-});
+const createPriceSchema = z
+  .object({
+    /** USDC amount; optional when the price is set in a fiat currency. */
+    amount: z.string().regex(/^\d+(\.\d+)?$/, "amount must be a decimal string").optional(),
+    currency: z.literal("USDC").default("USDC"),
+    interval: z.enum(["one_time", "monthly", "yearly"]).default("one_time"),
+    usageBased: z.boolean().default(false),
+    unitAmount: z.string().regex(/^\d+(\.\d+)?$/).optional(),
+    creditsGranted: z.number().int().positive().optional(),
+    /** Price in a fiat currency; settles in USDC at the live rate per checkout. */
+    displayCurrency: z.enum(FIAT_CURRENCIES).optional(),
+    displayAmount: z.string().regex(/^\d+(\.\d{1,2})?$/, "displayAmount must be like 29 or 29.99").optional(),
+  })
+  .superRefine((body, ctx) => {
+    const fiat = body.displayCurrency !== undefined || body.displayAmount !== undefined;
+    if (fiat && (body.displayCurrency === undefined || body.displayAmount === undefined)) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["displayAmount"], message: "set displayCurrency and displayAmount together" });
+    }
+    if (!fiat && body.amount === undefined) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["amount"], message: "amount is required" });
+    }
+    if (fiat && body.interval !== "one_time") {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["displayCurrency"], message: "subscriptions are priced in USD for now" });
+    }
+    if (fiat && body.usageBased) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ["usageBased"], message: "usage prices are set in USDC" });
+    }
+  });
 
 /** Load a product by id, requiring it belongs to the caller's org (else 404). */
 async function ownedProduct(c: Context<AppEnv>, id: string): Promise<Product> {
@@ -130,10 +150,16 @@ export function productRoutes(): Hono<AppEnv> {
     await ownedProduct(c, productId);
 
     const body = await parseBody(c, createPriceSchema);
+    const fiat = body.displayCurrency !== undefined && body.displayAmount !== undefined;
+    // USDC reference value at creation; each checkout re-converts at the live rate.
+    const amount = fiat
+      ? fiatToUsdc(body.displayAmount!, (await ctx.fxRates.usdPer(body.displayCurrency!)).rate)
+      : body.amount!;
     const price: Price = {
       id: generateId("price"),
       productId,
-      amount: body.amount,
+      amount,
+      ...(fiat ? { displayCurrency: body.displayCurrency!, displayAmount: body.displayAmount! } : {}),
       currency: body.currency,
       interval: body.interval,
       usageBased: body.usageBased,

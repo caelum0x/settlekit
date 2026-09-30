@@ -13,7 +13,10 @@
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import {
+  FIAT_CURRENCIES,
+  fiatToUsdc,
   generateId,
+  type FiatCurrency,
   validationError,
   type DeliveryMode,
   type PaymentNetwork,
@@ -62,15 +65,25 @@ export const deliverySchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("access"), accessUrl: httpsUrl.optional().or(z.literal("")) }),
 ]);
 
-export const quickProductSchema = z.object({
+export const quickProductSchema = z
+  .object({
   name: z.string().trim().min(1).max(120),
   description: z.string().trim().max(2000).default(""),
   priceUsd: usd,
+  /**
+   * Currency of `priceUsd` (default USD). Any other fiat currency settles in
+   * USDC at the live rate locked on each checkout.
+   */
+  currency: z.enum(FIAT_CURRENCIES).default("USD"),
   interval: z.enum(["one_time", "monthly", "yearly"]).default("one_time"),
   delivery: deliverySchema,
   /** Subset of the merchant's networks this product accepts (all when omitted). */
   acceptedNetworks: z.array(networkEnum).optional(),
-});
+  })
+  .refine((body) => body.currency === "USD" || body.interval === "one_time", {
+    message: "subscriptions are priced in USD for now",
+    path: ["currency"],
+  });
 
 export const productPatchSchema = z.object({
   name: z.string().trim().min(1).max(120).optional(),
@@ -90,6 +103,9 @@ export interface MerchantProductView {
   description: string;
   status: Product["status"];
   priceUsd: string | null;
+  /** Fiat price when the product is priced in another currency. */
+  displayCurrency: string | null;
+  displayAmount: string | null;
   priceId: string | null;
   interval: Price["interval"] | null;
   deliveryKind: DeliveryKind | "other";
@@ -160,6 +176,8 @@ export async function productView(ctx: AppContext, product: Product): Promise<Me
     description: product.description,
     status: product.status,
     priceUsd: price?.amount ?? null,
+    displayCurrency: price?.displayCurrency ?? null,
+    displayAmount: price?.displayAmount ?? null,
     priceId: price?.id ?? null,
     interval: price?.interval ?? null,
     deliveryKind: kindOf(product),
@@ -168,6 +186,22 @@ export async function productView(ctx: AppContext, product: Product): Promise<Me
     slug: slugOf(product),
     createdAt: product.createdAt,
   };
+}
+
+/**
+ * A price in USD (USDC 1:1) or another fiat currency. A fiat price keeps its
+ * display amount; `amount` is the USDC value at the current rate (reference).
+ */
+async function priceIn(
+  ctx: AppContext,
+  productId: string,
+  amount: string,
+  currency: FiatCurrency,
+  interval: Price["interval"],
+): Promise<Price> {
+  if (currency === "USD") return newPrice(productId, amount, interval);
+  const { rate } = await ctx.fxRates.usdPer(currency);
+  return { ...newPrice(productId, fiatToUsdc(amount, rate), interval), displayCurrency: currency, displayAmount: amount };
 }
 
 function newPrice(productId: string, amount: string, interval: Price["interval"]): Price {
@@ -198,7 +232,7 @@ export async function createQuickProduct(ctx: AppContext, organizationId: string
       ...(input.acceptedNetworks ? { acceptedNetworks: input.acceptedNetworks } : {}),
     },
   });
-  await ctx.prices.save(newPrice(draft.id, input.priceUsd, input.interval));
+  await ctx.prices.save(await priceIn(ctx, draft.id, input.priceUsd, input.currency, input.interval));
   const now = new Date().toISOString();
   return ctx.products.save({ ...draft, status: "active", updatedAt: now });
 }
@@ -207,9 +241,11 @@ export async function createQuickProduct(ctx: AppContext, organizationId: string
 export async function updateProduct(ctx: AppContext, product: Product, patch: ProductPatch): Promise<Product> {
   if (patch.priceUsd !== undefined) {
     const current = await activePrice(ctx, product.id);
-    if (current?.amount !== patch.priceUsd) {
+    const currency = (current?.displayCurrency ?? "USD") as FiatCurrency;
+    const unchanged = currency === "USD" ? current?.amount === patch.priceUsd : current?.displayAmount === patch.priceUsd;
+    if (!unchanged) {
       if (current) await ctx.prices.save({ ...current, active: false });
-      await ctx.prices.save(newPrice(product.id, patch.priceUsd, current?.interval ?? "one_time"));
+      await ctx.prices.save(await priceIn(ctx, product.id, patch.priceUsd, currency, current?.interval ?? "one_time"));
     }
   }
   let metadata: Record<string, unknown> = { ...product.metadata };

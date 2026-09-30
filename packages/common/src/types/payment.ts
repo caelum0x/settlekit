@@ -1,3 +1,4 @@
+import type { FxQuote } from "../fx.js";
 import type { Money } from "../money.js";
 
 /**
@@ -187,6 +188,8 @@ export interface CheckoutSession {
    * net + tax; the buyer's billing country / VAT ID pick the rate.
    */
   tax?: CheckoutTax;
+  /** Fiat-priced lines: the rate locked for this session (see FxQuote). */
+  fxQuote?: FxQuote;
   successUrl?: string;
   cancelUrl?: string;
   /** ISO timestamp after which the session can no longer be paid. */

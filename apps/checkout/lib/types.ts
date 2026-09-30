@@ -77,6 +77,8 @@ export interface CheckoutSessionView {
   promoAllowed: boolean;
   /** Whether the buyer can still change billing country / VAT ID. */
   taxEditable: boolean;
+  /** Fiat price and the rate locked for this checkout, if fiat-priced. */
+  fx: { currency: string; amount: string; rate: string; rateDate: string; source: string } | null;
   /** Tax included in `amount` (seller charges tax), else null. */
   tax: {
     label: string;

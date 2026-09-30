@@ -7,7 +7,7 @@
  * that. A Zcash quote locked at the old price is dropped and re-locked at the
  * new one. Invoices and payment requests take no promo codes.
  */
-import { money, multiplyMoney, type CheckoutSession } from "@settlekit/common";
+import { effectiveUnitAmount, money, multiplyMoney, type CheckoutSession } from "@settlekit/common";
 import { quoteSessionCoupon, withSessionDiscount, type SessionLine } from "@settlekit/persistence";
 
 import { CheckoutError } from "./errors";
@@ -23,7 +23,7 @@ async function sessionLines(session: CheckoutSession, deps: StoreDeps): Promise<
     if (!price || price.usageBased) continue;
     lines.push({
       productId: line.productId ?? price.productId,
-      amount: multiplyMoney(money(price.amount, price.currency), line.quantity),
+      amount: multiplyMoney(money(effectiveUnitAmount(price, session.fxQuote), price.currency), line.quantity),
     });
   }
   return lines;

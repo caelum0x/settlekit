@@ -49,10 +49,15 @@ export default async function PaymentLinkPage({ params, searchParams }: PageProp
         <div className="total">
           <span>Price</span>
           <span>
-            ${link.priceUsd}
+            {link.displayCurrency && link.displayAmount ? `${link.displayAmount} ${link.displayCurrency}` : `$${link.priceUsd}`}
             {INTERVAL_LABEL[link.interval] ?? ""}
           </span>
         </div>
+        {link.displayCurrency ? (
+          <p className="muted" style={{ marginTop: 8 }}>
+            Paid in USDC at the live exchange rate, about {link.priceUsd} USDC now.
+          </p>
+        ) : null}
         {INTERVAL_LABEL[link.interval] ? (
           <p className="muted" style={{ marginTop: 8 }}>
             Subscribe with one wallet approval capped at the price per period (or renewal invoices by email). Cancel any

@@ -589,6 +589,10 @@ curl http://localhost:8787/v1/checkout-sessions/cs_2b7e... -H "Authorization: Be
 
 Add `"couponCode": "LAUNCH20"` to apply one of your coupons. The session `amount` becomes the discounted total (what the buyer pays and what onchain verification expects) and `discount` records the code, list subtotal and amount off. The redemption is counted once, when the payment confirms. Codes that give a free trial, cover the whole price, or belong to another seller are refused with a 400. Payment links accept the same through `/l/<slug>?promo=CODE`, and buyers can enter a code on the hosted checkout until a payment is recorded.
 
+#### Fiat pricing
+
+A price can be set in a fiat currency: `POST /v1/products/:id/prices` with `{ "displayCurrency": "EUR", "displayAmount": "29" }` (or `currency: "EUR"` on `POST /v1/merchant/products`). Checkout converts it to USDC at the live ECB rate (frankfurter service, `FX_RATES_URL`), rounded to the cent, and locks the rate on the session as `fxQuote` (currency, fiat amount, rate, USDC amount, rate date) until the session expires, so the buyer pays exactly the quoted USDC. Items in two different fiat currencies cannot share a checkout, subscriptions stay in USD, and checkout answers 503 when no valid rate is available.
+
 #### Tax
 
 When the seller turns tax on (`POST /v1/settings` with `tax: { enabled, label, sellerCountry, taxId, legalName, rates: { "DE": 1900 }, defaultRateBps, reverseCharge }`, rates in basis points), sessions add tax on top of the net price (after any promo) and `tax` records the rate, jurisdiction, net and tax amounts. `billingCountry` (ISO alpha-2) and `vatId` pick the buyer's rate; without them the seller's own country rate applies. EU business buyers in another member state with a VAT ID of the right shape get 0% (reverse charge) when the seller enables it. VAT IDs are checked for shape only. Buyers can change country and VAT ID on the hosted checkout until a payment is recorded.

@@ -3,6 +3,7 @@
  * pages + client consume. Keeps the route handlers thin.
  */
 import {
+  effectiveUnitAmount,
   money,
   multiplyMoney,
   type Payment,
@@ -32,7 +33,8 @@ import { recurringInterval } from "./subscription-checkout";
 function buildLines(resolved: ResolvedSession): OrderLine[] {
   const { session, product, price } = resolved;
   return session.lineItems.map((line) => {
-    const unit = money(price.amount, price.currency);
+    // Fiat-priced lines show the USDC amount at the session's locked rate.
+    const unit = money(effectiveUnitAmount(price, session.fxQuote), price.currency);
     return {
       priceId: line.priceId,
       productId: line.productId,
@@ -109,6 +111,15 @@ export function buildSessionView(
           reverseCharge: session.tax.reverseCharge,
           country: session.tax.country ?? null,
           vatId: session.tax.vatId ?? null,
+        }
+      : null,
+    fx: session.fxQuote
+      ? {
+          currency: session.fxQuote.currency,
+          amount: session.fxQuote.amount,
+          rate: session.fxQuote.rate,
+          rateDate: session.fxQuote.rateDate,
+          source: session.fxQuote.source,
         }
       : null,
     taxEditable: session.tax !== undefined && session.invoiceId === undefined && session.status === "open" && !expired,

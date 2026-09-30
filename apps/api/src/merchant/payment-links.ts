@@ -7,7 +7,7 @@
  * while each buyer still gets their own single-use session (own Solana Pay
  * reference, own Zcash quote, own payer binding).
  */
-import { notFound, validationError, type CheckoutSession, type PaymentNetwork, type Product } from "@settlekit/common";
+import { fiatToUsdc, isFiatCurrency, notFound, validationError, type CheckoutSession, type PaymentNetwork, type Product } from "@settlekit/common";
 import { createCheckoutSession } from "@settlekit/payments";
 import type { AppContext } from "../context.js";
 import { withNetworkBindings } from "../routes/checkout-sessions.js";
@@ -15,6 +15,7 @@ import { saveZcashSession } from "../routes/zcash-quote.js";
 import { payToFor } from "../routes/payment-verification.js";
 import { loadProfile } from "./profile.js";
 import { applyPromo } from "./session-promo.js";
+import { lockFx, withFx } from "../fx/session-fx.js";
 import { withSessionTax } from "@settlekit/persistence";
 import { networkCatalog } from "./network-catalog.js";
 import { activePrice, findBySlug, merchantIdFor } from "./products.js";
@@ -27,6 +28,9 @@ export interface PaymentLinkSummary {
   description: string;
   merchantName: string;
   priceUsd: string;
+  /** Set when the price is in a fiat currency (settles in USDC at checkout). */
+  displayCurrency?: string;
+  displayAmount?: string;
   interval: string;
   networks: { network: PaymentNetwork; name: string; asset: string; env: string }[];
 }
@@ -35,6 +39,8 @@ interface ResolvedLink {
   product: Product;
   priceId: string;
   priceUsd: string;
+  displayCurrency?: string;
+  displayAmount?: string;
   interval: string;
   merchantName: string;
   accepted: PaymentNetwork[];
@@ -75,6 +81,9 @@ async function resolveLink(ctx: AppContext, slug: string): Promise<ResolvedLink>
     product,
     priceId: price.id,
     priceUsd: price.amount,
+    ...(price.displayCurrency && price.displayAmount
+      ? { displayCurrency: price.displayCurrency, displayAmount: price.displayAmount }
+      : {}),
     interval: price.interval,
     merchantName,
     accepted,
@@ -83,7 +92,15 @@ async function resolveLink(ctx: AppContext, slug: string): Promise<ResolvedLink>
 }
 
 export async function linkSummary(ctx: AppContext, slug: string): Promise<PaymentLinkSummary> {
-  const link = await resolveLink(ctx, slug);
+  const resolved = await resolveLink(ctx, slug);
+  // Fiat prices show today's USDC amount (the stored one is only a reference).
+  const link =
+    resolved.displayCurrency && resolved.displayAmount && isFiatCurrency(resolved.displayCurrency)
+      ? await ctx.fxRates
+          .usdPer(resolved.displayCurrency)
+          .then(({ rate }) => ({ ...resolved, priceUsd: fiatToUsdc(resolved.displayAmount!, rate) }))
+          .catch(() => resolved)
+      : resolved;
   const catalog = networkCatalog();
   return {
     slug,
@@ -92,6 +109,7 @@ export async function linkSummary(ctx: AppContext, slug: string): Promise<Paymen
     description: link.product.description,
     merchantName: link.merchantName,
     priceUsd: link.priceUsd,
+    ...(link.displayCurrency ? { displayCurrency: link.displayCurrency, displayAmount: link.displayAmount } : {}),
     interval: link.interval,
     networks: link.accepted.flatMap((n) => {
       const row = catalog.find((r) => r.network === n);
@@ -137,17 +155,20 @@ export async function openLinkSession(
   const payToByNetwork = Object.fromEntries(link.accepted.map((n) => [n, link.payTo[n]!])) as Partial<
     Record<PaymentNetwork, string>
   >;
-  const draft = createCheckoutSession({
+  const fx = await lockFx(ctx.fxRates, [{ lineItem: { productId: link.product.id, priceId: price.id, quantity: 1 }, price }], "");
+  const fxPrice = fx.items[0]!.price;
+  const created = createCheckoutSession({
     organizationId: link.product.organizationId,
     merchantId: merchantIdFor(link.product.organizationId),
-    items: [{ lineItem: { productId: link.product.id, priceId: price.id, quantity: 1 }, price }],
+    items: fx.items,
     payToAddress: payToByNetwork[network]!,
     network,
     ttlDays: 1,
     ...(options.successUrl ? { successUrl: options.successUrl } : {}),
     ...(options.cancelUrl ? { cancelUrl: options.cancelUrl } : {}),
   });
-  const discounted = options.promo ? await applyPromo(ctx, draft, options.promo, new Map([[price.id, price]])) : draft;
+  const draft = withFx(created, fx.quote);
+  const discounted = options.promo ? await applyPromo(ctx, draft, options.promo, new Map([[price.id, fxPrice]])) : draft;
   // The seller's default rate applies until the buyer sets their country.
   const taxed = withSessionTax(discounted, (await ctx.orgSettings.get(link.product.organizationId)).tax);
   const session = await bindSession(ctx, { ...taxed, acceptedNetworks: link.accepted, payToByNetwork });

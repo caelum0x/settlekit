@@ -71,6 +71,12 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
         <h2>Order summary</h2>
         <p className="merchant">Sold by {session.merchantName}</p>
         <OrderSummary lines={session.lines} total={session.amount} discount={session.discount} tax={session.tax} />
+        {session.fx ? (
+          <p className="muted" style={{ marginTop: 6 }}>
+            Priced at {session.fx.amount} {session.fx.currency}, charged in USDC at 1 {session.fx.currency} ={" "}
+            {session.fx.rate} USD ({session.fx.source}, {session.fx.rateDate}), fixed for this checkout.
+          </p>
+        ) : null}
         {searchParams.promo === "refused" && !session.discount ? (
           <p className="field-error" role="status">
             The promo code from your link could not be applied, so the full price is shown.
