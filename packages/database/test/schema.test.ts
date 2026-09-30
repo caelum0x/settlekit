@@ -140,6 +140,7 @@ const EXPECTED_TABLE_NAMES = [
   "onchain_subscriptions",
   "onchain_charges",
   "onchain_escrow_payments",
+  "x402_nonces",
   "lepton_sources",
   "lepton_citations",
   "lepton_royalty_legs",
@@ -187,10 +188,15 @@ describe("schema table coverage", () => {
 
 describe("column presence", () => {
   it("gives every table an id primary key and timestamps", () => {
+    // x402_nonces is keyed by the claimed authorization itself (the primary
+    // key is the atomic replay claim), so it has `key` instead of `id`.
+    const naturalKeys: Record<string, string> = { x402_nonces: "key" };
     for (const table of Object.values(schema)) {
       const columns = getTableColumns(table);
-      expect(columns.id, `${getTableName(table)} missing id`).toBeDefined();
-      expect(columns.id.primary).toBe(true);
+      const pk = naturalKeys[getTableName(table)] ?? "id";
+      const pkColumn = (columns as Record<string, (typeof columns)[keyof typeof columns]>)[pk];
+      expect(pkColumn, `${getTableName(table)} missing ${pk}`).toBeDefined();
+      expect(pkColumn.primary).toBe(true);
       expect(
         columns.createdAt,
         `${getTableName(table)} missing createdAt`,

@@ -4,6 +4,7 @@
  * injectable EVM RPCs (fake receipts) and a fake Zcash explorer + price
  * sources. No network.
  */
+import { vi } from "vitest";
 import { InMemoryEntitlementRepository } from "@settlekit/entitlements";
 import {
   InMemoryCheckoutRepository,
@@ -38,6 +39,11 @@ export const ZEC_PAY_TO = "t1Ne88F8ouCV92brDXNBB47a85brvnEHE8g";
 export const SOL_PAY_TO = "9WzDXwBbmkg8ZTbNMqUxvQRAyrZzDsGYdLVL9zYtAWWM";
 export const ZEC_PAYER = "t1gH8kwDu1euQky74m2CS15vtopntebdKX5";
 export const SESSION_CREATED = new Date("2026-09-29T10:00:00.000Z");
+
+// Fixtures are pinned to SESSION_CREATED, but some code paths read the wall
+// clock (session expiry, quote locks). Pin Date so these tests do not expire
+// once the real clock moves past the fixture's checkout window.
+vi.useFakeTimers({ toFake: ["Date"], now: new Date(SESSION_CREATED.getTime() + 30_000) });
 
 export const product: Product = {
   id: "prod_license",
