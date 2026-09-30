@@ -131,9 +131,11 @@ export function authRoutes(): Hono<AppEnv> {
     // A new merchant gets its own organization (its tenant boundary). Customers
     // join an explicitly-provided org. The org id is attached to the account so
     // the merchant's platform key — and every scoped read/write — is isolated.
+    // A merchant ALWAYS gets a fresh org: a caller-supplied id would let anyone
+    // join (and receive an admin key for) an existing seller's organization.
+    // Teammates join through signed invitations instead.
     const organizationId =
-      body.organizationId ??
-      (body.type === "merchant" ? generateId("organization") : undefined);
+      body.type === "merchant" ? generateId("organization") : body.organizationId;
 
     const account: Account = unwrapResult(
       await ctx.auth.registerWithPassword({

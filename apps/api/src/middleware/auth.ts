@@ -132,6 +132,14 @@ export function authMiddleware(): MiddlewareHandler<AppEnv> {
     const session = await ctx.auth.authenticateSession(plaintext);
     if (session.ok) {
       const { account } = session.value;
+      // Customer (buyer portal) accounts carry their seller's org id but are
+      // never management credentials.
+      if (account.type !== "merchant") {
+        throw new SettleKitError({
+          code: "forbidden",
+          message: "Customer accounts cannot call the SettleKit management API",
+        });
+      }
       if (!account.organizationId) {
         throw unauthorized("Session account has no organization");
       }

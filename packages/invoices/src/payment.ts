@@ -87,6 +87,35 @@ export interface InvoiceSettlement {
   network: string;
   txHash?: string;
   confirmedAt?: string;
+  /** Organization the payment belongs to; must match the invoice's. */
+  organizationId?: string;
+}
+
+/**
+ * Metadata keys SettleKit owns (pay link, session bindings, settlement facts,
+ * fee statement markers). Callers may never set them through the API.
+ */
+export const RESERVED_INVOICE_METADATA_KEYS: readonly string[] = [
+  PAY_TOKEN_KEY,
+  SESSION_IDS_KEY,
+  PAYER_EMAIL_KEY,
+  INVOICE_KIND_KEY,
+  "merchantOrgId",
+  "period",
+  "coverageStart",
+  "coverageEnd",
+  "paymentId",
+  "paidCheckoutSessionId",
+  "paidNetwork",
+  "paidTxHash",
+  "settledAt",
+];
+
+/** Caller-supplied metadata without the keys SettleKit owns. */
+export function withoutReservedMetadata(metadata: Record<string, string> | undefined): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(metadata ?? {}).filter(([key]) => !RESERVED_INVOICE_METADATA_KEYS.includes(key)),
+  );
 }
 
 /**
@@ -97,6 +126,9 @@ export interface InvoiceSettlement {
 export function settleInvoice(invoice: Invoice, payment: InvoiceSettlement, now: Date = new Date()): Invoice {
   if (!checkoutSessionIdsOf(invoice).includes(payment.checkoutSessionId)) {
     throw new Error("payment does not belong to a checkout session of this invoice");
+  }
+  if (payment.organizationId !== undefined && payment.organizationId !== invoice.organizationId) {
+    throw new Error("payment belongs to another organization");
   }
   if (toBaseUnits(payment.amount) < toBaseUnits(invoice.total.amount)) {
     throw new Error(`payment ${payment.amount} is below the invoice total ${invoice.total.amount}`);

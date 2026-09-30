@@ -1,8 +1,9 @@
 /**
  * Runs the monthly fee statements without an operator click: shortly after
  * boot and then every few hours, the API issues the previous month's
- * statements (idempotent per merchant and period, so repeated ticks and
- * several instances are safe). Only active when platform billing is
+ * statements (idempotent per merchant and period: runs in one process are
+ * serialized, and a duplicate raced in by another instance is voided before
+ * it is sent). Only active when platform billing is
  * configured; `PLATFORM_BILLING_AUTORUN=0` turns it off.
  */
 import { previousPeriod } from "@settlekit/platform-billing";

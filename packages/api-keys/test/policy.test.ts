@@ -9,6 +9,9 @@ describe("management scope policy", () => {
     expect(requiredScope("GET", "/v1/exports/xero.csv")).toBe("reports:read");
     expect(requiredScope("POST", "/v1/merchant/profile")).toBe("settings:write");
     expect(requiredScope("POST", "/v1/merchant/products")).toBe("products:write");
+    // Refund to payer (confirm / cancel) is a payments action, like the refund itself.
+    expect(requiredScope("POST", "/v1/merchant/refunds/ref_1/confirm")).toBe("payments:write");
+    expect(requiredScope("POST", "/v1/merchant/payments/pay_1/refund/prepare")).toBe("payments:write");
     expect(requiredScope("POST", "/v1/entitlements/verify")).toBe("access:read");
     expect(requiredScope("POST", "/v1/api-keys/verify")).toBe("access:read");
     expect(requiredScope("POST", "/v1/api-keys")).toBe("api_keys:write");

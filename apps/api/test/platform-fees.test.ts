@@ -11,7 +11,7 @@ import type { SettlementVerifier } from "@settlekit/chains";
 import { DEFAULT_ORG_ID } from "@settlekit/persistence";
 import { createApp } from "../src/app.js";
 import { createContext, type AppContext, type AppEnv } from "../src/context.js";
-import { loadPlatformBillingConfig } from "../src/platform/fee-statements.js";
+import { issueStatement, loadPlatformBillingConfig, runStatements } from "../src/platform/fee-statements.js";
 
 const BOOTSTRAP = "test-bootstrap-key";
 const PLATFORM_ORG = "org_platform";
@@ -192,6 +192,45 @@ describe("platform fee statements", () => {
     expect(after.json.data.statements[0].status).toBe("paid");
     expect(after.json.data.standing).toBe("good");
     expect((await quickProduct("Delta")).status).toBe(201);
+  });
+
+  it("issues one statement when runs overlap and sends a draft left by an interrupted run", async () => {
+    expect((await quickProduct("Overlap")).status).toBe(201);
+    await settledPayment("400", "2025-05-10T00:00:00.000Z");
+    const cfg = loadPlatformBillingConfig()!;
+    const now = new Date("2025-06-02T00:00:00.000Z");
+    const outcomes = await Promise.all([
+      runStatements(ctx, cfg, "2025-05", now),
+      runStatements(ctx, cfg, "2025-05", now),
+      runStatements(ctx, cfg, "2025-05", now),
+    ]);
+    const statuses = outcomes.map((o) => o.results[0]!.status).sort();
+    expect(statuses).toEqual(["exists", "exists", "issued"]);
+    const open = (await ctx.invoices.list()).filter(
+      (inv) => inv.metadata.kind === "platform_fee" && inv.metadata.period === "2025-05" && inv.status !== "void",
+    );
+    expect(open).toHaveLength(1);
+    expect(open[0]!.status).toBe("open");
+
+    // A second instance raced in a duplicate draft: it loses to the sent one.
+    const loser = await issueStatement(ctx, cfg, DEFAULT_ORG_ID, "2025-05", now);
+    expect(loser.status).toBe("exists");
+
+    // A draft left by a crash between create and send is sent on the next run.
+    await settledPayment("300", "2025-06-10T00:00:00.000Z");
+    const [customer] = await ctx.customers.list((c) => c.organizationId === PLATFORM_ORG);
+    const draft = await ctx.invoices.create({
+      organizationId: PLATFORM_ORG,
+      customerId: customer!.id,
+      lineItems: [{ description: "June", quantity: 1, unitAmount: money("3") }],
+      metadata: { kind: "platform_fee", merchantOrgId: DEFAULT_ORG_ID, period: "2025-06", coverageEnd: "2025-07-01T00:00:00.000Z" },
+    });
+    if (!draft.ok) throw draft.error;
+    const resumed = await issueStatement(ctx, cfg, DEFAULT_ORG_ID, "2025-06", new Date("2025-07-02T00:00:00.000Z"));
+    expect(resumed.status).toBe("issued");
+    if (resumed.status !== "issued") throw new Error("not issued");
+    expect(resumed.invoice.id).toBe(draft.value.id);
+    expect(resumed.invoice.status).toBe("open");
   });
 
   it("carries fees below the minimum into the next statement and skips test accounts", async () => {

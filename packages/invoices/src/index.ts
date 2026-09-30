@@ -51,6 +51,8 @@ export {
   unpayableReason,
   settleInvoice,
   reconcileInvoice,
+  RESERVED_INVOICE_METADATA_KEYS,
+  withoutReservedMetadata,
 } from "./payment.js";
 export type { InvoiceSettlement, ConfirmedPaymentLookup } from "./payment.js";
 

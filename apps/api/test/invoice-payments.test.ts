@@ -282,3 +282,54 @@ describe("payment requests for plugins", () => {
     expect(insecure.status).toBe(400);
   });
 });
+
+describe("invoice settlement bindings cannot be forged", () => {
+  it("ignores reserved metadata and never settles from another org's payment", async () => {
+    const { app, ctx } = await harness(false);
+    await onboard(app);
+    const cus = await customer(app);
+    // Another org's confirmed payment.
+    await ctx.payments.save({
+      id: "pay_foreign",
+      organizationId: "org_someone_else",
+      checkoutSessionId: "cs_foreign_paid",
+      customerId: "cus_x",
+      amount: { amount: "500", currency: "USDC" },
+      network: "base",
+      txHash: `0x${randomBytes(32).toString("hex")}`,
+      confirmations: 3,
+      status: "confirmed",
+      createdAt: new Date().toISOString(),
+      confirmedAt: new Date().toISOString(),
+    } as never);
+    const createdRes = await call(app, "POST", "/v1/invoices", {
+      customerId: cus,
+      lineItems: [{ description: "Work", quantity: 1, unitAmount: "100" }],
+      metadata: { checkoutSessionIds: "cs_foreign_paid", payToken: "attackerChosenToken123", note: "kept" },
+    });
+    expect(createdRes.status).toBe(201);
+    const inv = createdRes.json.data;
+    expect(inv.metadata.checkoutSessionIds).toBeUndefined();
+    expect(inv.metadata.payToken).toBeUndefined();
+    expect(inv.metadata.note).toBe("kept");
+
+    // Even with a binding planted directly in storage, a foreign payment never settles it.
+    const stored = await ctx.invoices.get(inv.id);
+    if (!stored.ok) throw stored.error;
+    await ctx.invoices.save({ ...stored.value, status: "open", metadata: { ...stored.value.metadata, checkoutSessionIds: "cs_foreign_paid" } });
+    const read = await call(app, "GET", `/v1/invoices/${inv.id}`);
+    expect(read.json.data.status).toBe("open");
+
+    const request = await call(app, "POST", "/v1/invoices/requests", {
+      amount: "5",
+      description: "Quick job",
+      payerEmail: "p@client.test",
+      sendEmail: false,
+      metadata: { kind: "platform_fee", merchantOrgId: "org_victim", paidTxHash: "0xdead" },
+    });
+    expect(request.status).toBe(201);
+    expect(request.json.data.invoice.metadata.kind).toBe("payment_request");
+    expect(request.json.data.invoice.metadata.merchantOrgId).toBeUndefined();
+    expect(request.json.data.invoice.metadata.paidTxHash).toBeUndefined();
+  });
+});

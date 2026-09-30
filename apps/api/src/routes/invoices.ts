@@ -33,7 +33,7 @@ import {
   reconcileInvoiceWithPayments,
   sendInvoice,
 } from "../merchant/invoice-payments.js";
-import { payTokenOf } from "@settlekit/invoices";
+import { payTokenOf, withoutReservedMetadata } from "@settlekit/invoices";
 
 const amount = z.string().regex(/^\d+(\.\d+)?$/);
 
@@ -126,7 +126,7 @@ export function invoiceRoutes(): Hono<AppEnv> {
             }
           : {}),
         ...(body.dueAt !== undefined ? { dueAt: body.dueAt } : {}),
-        ...(body.metadata !== undefined ? { metadata: body.metadata } : {}),
+        ...(body.metadata !== undefined ? { metadata: withoutReservedMetadata(body.metadata) } : {}),
       }),
     );
     return created(c, invoice);
@@ -152,7 +152,7 @@ export function invoiceRoutes(): Hono<AppEnv> {
         lineItems: [{ description: body.description, quantity: 1, unitAmount: money(body.amount) }],
         ...(body.dueAt !== undefined ? { dueAt: body.dueAt } : {}),
         metadata: {
-          ...(body.metadata ?? {}),
+          ...withoutReservedMetadata(body.metadata),
           kind: "payment_request",
           ...(body.successUrl ? { successUrl: body.successUrl } : {}),
         },

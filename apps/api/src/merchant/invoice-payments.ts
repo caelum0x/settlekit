@@ -125,7 +125,9 @@ export async function openInvoiceSession(
 
   const latestId = latestCheckoutSessionId(invoice);
   const latest = latestId ? await ctx.checkouts.findById(latestId) : null;
-  if (isStillPayable(latest)) return { invoice, session: latest };
+  if (isStillPayable(latest) && latest.organizationId === invoice.organizationId && latest.invoiceId === invoice.id) {
+    return { invoice, session: latest };
+  }
 
   const { accepted, payTo } = await payableNetworks(ctx, invoice.organizationId);
   if (accepted.length === 0) {
@@ -169,6 +171,7 @@ export async function confirmedSettlement(
     checkoutSessionId: sessionId,
     amount: confirmed.amount.amount,
     network: confirmed.network,
+    organizationId: confirmed.organizationId,
     ...(confirmed.txHash ? { txHash: confirmed.txHash } : {}),
     ...(confirmed.confirmedAt ? { confirmedAt: confirmed.confirmedAt } : {}),
   };

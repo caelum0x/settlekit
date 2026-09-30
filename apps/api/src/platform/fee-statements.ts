@@ -149,9 +149,61 @@ export async function issueStatement(
   if (end.getTime() > now.getTime()) {
     throw new SettleKitError({ code: "validation_error", message: `period ${period} has not ended yet` });
   }
+  return serialized(`${merchantOrgId}:${period}`, () => issueStatementOnce(ctx, cfg, merchantOrgId, period, end));
+}
+
+/**
+ * Per-key in-process lock: the scheduler tick and a manual run (or two ticks)
+ * must never issue the same statement twice.
+ */
+const statementLocks = new Map<string, Promise<unknown>>();
+async function serialized<T>(key: string, work: () => Promise<T>): Promise<T> {
+  const previous = statementLocks.get(key) ?? Promise.resolve();
+  const run = previous.catch(() => undefined).then(work);
+  const tail = run.catch(() => undefined);
+  statementLocks.set(key, tail);
+  try {
+    return await run;
+  } finally {
+    if (statementLocks.get(key) === tail) statementLocks.delete(key);
+  }
+}
+
+/**
+ * The statement that wins when several exist for one period (another API
+ * instance raced this one): one already sent beats a draft, then the lowest
+ * id, so every instance agrees on the same winner.
+ */
+function winningStatement(candidates: readonly Invoice[]): Invoice {
+  return [...candidates].sort((a, b) => {
+    const sentA = a.status === "draft" ? 1 : 0;
+    const sentB = b.status === "draft" ? 1 : 0;
+    return sentA !== sentB ? sentA - sentB : a.id.localeCompare(b.id);
+  })[0]!;
+}
+
+async function sendStatement(ctx: AppContext, invoice: Invoice, email: string | undefined): Promise<StatementOutcome> {
+  const sent = await sendInvoice(ctx, invoice, email ? { payerEmail: email } : {});
+  return { status: "issued", invoice: sent.invoice, payUrl: sent.payUrl, emailedTo: sent.emailedTo };
+}
+
+async function issueStatementOnce(
+  ctx: AppContext,
+  cfg: PlatformBillingConfig,
+  merchantOrgId: string,
+  period: BillingPeriod,
+  end: Date,
+): Promise<StatementOutcome> {
   const statements = await statementsFor(ctx, cfg, merchantOrgId);
   const existing = statements.find((s) => s.metadata.period === period);
-  if (existing) return { status: "exists", invoice: existing };
+  if (existing) {
+    // A draft left behind by an interrupted run is sent now, not skipped forever.
+    if (existing.status === "draft") {
+      const customer = await merchantCustomer(ctx, cfg, merchantOrgId);
+      return sendStatement(ctx, existing, customer.email ?? undefined);
+    }
+    return { status: "exists", invoice: existing };
+  }
 
   const start = coverageStartOf(statements);
   if (start.getTime() >= end.getTime()) return { status: "below_minimum", fees: "0" };
@@ -182,8 +234,15 @@ export async function issueStatement(
     },
   });
   if (!created.ok) throw created.error;
-  const sent = await sendInvoice(ctx, created.value, customer.email ? { payerEmail: customer.email } : {});
-  return { status: "issued", invoice: sent.invoice, payUrl: sent.payUrl, emailedTo: sent.emailedTo };
+  // Another instance may have issued the same period meanwhile: keep one.
+  const forPeriod = (await statementsFor(ctx, cfg, merchantOrgId)).filter((s) => s.metadata.period === period);
+  const winner = winningStatement(forPeriod.some((s) => s.id === created.value.id) ? forPeriod : [...forPeriod, created.value]);
+  if (winner.id !== created.value.id) {
+    const voided = await ctx.invoices.void(created.value.id);
+    if (!voided.ok) throw voided.error;
+    return { status: "exists", invoice: winner };
+  }
+  return sendStatement(ctx, created.value, customer.email ?? undefined);
 }
 
 /** Merchant org ids that sell on this deployment (excluding the platform org). */

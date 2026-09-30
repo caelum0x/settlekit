@@ -97,6 +97,7 @@ const MERCHANT_SUBRESOURCE: Record<string, ScopeResource> = {
   profile: "settings",
   products: "products",
   payments: "payments",
+  refunds: "payments",
   customers: "customers",
   balances: "reports",
   overview: "reports",

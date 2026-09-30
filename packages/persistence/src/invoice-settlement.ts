@@ -36,6 +36,7 @@ function settlementOf(payment: Payment): InvoiceSettlement {
     checkoutSessionId: payment.checkoutSessionId,
     amount: payment.amount.amount,
     network: payment.network,
+    organizationId: payment.organizationId,
     ...(payment.txHash ? { txHash: payment.txHash } : {}),
     ...(payment.confirmedAt ? { confirmedAt: payment.confirmedAt } : {}),
   };
