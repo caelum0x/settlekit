@@ -2,12 +2,13 @@ import { notFound } from "next/navigation";
 
 import { PaymentLinkError, getPaymentLink } from "@/lib/payment-link";
 import { StartCheckout } from "@/components/StartCheckout";
+import { serverT, startLabels } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: { slug: string };
-  searchParams: { error?: string; promo?: string };
+  searchParams: { error?: string; promo?: string; lang?: string };
 }
 
 /** A promo code from the URL, or undefined when absent or malformed. */
@@ -40,14 +41,15 @@ export default async function PaymentLinkPage({ params, searchParams }: PageProp
   }
 
   const promo = cleanPromo(searchParams.promo);
+  const t = serverT(searchParams.lang);
   return (
     <div>
       <div className="card">
-        <p className="merchant">Sold by {link.merchantName}</p>
+        <p className="merchant">{t("order.soldBy", { merchant: link.merchantName })}</p>
         <h2>{link.name}</h2>
         {link.description ? <p className="line-desc">{link.description}</p> : null}
         <div className="total">
-          <span>Price</span>
+          <span>{t("link.price")}</span>
           <span>
             {link.displayCurrency && link.displayAmount ? `${link.displayAmount} ${link.displayCurrency}` : `$${link.priceUsd}`}
             {INTERVAL_LABEL[link.interval] ?? ""}
@@ -81,10 +83,10 @@ export default async function PaymentLinkPage({ params, searchParams }: PageProp
         ) : null}
         {promo ? (
           <p className="muted" style={{ marginBottom: 10 }}>
-            Promo code <span className="mono">{promo}</span> is applied at checkout.
+            {t("link.promo", { code: promo })}
           </p>
         ) : null}
-        <StartCheckout slug={link.slug} auto={!searchParams.error} {...(promo ? { promo } : {})} />
+        <StartCheckout slug={link.slug} auto={!searchParams.error} labels={startLabels(t)} {...(promo ? { promo } : {})} />
       </div>
     </div>
   );

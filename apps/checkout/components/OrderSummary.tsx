@@ -10,10 +10,14 @@ interface OrderSummaryProps {
   discount?: { code: string; amountOff: Money } | null;
   /** Tax included in the total. */
   tax?: { label: string; rateBps: number; amount: Money; reverseCharge: boolean } | null;
+  /** Localized labels (English by default). */
+  labels?: { total: string; promo: string; reverseCharge: (label: string) => string };
 }
 
+const EN_LABELS = { total: "Total", promo: "Promo", reverseCharge: (label: string) => `${label} (reverse charge)` };
+
 /** Renders priced line items + the total. Pure presentational server component. */
-export function OrderSummary({ lines, total, discount, tax }: OrderSummaryProps) {
+export function OrderSummary({ lines, total, discount, tax, labels = EN_LABELS }: OrderSummaryProps) {
   return (
     <div>
       {lines.map((line) => (
@@ -33,7 +37,7 @@ export function OrderSummary({ lines, total, discount, tax }: OrderSummaryProps)
       {discount ? (
         <div className="line-discount">
           <span>
-            Promo <span className="mono">{discount.code}</span>
+            {labels.promo} <span className="mono">{discount.code}</span>
           </span>
           <span>-{formatMoney(discount.amountOff)}</span>
         </div>
@@ -41,13 +45,13 @@ export function OrderSummary({ lines, total, discount, tax }: OrderSummaryProps)
       {tax ? (
         <div className="line-discount">
           <span>
-            {tax.reverseCharge ? `${tax.label} (reverse charge)` : `${tax.label} ${(tax.rateBps / 100).toString()}%`}
+            {tax.reverseCharge ? labels.reverseCharge(tax.label) : `${tax.label} ${(tax.rateBps / 100).toString()}%`}
           </span>
           <span>{formatMoney(tax.amount)}</span>
         </div>
       ) : null}
       <div className="total">
-        <span>Total</span>
+        <span>{labels.total}</span>
         <span className="amount">{formatMoney(total)}</span>
       </div>
     </div>

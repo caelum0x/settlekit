@@ -7,13 +7,23 @@ interface TaxDetailsProps {
   sessionId: string;
   country: string | null;
   vatId: string | null;
+  labels?: { country: string; notSet: string; change: string; countryLabel: string; vatLabel: string; update: string };
 }
+
+const EN = {
+  country: "Billing country: {country}",
+  notSet: "not set",
+  change: "Change",
+  countryLabel: "Billing country (two letters, e.g. FR)",
+  vatLabel: "VAT ID (optional, for businesses)",
+  update: "Update total",
+};
 
 /**
  * Billing country (sets the tax rate) and an optional VAT ID for business
  * buyers. Collapsed to one line until the buyer wants to change it.
  */
-export function TaxDetails({ sessionId, country, vatId }: TaxDetailsProps) {
+export function TaxDetails({ sessionId, country, vatId, labels = EN }: TaxDetailsProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState({ country: country ?? "", vatId: vatId ?? "" });
@@ -23,10 +33,10 @@ export function TaxDetails({ sessionId, country, vatId }: TaxDetailsProps) {
   if (!open) {
     return (
       <p className="muted" style={{ marginTop: 8 }}>
-        Billing country: {country ?? "not set"}
+        {labels.country.replace("{country}", country ?? labels.notSet)}
         {vatId ? `, VAT ID ${vatId}` : ""}.{" "}
         <button type="button" className="link-button" style={{ marginTop: 0 }} onClick={() => setOpen(true)}>
-          Change
+          {labels.change}
         </button>
       </p>
     );
@@ -61,7 +71,7 @@ export function TaxDetails({ sessionId, country, vatId }: TaxDetailsProps) {
       }}
     >
       <label htmlFor="billing-country" className="label">
-        Billing country (two letters, e.g. FR)
+        {labels.countryLabel}
       </label>
       <input
         id="billing-country"
@@ -73,7 +83,7 @@ export function TaxDetails({ sessionId, country, vatId }: TaxDetailsProps) {
         autoComplete="country"
       />
       <label htmlFor="vat-id" className="label" style={{ marginTop: 8 }}>
-        VAT ID (optional, for businesses)
+        {labels.vatLabel}
       </label>
       <input
         id="vat-id"
@@ -83,7 +93,7 @@ export function TaxDetails({ sessionId, country, vatId }: TaxDetailsProps) {
         maxLength={20}
       />
       <button type="submit" className="btn btn-small" style={{ marginTop: 8 }} disabled={busy}>
-        {busy ? "Updating..." : "Update total"}
+        {busy ? "..." : labels.update}
       </button>
       {error ? (
         <p className="field-error" role="alert">

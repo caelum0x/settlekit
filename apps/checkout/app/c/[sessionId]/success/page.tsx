@@ -10,6 +10,7 @@ import { OrderSummary } from "@/components/OrderSummary";
 import { AccessList } from "@/components/AccessList";
 import { EmbedSuccess } from "@/components/EmbedSuccess";
 import { embedOriginsForSession } from "@/lib/embed";
+import { orderLabels, serverT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
@@ -38,6 +39,7 @@ export default async function SuccessPage({ params }: PageProps) {
   }
 
   const embedOrigins = await embedOriginsForSession(sessionId).catch(() => []);
+  const t = serverT();
   // The receipt amount is the authoritative settled total.
   const total = receipt.amount;
   const INTERNAL_FIELDS = new Set(["subscribeIntentId", "onchainSubscriptionId", "periodIndex"]);
@@ -47,20 +49,18 @@ export default async function SuccessPage({ params }: PageProps) {
     <div>
       <EmbedSuccess sessionId={sessionId} paymentId={receipt.paymentId} allowedOrigins={embedOrigins} />
       <div className="card center">
-        <div className="big-status">Payment confirmed</div>
+        <div className="big-status">{t("success.title")}</div>
         <p className="muted">
-          {receipt.access.some((item) => item.pending)
-            ? "Your USDC payment settled. Some access is still pending; details below."
-            : "Your USDC payment settled and access has been delivered."}
+          {receipt.access.some((item) => item.pending) ? t("success.pending") : t("success.delivered")}
         </p>
       </div>
 
       <div className="card">
-        <h2>Receipt</h2>
-        <OrderSummary lines={receipt.lines} total={total} discount={receipt.discount} tax={receipt.tax} />
+        <h2>{t("success.receipt")}</h2>
+        <OrderSummary lines={receipt.lines} total={total} discount={receipt.discount} tax={receipt.tax} labels={orderLabels(t)} />
         <p style={{ marginTop: 8 }}>
           <a className="link" href={`/c/${encodeURIComponent(sessionId)}/receipt`} target="_blank" rel="noreferrer">
-            Download receipt (PDF)
+            {t("success.downloadReceipt")}
           </a>
         </p>
         <div className="divider" />

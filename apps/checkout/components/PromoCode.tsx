@@ -5,10 +5,13 @@ import { useRouter } from "next/navigation";
 
 interface PromoCodeProps {
   sessionId: string;
+  labels?: { open: string; label: string; apply: string; applying: string };
 }
 
+const EN = { open: "Have a promo code?", label: "Promo code", apply: "Apply", applying: "Applying..." };
+
 /** One optional field: apply a seller promo code to this checkout. */
-export function PromoCode({ sessionId }: PromoCodeProps) {
+export function PromoCode({ sessionId, labels = EN }: PromoCodeProps) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [code, setCode] = useState("");
@@ -18,7 +21,7 @@ export function PromoCode({ sessionId }: PromoCodeProps) {
   if (!open) {
     return (
       <button type="button" className="link-button" onClick={() => setOpen(true)}>
-        Have a promo code?
+        {labels.open}
       </button>
     );
   }
@@ -53,7 +56,7 @@ export function PromoCode({ sessionId }: PromoCodeProps) {
       }}
     >
       <label htmlFor="promo-code" className="label">
-        Promo code
+        {labels.label}
       </label>
       <div style={{ display: "flex", gap: 8 }}>
         <input
@@ -66,7 +69,7 @@ export function PromoCode({ sessionId }: PromoCodeProps) {
           required
         />
         <button type="submit" className="btn btn-small" disabled={busy || code.trim().length === 0}>
-          {busy ? "Applying..." : "Apply"}
+          {busy ? labels.applying : labels.apply}
         </button>
       </div>
       {error ? (

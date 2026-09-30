@@ -22,6 +22,7 @@ const nextConfig = {
     "@settlekit/solana",
     "@settlekit/chains",
     "@settlekit/zcash",
+    "@settlekit/localization",
   ],
   experimental: {
     // Trace from the MONOREPO ROOT, not this app dir — otherwise Next omits the

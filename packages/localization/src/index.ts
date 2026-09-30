@@ -10,3 +10,4 @@ export function formatUsdc(amount: string, locale: Locale): string {
   const formatter = new Intl.NumberFormat(locale, { minimumFractionDigits: 0, maximumFractionDigits: 6 });
   return `${formatter.format(Number(amount))} USDC`;
 }
+export * from "./checkout.js";

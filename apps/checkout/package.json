@@ -26,6 +26,7 @@
     "@settlekit/github": "workspace:*",
     "@settlekit/hyperliquid": "workspace:*",
     "@settlekit/license-keys": "workspace:*",
+    "@settlekit/localization": "workspace:*",
     "@settlekit/payments": "workspace:*",
     "@settlekit/persistence": "workspace:*",
     "@settlekit/routing": "workspace:*",

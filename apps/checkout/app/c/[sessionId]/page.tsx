@@ -5,6 +5,7 @@ import { badgeDescription, badgeText, formatAmount, formatExpiry, formatMoney } 
 import { OrderSummary } from "@/components/OrderSummary";
 import { PromoCode } from "@/components/PromoCode";
 import { TaxDetails } from "@/components/TaxDetails";
+import { orderLabels, promoLabels, serverT, taxLabels } from "@/lib/i18n";
 import { NetworkPicker } from "@/components/NetworkPicker";
 import { AnyTokenPay, EvmPay, HyperCorePay, SolanaPay, SubscribePay, WalletPay, ZcashPay } from "@/components/LazyPay";
 
@@ -12,7 +13,7 @@ export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: { sessionId: string };
-  searchParams: { discord?: string; promo?: string };
+  searchParams: { discord?: string; promo?: string; lang?: string };
 }
 
 const DISCORD_NOTICE: Record<string, { ok: boolean; text: string }> = {
@@ -59,6 +60,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
   const isArc = session.network === "arc";
 
   const discordNotice = searchParams.discord ? DISCORD_NOTICE[searchParams.discord] : undefined;
+  const t = serverT(searchParams.lang);
 
   return (
     <div>
@@ -68,29 +70,34 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
         </div>
       ) : null}
       <div className="card">
-        <h2>Order summary</h2>
-        <p className="merchant">Sold by {session.merchantName}</p>
-        <OrderSummary lines={session.lines} total={session.amount} discount={session.discount} tax={session.tax} />
+        <h2>{t("order.title")}</h2>
+        <p className="merchant">{t("order.soldBy", { merchant: session.merchantName })}</p>
+        <OrderSummary lines={session.lines} total={session.amount} discount={session.discount} tax={session.tax} labels={orderLabels(t)} />
         {session.fx ? (
           <p className="muted" style={{ marginTop: 6 }}>
-            Priced at {session.fx.amount} {session.fx.currency}, charged in USDC at 1 {session.fx.currency} ={" "}
-            {session.fx.rate} USD ({session.fx.source}, {session.fx.rateDate}), fixed for this checkout.
+            {t("fx.note", {
+              amount: session.fx.amount,
+              currency: session.fx.currency,
+              rate: session.fx.rate,
+              source: session.fx.source,
+              date: session.fx.rateDate,
+            })}
           </p>
         ) : null}
         {searchParams.promo === "refused" && !session.discount ? (
           <p className="field-error" role="status">
-            The promo code from your link could not be applied, so the full price is shown.
+            {t("promo.refused")}
           </p>
         ) : null}
-        {session.promoAllowed ? <PromoCode sessionId={session.id} /> : null}
+        {session.promoAllowed ? <PromoCode sessionId={session.id} labels={promoLabels(t)} /> : null}
         {session.tax && session.taxEditable ? (
-          <TaxDetails sessionId={session.id} country={session.tax.country} vatId={session.tax.vatId} />
+          <TaxDetails sessionId={session.id} country={session.tax.country} vatId={session.tax.vatId} labels={taxLabels(t)} />
         ) : null}
       </div>
 
       {session.recurring && option.available ? (
         <div className="card">
-          <h2>Subscribe</h2>
+          <h2>{t("pay.subscribe")}</h2>
           <SubscribePay
             key={session.network}
             sessionId={session.id}
@@ -101,17 +108,21 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
       ) : null}
 
       <div className="card">
-        <h2>{session.recurring ? `Or pay for one ${session.recurring === "yearly" ? "year" : "month"} only` : "Payment"}</h2>
+        <h2>
+          {session.recurring
+            ? t("pay.oneOff", { period: t(session.recurring === "yearly" ? "pay.year" : "pay.month") })
+            : t("pay.title")}
+        </h2>
         <NetworkPicker sessionId={session.id} current={session.network} options={session.networkOptions} />
         <div className="payto">
           <div className="payto-row">
-            <span className="label">Amount due</span>
+            <span className="label">{t("pay.amountDue")}</span>
             <span className="line-amount">
               {family === "zcash" ? `${formatMoney(session.amount)} in ZEC` : amountLabel}
             </span>
           </div>
           <div className="payto-row">
-            <span className="label">Network</span>
+            <span className="label">{t("pay.network")}</span>
             <span className="network-badges">
               <span className="badge badge-network">{option.name}</span>
               {option.badges.map((badge) => (
@@ -122,7 +133,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
             </span>
           </div>
           <div className="payto-row">
-            <span className="label">Window</span>
+            <span className="label">{t("pay.window")}</span>
             <span className="badge badge-expiry">
               {formatExpiry(session.expiresAt)}
             </span>
@@ -176,7 +187,7 @@ export default async function CheckoutPage({ params, searchParams }: PageProps) 
 
       {option.available && session.anyToken.available ? (
         <div className="card">
-          <h2>Pay with any token</h2>
+          <h2>{t("pay.anyToken")}</h2>
           <AnyTokenPay
             key={session.network}
             sessionId={session.id}

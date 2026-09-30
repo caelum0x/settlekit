@@ -4,6 +4,7 @@ import { Archivo, IBM_Plex_Mono } from "next/font/google";
 
 import "./globals.css";
 import { EmbedBridge } from "@/components/EmbedBridge";
+import { checkoutLocale, serverT } from "@/lib/i18n";
 
 const archivo = Archivo({
   subsets: ["latin"],
@@ -31,7 +32,7 @@ export default function RootLayout({
   children: ReactNode;
 }) {
   return (
-    <html lang="en" className={`${archivo.variable} ${plexMono.variable}`}>
+    <html lang={checkoutLocale()} className={`${archivo.variable} ${plexMono.variable}`}>
       <body>
         <EmbedBridge />
         <div className="page">
@@ -41,9 +42,7 @@ export default function RootLayout({
           </header>
           <main className="content">{children}</main>
           <footer className="footer">
-            <span>
-              Payments settle in USDC. Access is delivered automatically.
-            </span>
+            <span>{serverT()("footer.note")}</span>
           </footer>
         </div>
       </body>

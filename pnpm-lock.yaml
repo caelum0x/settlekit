@@ -1360,6 +1360,9 @@ importers:
       '@settlekit/license-keys':
         specifier: workspace:*
         version: link:../../packages/license-keys
+      '@settlekit/localization':
+        specifier: workspace:*
+        version: link:../../packages/localization
       '@settlekit/payments':
         specifier: workspace:*
         version: link:../../packages/payments

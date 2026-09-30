@@ -1,12 +1,13 @@
 import { notFound } from "next/navigation";
 
 import { InvoiceLinkError, getInvoice } from "@/lib/invoice-link";
+import { serverT } from "@/lib/i18n";
 
 export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: { token: string };
-  searchParams: { error?: string };
+  searchParams: { error?: string; lang?: string };
 }
 
 function day(iso: string | null): string | null {
@@ -35,12 +36,13 @@ export default async function InvoicePage({ params, searchParams }: PageProps) {
   }
 
   const pdfHref = `/i/${encodeURIComponent(params.token)}/pdf`;
+  const t = serverT(searchParams.lang);
   return (
     <div>
       <div className="card">
-        <p className="merchant">Invoice from {invoice.merchantName}</p>
+        <p className="merchant">{t("invoice.from", { merchant: invoice.merchantName })}</p>
         <h2>{invoice.number}</h2>
-        {invoice.dueAt && invoice.status === "open" ? <p className="muted">Due {day(invoice.dueAt)}</p> : null}
+        {invoice.dueAt && invoice.status === "open" ? <p className="muted">{t("invoice.due", { date: day(invoice.dueAt) ?? "" })}</p> : null}
         <ul className="line-items">
           {invoice.lineItems.map((line, i) => (
             <li key={i} className="line-desc">
@@ -51,20 +53,20 @@ export default async function InvoicePage({ params, searchParams }: PageProps) {
         </ul>
         {invoice.discount ? (
           <div className="total">
-            <span>Discount</span>
+            <span>{t("invoice.discount")}</span>
             <span>-{invoice.discount} {invoice.currency}</span>
           </div>
         ) : null}
         {invoice.tax ? (
           <div className="total">
-            <span>Tax</span>
+            <span>{t("invoice.tax")}</span>
             <span>
               {invoice.tax} {invoice.currency}
             </span>
           </div>
         ) : null}
         <div className="total">
-          <span>Total</span>
+          <span>{t("order.total")}</span>
           <span>
             {invoice.total} {invoice.currency}
           </span>
@@ -78,9 +80,9 @@ export default async function InvoicePage({ params, searchParams }: PageProps) {
         ) : null}
         {invoice.status === "paid" ? (
           <div>
-            <h3>Paid</h3>
+            <h3>{t("invoice.paid")}</h3>
             <p className="muted">
-              Paid {day(invoice.paidAt)}
+              {t("invoice.paidOn", { date: day(invoice.paidAt) ?? "" })}
               {invoice.paidNetwork ? ` on ${invoice.paidNetwork}` : ""}.
             </p>
             {invoice.paidTxHash ? <p className="mono">{invoice.paidTxHash}</p> : null}
@@ -88,14 +90,14 @@ export default async function InvoicePage({ params, searchParams }: PageProps) {
         ) : invoice.payable ? (
           <form method="post" action={`/i/${encodeURIComponent(params.token)}/start`}>
             <button type="submit" className="btn btn-primary">
-              Pay {invoice.total} {invoice.currency}
+              {t("invoice.pay", { amount: invoice.total, currency: invoice.currency })}
             </button>
           </form>
         ) : (
           <p className="muted">{invoice.unpayableReason}</p>
         )}
         <p style={{ marginTop: 12 }}>
-          <a href={pdfHref}>{invoice.status === "paid" ? "Download receipt (PDF)" : "Download invoice (PDF)"}</a>
+          <a href={pdfHref}>{invoice.status === "paid" ? t("invoice.downloadReceipt") : t("invoice.downloadInvoice")}</a>
         </p>
       </div>
     </div>

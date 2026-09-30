@@ -8,14 +8,21 @@ interface StartCheckoutProps {
   auto: boolean;
   /** Promo code carried by the link (`?promo=CODE`). */
   promo?: string;
+  labels?: { continue: string; opening: string; note: string };
 }
+
+const EN = {
+  continue: "Continue to payment",
+  opening: "Opening secure checkout...",
+  note: "Pay in stablecoins on the network you prefer. Access is delivered automatically once the payment is confirmed on-chain.",
+};
 
 /**
  * Opens a fresh checkout session for this payment-link visit and moves the
  * buyer to it. Runs in the browser only, so crawlers never create sessions;
  * the form still works without JavaScript.
  */
-export function StartCheckout({ slug, auto, promo }: StartCheckoutProps) {
+export function StartCheckout({ slug, auto, promo, labels = EN }: StartCheckoutProps) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(auto);
   const action = `/l/${encodeURIComponent(slug)}/start${promo ? `?promo=${encodeURIComponent(promo)}` : ""}`;
@@ -55,11 +62,10 @@ export function StartCheckout({ slug, auto, promo }: StartCheckoutProps) {
         </div>
       ) : null}
       <button type="submit" className="btn btn-primary" disabled={busy}>
-        {busy ? "Opening secure checkout..." : "Continue to payment"}
+        {busy ? labels.opening : labels.continue}
       </button>
       <p className="muted" style={{ marginTop: 10 }}>
-        Pay in stablecoins on the network you prefer. Access is delivered automatically once the payment is
-        confirmed on-chain.
+        {labels.note}
       </p>
     </form>
   );
