@@ -232,6 +232,9 @@ export async function createQuickProduct(ctx: AppContext, organizationId: string
       ...(input.acceptedNetworks ? { acceptedNetworks: input.acceptedNetworks } : {}),
     },
   });
+  // The product row must exist before its price: prices.product_id is a
+  // foreign key in Postgres. Publish only once the price is in place.
+  await ctx.products.save(draft);
   await ctx.prices.save(await priceIn(ctx, draft.id, input.priceUsd, input.currency, input.interval));
   const now = new Date().toISOString();
   return ctx.products.save({ ...draft, status: "active", updatedAt: now });
