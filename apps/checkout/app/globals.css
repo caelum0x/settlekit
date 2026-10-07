@@ -276,19 +276,19 @@ body {
 .alert-error {
   background: rgba(239, 93, 107, 0.12);
   border: 1px solid rgba(239, 93, 107, 0.4);
-  color: #ffc6cc;
+  color: var(--danger);
 }
 
 .alert-info {
   background: rgba(79, 140, 255, 0.1);
   border: 1px solid rgba(79, 140, 255, 0.35);
-  color: #cfe0ff;
+  color: var(--accent-2);
 }
 
 .alert-success {
   background: rgba(41, 192, 138, 0.12);
   border: 1px solid rgba(41, 192, 138, 0.4);
-  color: #b7f3dc;
+  color: var(--success);
 }
 
 .badge {
