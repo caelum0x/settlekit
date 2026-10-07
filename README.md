@@ -72,22 +72,60 @@ disclosure, and [docs/tameion/](./docs/tameion/) for the plan.
 
 ---
 
+## Hackathon demos (October 2026)
+
+| Video | Length | For |
+| --- | --- | --- |
+| [settlekit-colosseum.mp4](https://github.com/caelum0x/settlekit/releases/download/hackathon-2026-10/settlekit-colosseum.mp4) | 2:18 | Colosseum Crypto World's Fair (Solana checkout, x402 agent payments) |
+| [settlekit-tameion.mp4](https://github.com/caelum0x/settlekit/releases/download/hackathon-2026-10/settlekit-tameion.mp4) | 2:22 | Tameion Agents Hackathon (Arc operator, OperatorVault) |
+
+Both were recorded on 2026-10-07 against the live deployment below, in testnet mode.
+
+---
+
 ## Live deployment
 
-SettleKit is live — API on Render, frontends on Vercel:
+SettleKit runs on Render's free plan in **testnet mode**. Every service auto-deploys from `main`:
 
 | Surface | URL |
 | --- | --- |
-| Marketing site | https://settlekit-web.vercel.app |
-| Merchant dashboard | https://dashboard-neon-beta-80.vercel.app |
-| Marketplace | https://settlekit-marketplace.vercel.app |
-| Checkout | https://settlekit-checkout.vercel.app |
-| Docs | https://settlekit-docs.vercel.app |
-| API | https://settlekit-zym1.onrender.com |
+| Marketing site, public proof, integration docs | https://settlekit-web.onrender.com (`/proof`, `/docs/integrate`) |
+| API | https://settlekit-api.onrender.com (`/health`) |
+| Checkout (demo $1 link) | https://settlekit-checkout.onrender.com/l/pro-templates-demo-417bacd7 |
+| Merchant dashboard | https://settlekit-dashboard.onrender.com |
+| Operator console (Arc) | https://settlekit-operator.onrender.com/proof |
 
-> The API runs on Render's free tier and sleeps when idle, so the first request
-> after a pause can take ~60s to wake. Frontends read the API URL from
-> `NEXT_PUBLIC_API_URL`. Full setup in [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
+> Free instances sleep when idle, so the first request after a pause takes
+> about 40 to 80 seconds. The demo checkout accepts Solana devnet USDC and
+> Base, Arbitrum and Ethereum testnet USDC. The operator console shows
+> "operator not configured" until a vault is attached (see
+> [TAMEION.md](./TAMEION.md)). Full setup is in [docs/DEPLOYMENT.md](./docs/DEPLOYMENT.md).
+
+### Status and traction (as of 2026-10-07)
+
+These are the real numbers, so the hackathon submissions use them too.
+
+| | |
+| --- | --- |
+| Tests | 2,152 vitest passing (3 skipped); 48 Foundry tests, 21 of them on `OperatorVault`; 181 operator-stack tests |
+| Solana | A live checkout session returns a devnet Solana Pay URL with a server-built transaction |
+| Arc | `OperatorVault` deploys and its caps and allowlist apply on an Arc testnet fork; the full USDC path runs on Arc testnet itself |
+| Users and revenue | 0 mainnet payments, 0 external users, no revenue yet |
+| Repo | 0 stars, 261 clones in the last 14 days |
+
+### Arc mainnet (chain 5042)
+
+`contracts/script/deploy-arc-mainnet.sh` deploys `OperatorVault` and
+`SettleKitEscrow` to Arc mainnet and verifies them on Sourcify and Blockscout
+in one command. It is not deployed yet. The expected cost is about 0.06 USDC.
+
+```bash
+cast wallet import settlekit-deployer --interactive   # once; fund it with ~1 USDC on Arc
+contracts/script/deploy-arc-mainnet.sh --account settlekit-deployer
+```
+
+`SettleKitCctpHook` must **not** be deployed to mainnet: under CCTP V2, funds
+minted to it would be stuck. See [docs/tameion/MAINNET-BOUNTY.md](./docs/tameion/MAINNET-BOUNTY.md).
 
 ---
 
