@@ -50,6 +50,7 @@ export const webhookRetryJob: Job = {
           endpoint: live,
           event: job.event,
           schedule: TICK_SCHEDULE,
+          clock: () => ctx.now().getTime(),
           ...(ctx.webhookTransport?.sender ? { sender: ctx.webhookTransport.sender } : {}),
           ...(ctx.webhookTransport?.sleep ? { sleep: ctx.webhookTransport.sleep } : {}),
         });
