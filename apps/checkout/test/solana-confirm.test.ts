@@ -13,6 +13,7 @@ import {
 import type { GitHubAccessClient } from "@settlekit/github";
 import type {
   CheckoutSession,
+  Customer,
   DeliveryAction,
   PaymentNetwork,
   Price,
@@ -478,5 +479,32 @@ describe("Solana Pay request + transaction", () => {
     await recordAndConfirm(session.id, PAYMENT_SIG, h.deps);
 
     await expectCheckoutError(buildSolanaTransaction({ sessionId: session.id, account: BUYER }, h.deps), "session_not_payable");
+  });
+});
+
+describe("guest checkout customer row", () => {
+  it("creates the customer before the payment so the payments.customer_id FK holds", async () => {
+    const h = harness();
+    const customerRows = new Map<string, Customer>();
+    const customers = {
+      findById: async (id: string) => customerRows.get(id) ?? null,
+      save: async (customer: Customer) => {
+        customerRows.set(customer.id, customer);
+        return customer;
+      },
+    };
+    const fkPayments = Object.create(h.payments) as InMemoryPaymentRepository;
+    fkPayments.save = async (payment) => {
+      if (!customerRows.has(payment.customerId)) throw new Error("payments_customer_id_customers_id_fk");
+      return h.payments.save(payment);
+    };
+    const deps: StoreDeps = { ...h.deps, backend: { ...h.deps.backend, payments: fkPayments, customers } };
+    const session = await openSession(h);
+    landPayment(h);
+
+    const result = await confirmFromReference(session.id, deps);
+
+    expect(result.status).toBe("paid");
+    expect(customerRows.get(`cus_${session.id}`)?.organizationId).toBe(ORG);
   });
 });

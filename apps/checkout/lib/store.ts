@@ -258,10 +258,12 @@ function unsettledError(verification: OnChainVerification): CheckoutError {
 
 /** Insert the pending payment; the unique tx-hash index makes this the claim. */
 async function claimTxHash(backend: CheckoutBackend, session: CheckoutSession, txHash: string): Promise<Payment> {
+  const customerId = session.customerId ?? `cus_${session.id}`;
+  await ensureCustomer(backend, session, customerId);
   const pending = recordPendingPayment({
     organizationId: session.organizationId,
     checkoutSessionId: session.id,
-    customerId: session.customerId ?? `cus_${session.id}`,
+    customerId,
     amount: money(session.amount.amount, session.amount.currency),
     network: session.network,
     txHash,
@@ -278,7 +280,21 @@ async function claimTxHash(backend: CheckoutBackend, session: CheckoutSession, t
   return pending;
 }
 
-const FORWARDED_FIELDS = ["githubUsername", "discordUserId", "discordUsername"] as const;
+/** payments.customer_id is a foreign key: guest checkouts need their customer row first. */
+async function ensureCustomer(backend: CheckoutBackend, session: CheckoutSession, customerId: string): Promise<void> {
+  if (!backend.customers) return;
+  if (await backend.customers.findById(customerId)) return;
+  await backend.customers.save({
+    id: customerId,
+    organizationId: session.organizationId,
+    email: session.collectedFields.email ?? "",
+    ...(session.payerAddress ? { walletAddress: session.payerAddress } : {}),
+    metadata: {},
+    createdAt: new Date().toISOString(),
+  });
+}
+
+const FORWARDED_FIELDS =["githubUsername", "discordUserId", "discordUsername"] as const;
 
 /** Buyer details a seller's payment.confirmed webhook carries. */
 function webhookContext(session: CheckoutSession): PaymentContext {
