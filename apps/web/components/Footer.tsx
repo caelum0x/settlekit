@@ -41,7 +41,7 @@ export function Footer() {
             <span>SettleKit</span>
           </div>
           <p className="footer-tagline">
-            Get paid in stablecoins on every chain, no merchant of record
+            Accept USDC payments with no card fees, no merchant of record
             required, with access delivered automatically after payment.
           </p>
           <a href={links.github} className="footer-oss">

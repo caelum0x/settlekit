@@ -20,12 +20,12 @@ const plexMono = IBM_Plex_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SettleKit — Get paid in stablecoins on every chain",
+  title: "SettleKit | Accept USDC payments with no card fees",
   description:
-    "Get paid in stablecoins on Solana, Ethereum, Base, Arbitrum, Robinhood Chain, Hyperliquid, Tempo and Zcash with no merchant of record. Buyers pay with any token; GitHub access, license keys, downloads and Discord roles are delivered automatically.",
+    "Accept USDC payments for your business with no card fees and no chargebacks. Share a checkout link; buyers pay on Solana, Base, Ethereum or Arbitrum and the money lands in your own wallet. 1% per payment.",
   metadataBase: new URL("https://settlekit.dev"),
   openGraph: {
-    title: "SettleKit — Get paid in stablecoins on every chain",
+    title: "SettleKit | Accept USDC payments with no card fees",
     description:
       "No merchant of record required. Share a link, buyers pay with any token, you receive stablecoins and access is delivered automatically.",
     type: "website",

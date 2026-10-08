@@ -16,21 +16,22 @@ export function Hero() {
     <section className="hero">
       <div className="container hero-grid">
         <div className="hero-copy">
-          <span className="hero-eyebrow">Stablecoin checkout for software</span>
+          <span className="hero-eyebrow">USDC checkout for merchants</span>
           <h1 className="hero-title">
-            Get paid in stablecoins
+            Accept USDC payments
             <br />
-            on <em>every chain</em>.
+            with <em>no card fees</em>.
           </h1>
           <p className="hero-subhead">
-            No merchant of record required. Share a checkout link, let buyers pay with any token on Solana, Ethereum,
-            Base, Arbitrum, Robinhood Chain, Hyperliquid, Tempo or Zcash, and receive stablecoins in your own wallet.
-            GitHub access, license keys, downloads and Discord roles are delivered automatically.
+            Card processors keep about 3% plus 30 cents of every sale, hold payouts and can freeze your account. With
+            SettleKit, buyers pay in USDC (or any token) on Solana, Base, Ethereum, Arbitrum and more, and the money lands
+            in your own wallet. On-chain payments are final, so there are no chargebacks. GitHub access, license keys,
+            downloads and Discord roles are delivered automatically.
           </p>
 
           <div className="hero-actions">
             <a href={ONBOARDING_URL} className="btn btn-primary btn-lg">
-              Start selling free
+              Create a free merchant account
             </a>
             <a href="/proof" className="btn btn-outline btn-lg">
               See live payments
@@ -38,7 +39,7 @@ export function Hero() {
           </div>
 
           <p className="hero-subnote">
-            Free to start, {feeLabel()} per successful payment. Open source; self-host any time.{" "}
+            No monthly fee, {feeLabel()} per successful payment. Open source; self-host any time.{" "}
             <a className="text-link" href={links.docs}>
               Read the docs
             </a>
