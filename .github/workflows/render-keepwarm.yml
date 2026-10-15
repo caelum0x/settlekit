@@ -1,0 +1,37 @@
+name: Render keep-warm pinger
+
+# Keeps the free-tier Render rollback services warm so a rollback from the
+# box-hosted api/checkout doesn't eat a 33-37s cold start on the first
+# request. Pure keep-alive ping, no secrets, no deploy action.
+# See plans/settlekit.md "Render pinger" task.
+
+on:
+  schedule:
+    - cron: "*/20 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - { name: settlekit-web, path: / }
+          - { name: settlekit-api, path: /health }
+          - { name: settlekit-checkout, path: / }
+          - { name: settlekit-dashboard, path: / }
+    steps:
+      - name: Ping ${{ matrix.service.name }}
+        run: |
+          url="https://${{ matrix.service.name }}.onrender.com${{ matrix.service.path }}"
+          echo "Pinging $url"
+          code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 45 --retry 2 --retry-delay 5 "$url" || echo "000")
+          echo "HTTP $code"
+          # Any response (even 404/401) proves the instance is awake; only a
+          # hard connection failure (000) is worth flagging, and even that
+          # should not fail the whole workflow - this is best-effort warmth,
+          # not an uptime monitor.
+          if [ "$code" = "000" ]; then
+            echo "::warning::$url did not respond (service may be sleeping, suspended, or renamed)"
+          fi
