@@ -183,6 +183,48 @@ describe("paymentConfirmJob", () => {
     expect((await stores.getPayment("pay_arc"))?.status).toBe("confirmed");
   });
 
+  it("completes the checkout session and grants an entitlement when the WORKER (not the buyer) confirms the payment", async () => {
+    const { ctx, stores } = setup();
+    await stores.upsertProduct({
+      id: "prod_1",
+      merchantId: "mch_1",
+      organizationId: "org_1",
+      name: "Pro plan",
+      description: "",
+      type: "saas_plan",
+      status: "active",
+      deliveryMode: "saas_entitlement",
+      metadata: {},
+      createdAt: toIso(new Date()),
+      updatedAt: toIso(new Date()),
+    });
+    await seed(stores, "arc", ARC_MERCHANT, ARC_TX, {
+      lineItems: [{ productId: "prod_1", priceId: "price_1", quantity: 1 }],
+    });
+
+    expect(await paymentConfirmJob.run(ctx)).toEqual({ processed: 1, failed: 0 });
+
+    // The buyer may never return to the checkout app's own confirm flow (the
+    // whole point of claiming the tx hash for the worker to finish). Without
+    // this, the session stays "open" forever and the success/receipt page
+    // 409s "not paid yet" even though the payment settled on-chain.
+    const session = await stores.getCheckoutSession("cs_arc");
+    expect(session?.status).toBe("completed");
+
+    const entitlements = await stores.allEntitlements();
+    expect(entitlements).toHaveLength(1);
+    expect(entitlements[0]).toMatchObject({
+      productId: "prod_1",
+      customerId: "cus_1",
+      status: "active",
+      grantedBy: { type: "payment", id: "pay_arc" },
+    });
+
+    // Re-running the job (payment is no longer pending) must not duplicate it.
+    expect(await paymentConfirmJob.run(ctx)).toEqual({ processed: 0, failed: 0 });
+    expect(await stores.allEntitlements()).toHaveLength(1);
+  });
+
   it("does NOT confirm an Arc transfer to the USDC contract (old bug) instead of the merchant", async () => {
     const { ctx, stores } = setup({ arcRpc: arcRpcPaying(USDC_CONTRACT, 10_000_000n) });
     await seed(stores, "arc", ARC_MERCHANT, ARC_TX);

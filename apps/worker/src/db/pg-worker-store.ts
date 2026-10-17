@@ -138,6 +138,30 @@ export class PgWorkerStore implements WorkerStore {
     return unpackDocs<CheckoutSession>(rows);
   }
 
+  async saveCheckoutSession(session: CheckoutSession): Promise<CheckoutSession> {
+    const projection = {
+      merchantId: DEFAULT_MERCHANT_ID,
+      customerId: session.customerId ?? null,
+      status: session.status,
+      currency: session.amount.currency,
+      amountTotal: session.amount.amount,
+      lineItems: session.lineItems.map((li) => ({
+        priceId: li.priceId,
+        quantity: li.quantity,
+        amount: session.amount.amount,
+      })),
+      successUrl: session.successUrl ?? null,
+      cancelUrl: session.cancelUrl ?? null,
+      expiresAt: session.expiresAt ? new Date(session.expiresAt) : null,
+      metadata: packDoc(session),
+    };
+    await this.db
+      .insert(checkoutSessions)
+      .values({ id: session.id, ...projection })
+      .onConflictDoUpdate({ target: checkoutSessions.id, set: projection });
+    return session;
+  }
+
   async paymentByTxHash(txHash: string): Promise<Payment | undefined> {
     const rows = await this.db
       .select({ metadata: payments.metadata })

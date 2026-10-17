@@ -86,6 +86,11 @@ export interface WorkerStore {
   getCheckoutSession(id: string): Promise<CheckoutSession | undefined>;
   /** Every checkout session still open (the Zcash watcher scans these). */
   openCheckoutSessions(): Promise<CheckoutSession[]>;
+  /**
+   * Persist a checkout session update (e.g. completing it once the worker
+   * itself confirms the payment, rather than the buyer's own browser).
+   */
+  saveCheckoutSession(session: CheckoutSession): Promise<CheckoutSession>;
   /** The payment already carrying `txHash` (global uniqueness), if any. */
   paymentByTxHash(txHash: string): Promise<Payment | undefined>;
   /** A catalog product (delivery configuration lives in its metadata). */
@@ -233,6 +238,9 @@ export class InMemoryWorkerStore implements WorkerStore {
   }
   /** Record a checkout session (upstream sync / seeding; the API owns writes in Pg). */
   async upsertCheckoutSession(session: CheckoutSession): Promise<CheckoutSession> {
+    return this.checkoutSessionsTable.upsert(session);
+  }
+  async saveCheckoutSession(session: CheckoutSession): Promise<CheckoutSession> {
     return this.checkoutSessionsTable.upsert(session);
   }
 

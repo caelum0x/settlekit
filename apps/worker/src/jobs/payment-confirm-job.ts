@@ -12,11 +12,42 @@
  * run to runnable so the delivery job picks it up on its next tick.
  */
 
-import { confirmPayment } from "@settlekit/payments";
+import { completeSession, confirmPayment } from "@settlekit/payments";
+import { grantFromPayment } from "@settlekit/entitlements";
+import type { CheckoutSession, Payment } from "@settlekit/common";
 import { errorMessage } from "../logger.js";
 import { verifyPaymentOnChain } from "./payment-verification.js";
 import { emitPaymentConfirmed } from "./webhook-events.js";
 import type { Job, JobContext, JobResult } from "./types.js";
+
+/**
+ * Complete the session and grant catalog entitlements for a payment the
+ * WORKER confirmed (not the buyer's own browser via the checkout app's
+ * `confirmOnce`/`fulfillOnce`, nor the API's `/payments/:id/confirm` route).
+ *
+ * Without this, a payment claimed via `claimTxHash` and left for the worker
+ * to finish confirming (the buyer closed the tab, or an agent never polls)
+ * settles on-chain and raises the seller's webhook, but the checkout
+ * session's status stays "open" forever: the success/receipt page 409s
+ * "not paid yet" forever and no entitlement is ever created, so the GitHub
+ * invite / Discord role retry jobs (which only act on existing entitlements)
+ * have nothing to retry.
+ */
+async function completeAndGrant(ctx: JobContext, payment: Payment, session: CheckoutSession): Promise<void> {
+  if (session.status === "open") {
+    await ctx.stores.saveCheckoutSession(completeSession(session));
+  }
+  const alreadyGranted = (await ctx.stores.allEntitlements()).some(
+    (e) => e.grantedBy.type === "payment" && e.grantedBy.id === payment.id,
+  );
+  if (alreadyGranted) return;
+  for (const item of session.lineItems) {
+    if (item.productId === undefined) continue;
+    const product = await ctx.stores.getProduct(item.productId);
+    if (!product) continue;
+    await ctx.stores.upsertEntitlement(grantFromPayment({ payment, product, now: ctx.now() }));
+  }
+}
 
 export const paymentConfirmJob: Job = {
   name: "payment-confirm",
@@ -71,6 +102,7 @@ export const paymentConfirmJob: Job = {
         );
         await ctx.stores.upsertPayment(confirmed);
         await emitPaymentConfirmed(ctx, confirmed, session);
+        await completeAndGrant(ctx, confirmed, session);
         processed += 1;
 
         // Make the matching delivery run executable now the payment settled.
