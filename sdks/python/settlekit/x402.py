@@ -193,12 +193,18 @@ class X402Verifier:
     """Pluggable verifier for decoded payment proofs.
 
     Modes:
-        * ``"api"`` — delegate to the SettleKit API. The proof's ``txHash`` is
-          confirmed through ``POST /v1/payments/{id}/confirm`` semantics via a
-          dedicated verify call; any non-2xx is treated as a failed payment.
+        * ``"api"`` — delegate to the SettleKit API: ``POST /v1/payments/observe``
+          independently re-verifies the proof's ``txHash`` on-chain (recipient,
+          asset, and amount against the challenged requirements) and, on
+          success, records it as a confirmed payment credited to the caller's
+          org. Requires a SettleKit API key (``api_key=`` or
+          ``SETTLEKIT_API_KEY``). Any non-2xx (unknown tx, amount/recipient
+          mismatch, already-used hash, chain not verifiable yet) is treated as
+          a failed payment.
         * ``"accept"`` — accept any structurally valid proof whose amount and
-          network match the requirements. Intended for local development and
-          tests where no chain is available.
+          network match the requirements, without checking the chain.
+          Intended for local development and tests where no chain is
+          available; never use in production.
         * a custom async callable ``(proof, requirements) -> bool``.
     """
 
@@ -237,7 +243,15 @@ class X402Verifier:
     async def _verify_via_api(
         self, proof: PaymentProof, requirements: PaymentRequirements
     ) -> bool:
-        """Confirm the on-chain transfer through the SettleKit API."""
+        """Confirm the on-chain transfer through the SettleKit API.
+
+        Delegates to ``POST /v1/payments/observe``, the same endpoint
+        SettleKit uses for direct on-chain deposits: it independently
+        re-verifies the transfer on-chain (never trusts the caller's claim)
+        and, on success, records a confirmed payment credited to the
+        authenticated org. It is idempotent on ``txHash``, so retried proofs
+        for an already-recorded payment are still accepted.
+        """
         # Imported lazily so the optional async client is only needed for "api".
         from .client import AsyncSettleKit
 
@@ -245,21 +259,21 @@ class X402Verifier:
             return False
 
         api_key = self._api_key or os.environ.get("SETTLEKIT_API_KEY")
+        body: dict[str, Any] = {
+            "txHash": proof.tx_hash,
+            "to": requirements.pay_to,
+            "amount": proof.amount,
+            "asset": requirements.asset,
+            "network": requirements.network,
+        }
+        if proof.from_address:
+            body["from"] = proof.from_address
         async with AsyncSettleKit(api_key=api_key, base_url=self._base_url) as sk:
             try:
-                result = await sk.arequest(
-                    "POST",
-                    "/v1/x402/verify",
-                    body={
-                        "proof": proof.to_dict(),
-                        "requirements": requirements.to_dict(),
-                    },
-                )
+                await sk.arequest("POST", "/v1/payments/observe", body=body)
             except SettleKitError:
                 return False
-        if isinstance(result, Mapping):
-            return bool(result.get("verified") or result.get("valid"))
-        return bool(result)
+        return True
 
 
 def _amount_at_least(paid: str, required: str) -> bool:
