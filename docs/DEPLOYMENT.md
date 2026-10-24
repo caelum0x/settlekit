@@ -32,7 +32,7 @@ Created service by service with the Render API, using the `render.yaml` layout. 
 | settlekit-checkout | https://settlekit-checkout.onrender.com (payment links `/l/<slug>`) |
 | settlekit-dashboard | https://settlekit-dashboard.onrender.com |
 | settlekit-operator | https://settlekit-operator.onrender.com (`/proof`; Tameion operator console, free plan, added 2026-10-07; talks to settlekit-api) |
-| settlekit-db | Render Postgres, free plan (expires 2026-10-30 unless it is upgraded or moved to Neon) |
+| settlekit-db | Render Postgres, free plan (expires 2026-10-30 unless it is upgraded or moved to Neon — see "DB EXPIRY" below) |
 
 - Mode: **testnet**. `SETTLEKIT_CHAIN_ENV=testnet`, `ENABLED_EVM_CHAINS=base,arbitrum,ethereum`, `SOLANA_CLUSTER=devnet`, and Arc testnet. Every other chain and integration is unset, so it fails closed.
 - `settlekit-worker` has not been created (it needs the starter plan, about $7/mo). One-time checkout works without it. Renewals, retries and seller webhooks do not run.
@@ -41,6 +41,44 @@ Created service by service with the Render API, using the `render.yaml` layout. 
 - The operator is enabled on settlekit-api by `~/products/settlekit-demo/enable-live-operator.sh` (Arc testnet vault, throwaway testnet keys, demo org) after the Circle faucet step; until then `/v1/public/operator/proof` answers "not configured".
 - `PROOF_EXCLUDED_ORGS` lists the two demo orgs (both marked as test accounts).
 - To go to mainnet: set the chain variables from the launch checklist (`docs/colosseum/LAUNCH-CHECKLIST.md`) on the api and the checkout. Then redeploy the Next services, because `NEXT_PUBLIC_*` values are fixed at build time.
+
+## DB EXPIRY — action needed before 2026-10-30
+
+`settlekit-db` is Render's **free** Postgres plan. Render deletes free
+Postgres databases automatically a fixed number of days after creation —
+this one expires **2026-10-30**. Confirmed still live and serving real
+traffic as of 2026-10-24 (`settlekit-api` `/health` and `/v1/public/proof`
+both answer 200 against it), so this has not happened yet, but there is no
+grace period: when it expires, `settlekit-api`, `settlekit-checkout` (and
+`settlekit-worker` if created) lose `DATABASE_URL` and the live deployment
+goes down — checkout, payment confirmation and `/proof` all break.
+
+The data at risk is low-value: as of this check the only rows are testnet
+demo payments/sessions (the $1 demo checkout link, one Solana devnet
+payment) — there is no real customer data on this instance. The risk is
+**service downtime**, not data loss.
+
+**This requires an owner action that this agent will not do unattended**
+(new credentials or a payment):
+
+1. **Cheapest fix — upgrade the Render Postgres plan** (Render dashboard →
+   `settlekit-db` → change plan to Starter, ~$7/mo). No app changes needed;
+   `DATABASE_URL` stays the same.
+2. **Free fix — move to Neon.** Create a Neon project (needs an owner login/
+   new account — this repo's `mcp__Neon__authenticate` tool starts an OAuth
+   flow that needs a human in the browser), then either:
+   - let it start empty (the migrator in `scripts/start.mjs` creates the
+     schema automatically on first boot — no manual migration needed), or
+   - run `./scripts/migrate-db.sh "$OLD_DATABASE_URL" "$NEW_DATABASE_URL"` to
+     carry over the existing (low-value, testnet) rows first.
+   Then set `DATABASE_URL` to the Neon connection string on `settlekit-api`
+   and `settlekit-checkout` and redeploy both.
+
+Either way, verify afterward with:
+```
+curl -s https://settlekit-api.onrender.com/health
+curl -s https://settlekit-api.onrender.com/v1/public/proof
+```
 
 ## Render (full stack) — `render.yaml` blueprint
 
