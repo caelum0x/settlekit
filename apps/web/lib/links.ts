@@ -6,7 +6,7 @@ export const links = {
   marketplace:
     process.env.NEXT_PUBLIC_MARKETPLACE_URL ?? "http://localhost:3011",
   docs: process.env.NEXT_PUBLIC_DOCS_URL ?? "http://localhost:3000",
-  github: "https://github.com/settlekit/settlekit",
+  github: "https://github.com/caelum0x/settlekit",
 } as const;
 
 export const internalLinks = {
