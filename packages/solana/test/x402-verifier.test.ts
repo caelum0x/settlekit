@@ -52,4 +52,30 @@ describe("createSolanaPaymentVerifier", () => {
     expect(result).toMatchObject({ ok: false });
     expect(result.reason).toMatch(/not found/);
   });
+
+  // Before this fix, the Solana verifier never read `requirements.notBefore`
+  // at all. In practice a plain checkout session always carries a Solana
+  // Pay `reference` (impossible to forge into a past transaction), so the
+  // main exposure this closes is defense-in-depth consistency with the EVM
+  // and Zcash verifiers, which both already enforce it. (The one case with
+  // no reference — a route provider's destination fill — has its own
+  // separate, already-correct notBefore check that bypasses this adapter;
+  // see `verifyRoutedSolanaFill` in apps/api/src/config/verifier-registry.ts.)
+  it("enforces notBefore when the requirements declare a session creation time", async () => {
+    // transferTx()'s blockTime is fixed at 1_727_600_000 (unix seconds).
+    const oldTransfer = transferTx({ includeReference: false });
+    const noReferenceRequirements = { ...REQUIREMENTS, notBefore: new Date(1_727_600_000_000 + 1_000_000).toISOString() };
+    const result = await verifier(oldTransfer)(PROOF, noReferenceRequirements);
+    expect(result).toMatchObject({ ok: false });
+    expect(result.reason).toMatch(/mined before/);
+  });
+
+  it("enforces the payer binding when the requirements declare one", async () => {
+    const withPayer = { ...REQUIREMENTS, payer: BUYER };
+    expect(await verifier()(PROOF, withPayer)).toEqual({ ok: true });
+    const otherWallet = "7oH4nq2SxuoczGGwJkxZpYJd88iHH4sUx9WTPt57pnSC";
+    const result = await verifier()(PROOF, { ...REQUIREMENTS, payer: otherWallet });
+    expect(result.ok).toBe(false);
+    expect(result.reason).toMatch(/payer/);
+  });
 });

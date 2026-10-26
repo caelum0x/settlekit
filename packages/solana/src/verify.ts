@@ -12,11 +12,27 @@
  *   3. Received must be ≥ `minAmount` (no rounding, no floats).
  *   4. When a `reference` is supplied it must appear in the message's account
  *      keys (static or lookup-table loaded).
- *   5. The payer is the owner whose balance of the mint decreased the most.
+ *   5. The payer is the owner whose balance of the mint decreased the most;
+ *      when `payer` is supplied it must match (mirrors the EVM verifier's
+ *      payer binding — see packages/chains/src/evm-verifier.ts). Until
+ *      2026-10-26 this adapter never checked it, so a checkout session with
+ *      a declared `payerAddress` (the pre-authorized-wallet / recurring
+ *      on-chain-billing flow) accepted payment from ANY wallet, not just the
+ *      declared one.
+ *   6. When `notBefore` is supplied, the transaction's block time must not
+ *      predate it by more than {@link CLOCK_SKEW_MS} (mirrors the EVM
+ *      verifier's `notBefore` rule). A transaction with no on-chain block
+ *      time cannot satisfy this and fails closed. (The route-provider
+ *      destination-fill path has its own separate notBefore check in
+ *      `apps/api/src/config/verifier-registry.ts` and does not go through
+ *      this parameter; this one is for ordinary checkout-session payments.)
  */
 
 import type { SolanaFinality } from "./clusters.js";
 import type { ParsedTransaction, SolanaRpc, TokenBalance } from "./rpc.js";
+
+/** Allowed clock skew between the session's `notBefore` and the tx block time. */
+export const CLOCK_SKEW_MS = 120_000;
 
 export interface VerifySplTransferParams {
   /** Transaction signature (base58). */
@@ -29,6 +45,10 @@ export interface VerifySplTransferParams {
   minAmount: bigint;
   /** Solana Pay reference that must be present in the account keys. */
   reference?: string;
+  /** Declared payer address (payer binding); the largest-decrease owner must match. */
+  payer?: string;
+  /** Earliest acceptable block time; the check allows {@link CLOCK_SKEW_MS} of skew. */
+  notBefore?: Date;
   /** Read commitment; defaults to `"confirmed"`. */
   commitment?: SolanaFinality;
 }
@@ -38,7 +58,9 @@ export type VerifySplTransferFailure =
   | "transaction_failed"
   | "no_matching_transfer"
   | "underpaid"
-  | "reference_missing";
+  | "reference_missing"
+  | "payer_mismatch"
+  | "too_old";
 
 export type VerifySplTransferResult =
   | {
@@ -146,11 +168,39 @@ export function evaluateSplTransfer(
     };
   }
 
+  const payer = largestDecrease(deltas);
+  if (params.payer !== undefined && payer !== params.payer) {
+    return {
+      ok: false,
+      reason: "payer_mismatch",
+      message: `transfer was not sent from the declared payer ${params.payer}`,
+      received,
+    };
+  }
+  if (params.notBefore !== undefined) {
+    if (tx.blockTime === null) {
+      return {
+        ok: false,
+        reason: "too_old",
+        message: "transaction has no on-chain block time; cannot verify it was not mined before the checkout session was created",
+        received,
+      };
+    }
+    if (tx.blockTime * 1000 < params.notBefore.getTime() - CLOCK_SKEW_MS) {
+      return {
+        ok: false,
+        reason: "too_old",
+        message: "transaction was mined before the checkout session was created",
+        received,
+      };
+    }
+  }
+
   return {
     ok: true,
     signature: params.signature,
     received,
-    payer: largestDecrease(deltas),
+    payer,
     slot: tx.slot,
     blockTime: tx.blockTime,
   };

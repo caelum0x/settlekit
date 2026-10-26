@@ -135,4 +135,51 @@ describe("verifySplTransfer", () => {
       expect(tokenDeltasByOwner(tx, FAKE_USDC).get(MERCHANT)).toBe(900_000_000n);
     });
   });
+
+  // The payer and notBefore bindings mirror the EVM verifier's rules (see
+  // packages/chains/src/evm-verifier.ts) and are the ONLY checks available
+  // for a route-provider's destination fill (no Solana Pay reference there).
+  describe("payer binding", () => {
+    it("accepts a payment from the declared payer", async () => {
+      const rpc = fakeRpc({ transactions: { [PAYMENT_SIG]: transferTx() } });
+      const result = await verifySplTransfer(rpc, { ...BASE, payer: BUYER });
+      expect(result).toMatchObject({ ok: true, payer: BUYER });
+    });
+
+    it("rejects a payment from a wallet other than the declared payer", async () => {
+      const rpc = fakeRpc({ transactions: { [PAYMENT_SIG]: transferTx() } });
+      const result = await verifySplTransfer(rpc, { ...BASE, payer: OTHER_WALLET });
+      expect(result).toMatchObject({ ok: false, reason: "payer_mismatch" });
+    });
+  });
+
+  describe("notBefore binding", () => {
+    // transferTx()'s blockTime is fixed at 1_727_600_000 (unix seconds).
+    const BLOCK_TIME_MS = 1_727_600_000 * 1000;
+
+    it("accepts a transaction mined at or after notBefore", async () => {
+      const rpc = fakeRpc({ transactions: { [PAYMENT_SIG]: transferTx() } });
+      const result = await verifySplTransfer(rpc, { ...BASE, notBefore: new Date(BLOCK_TIME_MS) });
+      expect(result).toMatchObject({ ok: true });
+    });
+
+    it("accepts a transaction within the clock-skew window before notBefore", async () => {
+      const rpc = fakeRpc({ transactions: { [PAYMENT_SIG]: transferTx() } });
+      const result = await verifySplTransfer(rpc, { ...BASE, notBefore: new Date(BLOCK_TIME_MS + 119_000) });
+      expect(result).toMatchObject({ ok: true });
+    });
+
+    it("rejects a transaction mined before the checkout session was created (replay of an old transfer)", async () => {
+      const rpc = fakeRpc({ transactions: { [PAYMENT_SIG]: transferTx() } });
+      const result = await verifySplTransfer(rpc, { ...BASE, notBefore: new Date(BLOCK_TIME_MS + 1_000_000) });
+      expect(result).toMatchObject({ ok: false, reason: "too_old" });
+    });
+
+    it("fails closed when the transaction has no on-chain block time", async () => {
+      const txWithoutBlockTime = { ...transferTx(), blockTime: null };
+      const rpc = fakeRpc({ transactions: { [PAYMENT_SIG]: txWithoutBlockTime } });
+      const result = await verifySplTransfer(rpc, { ...BASE, notBefore: new Date(BLOCK_TIME_MS) });
+      expect(result).toMatchObject({ ok: false, reason: "too_old" });
+    });
+  });
 });
