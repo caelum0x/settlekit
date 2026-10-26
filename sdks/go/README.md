@@ -16,10 +16,13 @@ The official Go SDK for the [SettleKit](https://settlekit.dev) REST API.
 ## Installation
 
 ```bash
-go get github.com/settlekit/settlekit-go
+go get github.com/caelum0x/settlekit/sdks/go
 ```
 
-Module path: `github.com/settlekit/settlekit-go` (Go 1.24+).
+Module path: `github.com/caelum0x/settlekit/sdks/go` (Go 1.24+). This SDK lives
+in a subdirectory of the main [`caelum0x/settlekit`](https://github.com/caelum0x/settlekit)
+monorepo rather than its own repo — the `github.com/settlekit` GitHub org this
+README used to point at does not exist, so `go get` of the old path 404s.
 
 ## Authentication
 
@@ -65,7 +68,7 @@ import (
 	"log"
 	"time"
 
-	settlekit "github.com/settlekit/settlekit-go"
+	settlekit "github.com/caelum0x/settlekit/sdks/go"
 )
 
 func main() {
@@ -163,7 +166,7 @@ func main() {
 		}
 		log.Fatalf("verify: %v", err)
 	}
-	fmt.Printf("access granted: %t\n", verdict.Granted)
+	fmt.Printf("access granted: %t\n", verdict.Allowed)
 }
 ```
 

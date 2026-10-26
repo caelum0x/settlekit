@@ -100,7 +100,7 @@ async def webhook(request: Request):
 ### Go
 
 ```go
-import settlekit "github.com/settlekit/settlekit-go"
+import settlekit "github.com/caelum0x/settlekit/sdks/go"
 
 func handler(w http.ResponseWriter, r *http.Request) {
     raw, _ := io.ReadAll(r.Body)
